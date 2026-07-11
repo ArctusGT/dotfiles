@@ -10,13 +10,13 @@ fi
 
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
-ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH/custom}"
 
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time Oh My Zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
 # See https://github.com/ohmyzsh/ohmyzsh/wiki/Themes
 # ZSH_THEME="robbyrussell"
+ZSH_THEME="powerlevel10k/powerlevel10k"
 
 # Set list of themes to pick from when loading at random
 # Setting this variable when ZSH_THEME=random will cause zsh to load
@@ -81,6 +81,7 @@ ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH/custom}"
 plugins=(git zsh-autosuggestions web-search pyenv zsh-fzf-history-search zsh-syntax-highlighting tmux)
 
 source $ZSH/oh-my-zsh.sh
+ZSH_CUSTOM="${ZSH_CUSTOM:-$ZSH/custom}"
 
 # User configuration
 
@@ -110,7 +111,8 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
-ZSH_THEME="powerlevel10k/powerlevel10k"
+source "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+# source ~/powerlevel10k/powerlevel10k.zsh-theme
 
 export PYENV_VIRTUALENV_DISABLE_PROMPT=1
 # export PYENV_ROOT="$HOME/.pyenv"
