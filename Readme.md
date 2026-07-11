@@ -1,22 +1,23 @@
-# Dotfiles (zsh, tmux, nvim) — Prerequisites + Stow
+# Dotfiles: Prerequisites + Setup
 
-This repo is meant to be installed via symlinks using **GNU Stow**.
+This repo uses **GNU Stow** to symlink configs into place.
 
 ## Prerequisites
 
-### Core
+### Required packages
 - `git`
-- `stow` (GNU Stow)
 - `zsh`
+- `stow` (GNU Stow)
+- `tmux`
+- `neovim` (`nvim`)
+- `fzf` (required by `zsh-fzf-history-search`)
+- `zoxide`
 
-### zsh framework / theme / plugins
-- **oh-my-zsh**
+### oh-my-zsh
+- **oh-my-zsh** framework
 
-Install locations used by oh-my-zsh:
-- Plugins: `${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/<plugin-name>/`
-- Themes: `${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/<theme-name>/`
-
-Required third-party plugins:
+Third-party oh-my-zsh plugins (installed under
+`${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/`):
 - `zsh-autosuggestions`  
   https://github.com/zsh-users/zsh-autosuggestions
 - `zsh-syntax-highlighting`  
@@ -24,65 +25,75 @@ Required third-party plugins:
 - `zsh-fzf-history-search`  
   https://github.com/joshskidmore/zsh-fzf-history-search
 
-Theme:
+Theme (installed under `${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/`):
 - `powerlevel10k`  
   https://github.com/romkatv/powerlevel10k
 
-CLI tools used by the shell config:
-- `fzf` (required by `zsh-fzf-history-search`)
-- `zoxide`
+### tmux plugin manager
+- **TPM** (Tmux Plugin Manager)  
+  https://github.com/tmux-plugins/tpm  
+  Install location: `~/.tmux/plugins/tpm`
 
-Optional (recommended):
-- A Nerd Font for the terminal (for Powerlevel10k icons), e.g. **MesloLGS NF**.
+### Optional (recommended)
+- A Nerd Font enabled in your terminal for Powerlevel10k icons (e.g. MesloLGS NF)
 
 ---
 
 ## Using GNU Stow
 
-### 1) Clone the repo
+### 1) Clone the dotfiles repo
 ```bash
-git clone <YOUR_DOTFILES_REPO_URL> ~/dotfiles
+git clone <YOUR_REPO_URL> ~/dotfiles
 cd ~/dotfiles
 ```
 
-### 2) Inspect the layout (optional)
-```bash
-tree -a -L 3
-```
-
-### 3) Symlink configs into `$HOME`
-Run stow from inside `~/dotfiles`:
+### 2) Symlink configs into `$HOME`
+From inside `~/dotfiles`, run stow for the packages you want:
 
 ```bash
 stow zsh tmux nvim
 ```
 
-This creates symlinks such as:
+This creates symlinks like:
 - `~/.zshrc -> ~/dotfiles/zsh/.zshrc`
 - `~/.tmux.conf -> ~/dotfiles/tmux/.tmux.conf`
 - `~/.config/nvim -> ~/dotfiles/nvim/.config/nvim`
 
-### 4) Dry run (recommended if you already have configs)
+### 3) Preview changes (dry-run)
 ```bash
 stow -n zsh tmux nvim
 ```
 
-### 5) Undo (remove symlinks)
+### 4) Undo (remove symlinks)
 ```bash
 stow -D zsh tmux nvim
 ```
 
-### 6) Restow (after reorganising files)
+### 5) Restow (remove + re-link)
+Useful after reorganising files:
+
 ```bash
 stow -R zsh tmux nvim
 ```
 
 ---
 
-## Notes / Gotchas
+## Post-install notes
 
-- If stow reports conflicts, you likely already have files at the target paths.
-  Back them up and remove them (or move them into this repo) before re-running
-  `stow`.
-- This repo does not automatically install zsh plugins/themes; those must be
-  installed separately (see prerequisites above).
+### TPM: install tmux plugins
+After TPM is installed and your `~/.tmux.conf` references it:
+
+1. Start tmux:
+   ```bash
+   tmux
+   ```
+2. Install plugins:
+   - Press `prefix` + `I` (capital i)  
+     (`prefix` is usually `Ctrl-b` unless you changed it)
+
+### Neovim plugins
+Your dotfiles will sync, but plugin installation depends on your Neovim plugin
+manager. Open `nvim` and run the appropriate sync/install command for your setup.
+```bash
+nvim
+```
