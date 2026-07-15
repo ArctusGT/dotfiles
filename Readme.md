@@ -2,8 +2,6 @@
 
 This repo uses **GNU Stow** to symlink configs into place.
 
-## Prerequisites
-
 ### Required packages
 - `git`
 - `zsh`
@@ -11,28 +9,44 @@ This repo uses **GNU Stow** to symlink configs into place.
 - `tmux`
 - `neovim` (`nvim`)
 - `fzf` (required by `zsh-fzf-history-search`)
-- `zoxide`
+- `zoxide` (`cargo install zoxide --locked`)
+- `lazygit`
+`sudo dnf copr enable dejan/lazygit
+sudo dnf install lazygit`
+- `tectonic` (`cargo install tectonic`)
+- `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
+- `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)
+`)
+
+### RHEL/RockyLinux/Fedora
+```sh
+sudo dnf config-manager --set-enabled crb
+sudo dnf install git curl zsh tmux fzf stow ripgrep fd-find ghostscript cargo npm libpng-devel openssl-devel freetype-devel luarocks ImageMagick
+```
+
+### neovim
+```sh
+sudo dnf install ninja-build libtool autoconf automake cmake gcc gcc-c++ make pkgconfig unzip patch gettext
+git clone https://github.com/neovim/neovim
+cd neovim
+git checkout stable
+make CMAKE_BUILD_TYPE=RelWithDebInfo
+sudo make install
+```
 
 ### oh-my-zsh
 - **oh-my-zsh** framework
-
-Third-party oh-my-zsh plugins (installed under
-`${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/`):
-- `zsh-autosuggestions`  
-  https://github.com/zsh-users/zsh-autosuggestions
-- `zsh-syntax-highlighting`  
-  https://github.com/zsh-users/zsh-syntax-highlighting
-- `zsh-fzf-history-search`  
-  https://github.com/joshskidmore/zsh-fzf-history-search
+Third-party oh-my-zsh plugins (installed under `${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/`):
+- `git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions`
+- `git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting`  
+- `git clone https://github.com/joshskidmore/zsh-fzf-history-search ${ZSH_CUSTOM:=~/.oh-my-zsh/custom}/plugins/zsh-fzf-history-search`  
 
 Theme (installed under `${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/themes/`):
-- `powerlevel10k`  
-  https://github.com/romkatv/powerlevel10k
+- `git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"`  
 
 ### tmux plugin manager
 - **TPM** (Tmux Plugin Manager)  
-  https://github.com/tmux-plugins/tpm  
-  Install location: `~/.tmux/plugins/tpm`
+  `git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm`
 
 ### Optional (recommended)
 - A Nerd Font enabled in your terminal for Powerlevel10k icons (e.g. MesloLGS NF)
