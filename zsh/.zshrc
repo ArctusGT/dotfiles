@@ -133,11 +133,11 @@ get_idf() {
 # source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 alias treev='tree -a -p -u -g -h -s -I ".git|node_modules|.DS_Store"'
 
-export PATH="$HOME/.local/bin:$PATH"
-eval "$(zoxide init zsh)"
-
 # Rust/Cargo
 export PATH="$HOME/.cargo/bin:$PATH"
+
+export PATH="$HOME/.local/bin:$PATH"
+eval "$(zoxide init zsh)"
 
 # macOS-only homebrew path (safe on Linux)
 if [[ -d /opt/homebrew/bin ]]; then
