@@ -4,6 +4,7 @@
 
 vim.opt.guicursor = ""
 vim.opt.nu = true
+vim.g.snacks_animate = false
 
 vim.g.clipboard = {
   name = "OSC 52",
