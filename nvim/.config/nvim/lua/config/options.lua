@@ -4,7 +4,7 @@
 
 vim.opt.guicursor = ""
 vim.opt.nu = true
-vim.g.snacks_animate = false
+-- vim.g.snacks_animate = false
 
 -- Only force OSC 52 on a remote host. Locally the OS clipboard tools work and
 -- nvim picks them up on its own. Check SSH_CONNECTION as well as SSH_TTY:
