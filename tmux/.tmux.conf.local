@@ -69,7 +69,7 @@ tmux_conf_new_pane_reconnect_ssh=false
 # automatic detection relies on the COLORTERM environment variable being defined
 # to 'truecolor' or '24bit' or '$ tput colors' answering '16777216'
 # see https://github.com/termstandard/colors
-tmux_conf_24b_colour=auto
+tmux_conf_24b_colour=true
 
 
 # -- theming -------------------------------------------------------------------
@@ -405,6 +405,10 @@ set -g history-limit 10000
 # start with mouse mode enabled
 set -g mouse on
 
+# tmux's default set-clipboard=external accepts no clipboard escape from an
+# application, so nvim's OSC 52 yank is swallowed. 'on' forwards it outward.
+set -g set-clipboard on
+
 # force Vi mode
 #   really you should export VISUAL or EDITOR environment variable, see manual
 #set -g status-keys vi
@@ -478,6 +482,34 @@ tmux_conf_uninstall_plugins_on_reload=false
 # 'tmux_conf_theme_status_right' variables.
 
 # ------------------------------------------------------------------------------
+
+# don't yank mouse selection on release; instead use alt+w
+# or ctrl+shift+c
+unbind -T copy-mode MouseDragEnd1Pane
+unbind -T copy-mode MouseDown1Pane
+bind-key -T root DoubleClick1Pane select-pane -t = \; \
+  if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { \
+    send-keys -M \
+  } { \
+    copy-mode -H ; \
+    send-keys -X select-word \
+  }
+bind-key -T root TripleClick1Pane select-pane -t = \; \
+  if-shell -F "#{||:#{pane_in_mode},#{mouse_any_flag}}" { \
+    send-keys -M \
+  } { \
+    copy-mode -H ; \
+    send-keys -X select-line \
+  }
+bind -T copy-mode MouseDown1Pane select-pane \; send-keys -X clear-selection
+bind -T copy-mode DoubleClick1Pane select-pane \; send-keys -X select-word
+bind -T copy-mode TripleClick1Pane select-pane \; send-keys -X select-line
+bind -T copy-mode C-S-c send-keys -X copy-pipe
+bind -T copy-mode R send-keys -X refresh-from-pane
+bind -T copy-mode r send-keys -X rectangle-toggle
+
+# selection style
+setw -g mode-style "reverse" #!important
 
 # # /!\ do not remove the following line
 # EOF

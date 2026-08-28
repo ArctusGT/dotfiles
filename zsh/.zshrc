@@ -139,7 +139,10 @@ export PATH="$HOME/.cargo/bin:$PATH"
 export PATH="$HOME/.local/bin:$PATH"
 eval "$(zoxide init zsh)"
 
+export EDITOR=nvim
+
 # macOS-only homebrew path (safe on Linux)
 if [[ -d /opt/homebrew/bin ]]; then
   export PATH="/opt/homebrew/bin:$PATH"
 fi
+[[ -o interactive ]] || unalias tmux 2>/dev/null
