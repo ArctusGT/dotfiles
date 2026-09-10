@@ -117,10 +117,13 @@ function M.ensure_compile_commands()
   end
 end
 
---- Ensure esp-clangd exists and warn if not
+--- Warn only when there is no clangd at all
 function M.ensure_clangd()
-  if not M.find_esp_clangd() then
-    vim.notify("[ESP32] ⚠️ ESP-specific clangd not found. LSP may not work properly.", vim.log.levels.WARN)
+  -- An esp-clang is better, because it knows the Xtensa target. Plain clangd
+  -- still reads the project once espidf-index has built its database, so its
+  -- absence is not worth a warning on every startup.
+  if not M.find_esp_clangd() and vim.fn.executable("clangd") == 0 then
+    vim.notify("[ESP32] No clangd found. C support will not work.", vim.log.levels.WARN)
   end
 end
 
@@ -214,14 +217,12 @@ end
 
 --- Set up ESP32 LSP configuration
 function M.lsp_config()
-  local clangd = M.find_esp_clangd()
-  if not clangd then
-    vim.notify("[ESP32] No esp-clangd found. Falling back to system clangd.", vim.log.levels.WARN)
-    clangd = "clangd"
-  end
+  local clangd = M.find_esp_clangd() or "clangd"
+  -- No --compile-commands-dir: for a project built on another Host the database
+  -- is not in the tree, and ~/.config/clangd/config.yaml points at the copy
+  -- espidf-index made. Passing a directory here would override that.
   local cmd = {
     clangd,
-    "--compile-commands-dir=" .. M.options.build_dir,
     "--background-index",
     "--clang-tidy",
     "--header-insertion=iwyu",
@@ -257,27 +258,38 @@ function M.info()
     table.insert(messages, "✗ ESP-specific clangd missing")
   end
 
-  -- compile_commands.json check
-  local build_dir = M.options.build_dir
-  local path = build_dir .. "/compile_commands.json"
-  if vim.fn.filereadable(path) == 1 then
-    table.insert(messages, "✓ compile_commands.json exists")
+  -- Where clangd will actually read this project's flags from. A database in
+  -- the tree is a local build; one in the cache was put there by espidf-index.
+  local database = vim.fs.find("compile_commands.json", {
+    path = vim.fn.getcwd(),
+    upward = true,
+    stop = vim.env.HOME,
+  })[1]
+  if database then
+    table.insert(messages, "✓ compile database in the tree: " .. database)
   else
-    table.insert(messages, "✗ compile_commands.json missing")
+    local registered = vim.fn.expand("~/.config/clangd/config.yaml")
+    local slug = vim.fn.fnamemodify(vim.fn.getcwd(), ":h:t") .. "-" .. vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
+    local cached = vim.fn.expand("~/.cache/espidf-index/projects/" .. slug .. "/compile_commands.json")
+    if vim.fn.filereadable(cached) == 1 then
+      table.insert(messages, "✓ compile database from espidf-index: " .. cached)
+      table.insert(messages, "  built " .. vim.fn.strftime("%Y-%m-%d %H:%M", vim.fn.getftime(cached)))
+    else
+      table.insert(messages, "✗ no compile database; run: espidf-index " .. vim.fn.getcwd())
+    end
+    if vim.fn.filereadable(registered) == 0 then
+      table.insert(messages, "✗ no " .. registered)
+    end
   end
 
-  -- Check ESP-IDF environment
+  -- idf.py and IDF_PATH matter only to the build and flash keymaps, which need
+  -- a local ESP-IDF. They are unrelated to whether clangd can read the code.
   local function check_bin(bin)
-    return vim.fn.executable(bin) == 1 and "✓" or "✗"
+    return vim.fn.executable(bin) == 1 and "✓" or "–"
   end
 
-  table.insert(messages, check_bin("idf.py") .. " idf.py")
-  table.insert(messages, check_bin("llvm-ar") .. " llvm-ar")
-  table.insert(messages, "IDF_PATH: " .. (vim.env.IDF_PATH or "✗ not set"))
-
-  if vim.env.IDF_PATH == nil then
-    table.insert(messages, "⚠️ You may need to run: source ~/esp/esp-idf/export.sh")
-  end
+  table.insert(messages, check_bin("idf.py") .. " idf.py (local build only)")
+  table.insert(messages, "IDF_PATH: " .. (vim.env.IDF_PATH or "– not set (remote build)"))
 
   vim.notify(table.concat(messages, "\n"), vim.log.levels.INFO)
 end

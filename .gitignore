@@ -1,1 +1,15 @@
 /.DS_Store
+
+# ~/.config is a symlink to nvim/.config, so every tool that writes to
+# ~/.config writes into this repository. Ignore that directory by default and
+# opt packages in one at a time, so a tool nobody has thought about cannot be
+# published by a stray `git add -A`.
+#
+# Ignored by this today: clangd (generated per-project registrations holding
+# machine-local paths), tailscale (ssh_known_hosts naming tailnet machines),
+# lazygit. To start tracking one, add a `!` line for it here.
+nvim/.config/*
+!nvim/.config/nvim
+
+# Bytecode from running py_compile against the scripts in bin/.
+__pycache__/

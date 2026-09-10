@@ -1,0 +1,404 @@
+#!/usr/bin/env python3
+"""Mirror an ESP-IDF project's compile database from its build Host, for clangd.
+
+ESP-IDF projects are often built on a different machine from the one they are
+edited on. clangd needs the database, the headers it names, and flags a
+non-Espressif clang will accept -- this assembles all three locally.
+
+SCOPE -- writes only these, all outside any project repository:
+  ~/.cache/espidf-index/idf/<tag>/         headers-only ESP-IDF mirror, shared
+  ~/.cache/espidf-index/projects/<slug>/   rewritten database + generated headers
+  ~/.config/clangd/config.yaml             one PathMatch-scoped fragment per project
+EXCLUSIONS -- writes nothing into the project, changes nothing on the build
+Host, and rewrites no config fragment belonging to another project.
+
+Runs ON the workstation.
+"""
+
+import argparse
+import json
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+CACHE = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "espidf-index"
+CLANGD_CONFIG = (
+    Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    / "clangd"
+    / "config.yaml"
+)
+
+# Flags a GCC cross-compiler emits that upstream clang rejects outright. Each
+# one was confirmed to be a hard "unknown argument" error, and flags that merely
+# look GCC-only (-specs=, -Wlogical-op, -fno-inline-small-functions) are absent
+# because clang accepts them.
+REJECTED_EXACT = {
+    "-mlongcalls",
+    "-fstrict-volatile-bitfields",
+    "-fno-tree-switch-conversion",
+    "-fno-shrink-wrap",
+    "-fno-malloc-dce",
+}
+REJECTED_PREFIX = ("-fzero-init-padding-bits",)
+
+HEADER_PATTERNS = ("*.h", "*.hpp", "*.hh", "*.hxx", "*.inc")
+
+
+def fail(msg):
+    sys.exit(f"espidf-index: {msg}")
+
+
+class Remote:
+    """One ssh destination, so the key and host are assembled in a single place."""
+
+    def __init__(self, host, key):
+        self.host = host
+        self.key = key
+
+    def _ssh_opts(self):
+        return ["-o", "ConnectTimeout=10"] + (["-i", self.key] if self.key else [])
+
+    def run(self, command):
+        proc = subprocess.run(
+            ["ssh", *self._ssh_opts(), self.host, command],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            fail(f"ssh {self.host}: {proc.stderr.strip() or proc.returncode}")
+        return proc.stdout
+
+    def fetch_tree(self, src, dest, patterns=None):
+        """Copy a remote directory into dest, replacing whatever was there.
+
+        tar over ssh rather than rsync, so this needs nothing installed beyond
+        ssh and tar. The ESP-IDF copy is cached by tag, so the only transfer a
+        re-run repeats is the project's handful of generated headers.
+        """
+        if CACHE not in dest.parents:
+            fail(f"refusing to write outside {CACHE}: {dest}")
+        if patterns:
+            tests = " -o ".join(f"-name {shlex.quote(pattern)}" for pattern in patterns)
+            # -type l as well as -type f: some ESP-IDF headers are symlinks, and
+            # tar -h resolves them so the copy holds real files either way.
+            select = (
+                rf"find . \( -type f -o -type l \) \( {tests} \) -print0 "
+                r"| tar -czhf - --null -T -"
+            )
+        else:
+            select = "tar -czf - ."
+        # The build Host emits a gzipped tarball on stdout and the tar below
+        # unpacks it into dest. Nothing is written on the build Host.
+        proc = subprocess.run(
+            ["ssh", *self._ssh_opts(), self.host, f"cd {shlex.quote(src)}; {select}"],
+            capture_output=True,
+        )
+        if proc.returncode != 0:
+            fail(f"copying {src}: {proc.stderr.decode(errors='replace').strip()}")
+        if dest.is_dir():
+            shutil.rmtree(dest)
+        dest.mkdir(parents=True)
+        unpack = subprocess.run(
+            ["tar", "-xzf", "-", "-C", str(dest)], input=proc.stdout, capture_output=True
+        )
+        if unpack.returncode != 0:
+            fail(f"unpacking {src}: {unpack.stderr.decode(errors='replace').strip()}")
+
+
+def toolchain_includes(remote, arguments):
+    """Ask the cross-compiler for the headers it supplies without being asked.
+
+    gcc puts its own sysroot on the search path, so those headers appear in no
+    -I and clangd substitutes the host's instead. ESP-IDF builds against
+    picolibc, and the substitution is what leaves sys/features.h missing and
+    assert() undeclared.
+
+    Takes arguments with response files already expanded: -specs lives inside
+    one, and without it the compiler reports newlib's headers instead of
+    picolibc's.
+    """
+    compiler = arguments[0]
+    specs = [token for token in arguments if token.startswith("-specs=")]
+    query = shlex.join([compiler, *specs, "-xc", "-E", "-v", "/dev/null"])
+
+    # The search list arrives on stderr between two fixed markers.
+    proc = subprocess.run(
+        ["ssh", *remote._ssh_opts(), remote.host, f"{query} 2>&1"],
+        capture_output=True,
+        text=True,
+    )
+    lines = proc.stdout.splitlines()
+    try:
+        start = lines.index("#include <...> search starts here:") + 1
+        end = lines.index("End of search list.")
+    except ValueError:
+        fail("could not read the compiler's include search path from the build Host")
+    dirs = [line.strip() for line in lines[start:end] if line.startswith(" ")]
+    if not dirs:
+        fail("the compiler reported an empty include search path")
+    return dirs
+
+
+def target_macros(remote, arguments):
+    """The architecture macros the cross-compiler predefines.
+
+    ESP-IDF headers branch on these. `xtensa/config/core.h` includes
+    <xtensa/hal.h> under __XTENSA__ and a path that does not exist otherwise,
+    so without them clangd follows branches the build never takes.
+
+    Read from the compiler rather than listed here, so a RISC-V ESP32 target
+    reports its own macros instead of needing a second table.
+    """
+    compiler = arguments[0]
+    specs = [token for token in arguments if token.startswith("-specs=")]
+    query = shlex.join([compiler, *specs, "-dM", "-E", "-xc", "/dev/null"])
+    output = remote.run(query)
+
+    wanted = re.compile(r"^__\w*(?:xtensa|riscv)\w*$", re.IGNORECASE)
+    macros = []
+    for line in output.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) < 2 or parts[0] != "#define":
+            continue
+        name = parts[1]
+        if "(" not in name and wanted.match(name):
+            macros.append(f"-D{name}={parts[2] if len(parts) > 2 else '1'}")
+    return macros
+
+
+def discover(db, remote_project):
+    """Find the ESP-IDF prefix the database was built against.
+
+    Taken from the -I paths rather than from the Host's IDF_PATH, because the
+    database is what clangd will read and only its own paths have to resolve.
+    """
+    remote_build = f"{remote_project}/build"
+    candidates = set()
+    for entry in db:
+        for token in shlex.split(entry.get("command", "")):
+            if token.startswith("-I") and not token[2:].startswith(remote_project):
+                candidates.add(token[2:])
+    if not candidates:
+        fail("no ESP-IDF include paths in the database; is it a built project?")
+
+    marker = "/esp-idf/"
+    roots = {path[: path.index(marker) + len(marker) - 1] for path in candidates if marker in path}
+    if len(roots) != 1:
+        fail(f"expected exactly one ESP-IDF root in the database, found {sorted(roots)}")
+    return roots.pop(), remote_build
+
+
+def expand_response_files(tokens, toolchain_local, toolchain_remote):
+    """Inline @file arguments.
+
+    They must be inlined rather than mirrored: clangd expands them itself, so a
+    flag inside one is never seen by the strip below. -mlongcalls lives in one.
+    """
+    out = []
+    for token in tokens:
+        if not token.startswith("@"):
+            out.append(token)
+            continue
+        remote_path = token[1:]
+        if not remote_path.startswith(toolchain_remote):
+            fail(f"response file outside the build tree: {remote_path}")
+        local_path = toolchain_local / Path(remote_path).name
+        if not local_path.is_file():
+            fail(f"response file was not mirrored: {local_path}")
+        out.extend(shlex.split(local_path.read_text()))
+    return out
+
+
+def keep(token):
+    if token in REJECTED_EXACT:
+        return False
+    return not token.startswith(REJECTED_PREFIX)
+
+
+def rewrite(db, mapping, toolchain_local, toolchain_remote, sysroot_dirs, macros):
+    """Repoint every path, drop the flags clang rejects, add the sysroot.
+
+    Emitted as `arguments` rather than `command` so that macro values carrying
+    quotes survive without a second round of shell quoting.
+
+    -nostdlibinc drops the host's /usr/include while keeping clang's own
+    builtin headers, so the cross-compiler's picolibc is the only libc on the
+    search path rather than being shadowed by glibc.
+    """
+    injected = ["-nostdlibinc", *macros]
+    for directory in sysroot_dirs:
+        injected += ["-isystem", str(directory)]
+
+    def repoint(text):
+        for old, new in mapping:
+            if text.startswith(old):
+                return new + text[len(old) :]
+        return text
+
+    def repoint_token(token):
+        for flag in ("-I", "-isystem", "-include"):
+            if token.startswith(flag) and len(token) > len(flag):
+                return flag + repoint(token[len(flag) :])
+        return repoint(token)
+
+    out = []
+    for entry in db:
+        tokens = shlex.split(entry["command"])
+        tokens = expand_response_files(tokens, toolchain_local, toolchain_remote)
+        tokens = [repoint_token(t) for t in tokens if keep(t)]
+        out.append(
+            {
+                "directory": repoint(entry["directory"]),
+                "file": repoint(entry["file"]),
+                "arguments": [tokens[0], *injected, *tokens[1:]],
+            }
+        )
+    return out
+
+
+def register(slug, project_dir, database_dir):
+    """Add or replace this project's fragment, leaving other fragments alone.
+
+    PathMatch scopes the redirect to this project, so every other C project on
+    the machine keeps its own database discovery untouched.
+    """
+    begin = f"# espidf-index:BEGIN {slug}"
+    end = f"# espidf-index:END {slug}"
+    fragment = "\n".join(
+        [
+            "---",
+            begin,
+            "If:",
+            f"  PathMatch: '{re.escape(str(project_dir))}/.*'",
+            "CompileFlags:",
+            f"  CompilationDatabase: {database_dir}",
+            end,
+            "",
+        ]
+    )
+
+    CLANGD_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    existing = CLANGD_CONFIG.read_text() if CLANGD_CONFIG.is_file() else ""
+    # Drop a previous fragment for this slug, and the document marker above it.
+    pattern = re.compile(
+        rf"(?:^---\n)?{re.escape(begin)}\n.*?{re.escape(end)}\n", re.DOTALL | re.MULTILINE
+    )
+    existing = pattern.sub("", existing)
+    CLANGD_CONFIG.write_text(existing.rstrip("\n") + "\n" + fragment if existing.strip() else fragment)
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Mirror an ESP-IDF compile database from its build Host for clangd."
+    )
+    parser.add_argument("project", type=Path, help="the ESP-IDF project directory on this machine")
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("ESPIDF_INDEX_HOST", os.environ.get("FW_HOST")),
+        help="ssh destination of the build Host [$ESPIDF_INDEX_HOST, $FW_HOST]",
+    )
+    parser.add_argument(
+        "--key",
+        default=os.environ.get("ESPIDF_INDEX_KEY", os.environ.get("FW_KEY")),
+        help="ssh identity file [$ESPIDF_INDEX_KEY, $FW_KEY]",
+    )
+    parser.add_argument(
+        "--remote-dir",
+        help="the project directory on the build Host [~/firmware/<project name>]",
+    )
+    parser.add_argument("--name", help="cache slug for this project [<parent>-<name>]")
+    parser.add_argument(
+        "--refresh-idf",
+        action="store_true",
+        help="re-copy the ESP-IDF headers even if this tag is already mirrored",
+    )
+    args = parser.parse_args()
+
+    project = args.project.expanduser().resolve()
+    if not (project / "CMakeLists.txt").is_file():
+        fail(f"{project} has no CMakeLists.txt; not an ESP-IDF project directory")
+    if not args.host:
+        fail("no build Host given; pass --host or set $ESPIDF_INDEX_HOST")
+
+    slug = args.name or f"{project.parent.name}-{project.name}"
+    remote_project = (args.remote_dir or f"$HOME/firmware/{project.name}").rstrip("/")
+    remote = Remote(args.host, args.key)
+
+    # Expanded by the remote shell so that ~ and $HOME in --remote-dir work,
+    # then confirmed to exist -- run() fails loudly on a non-zero exit.
+    remote_project = remote.run(f"echo {remote_project}").strip()
+    if not remote_project:
+        fail("could not resolve the project directory on the build Host")
+    remote.run(f"test -d {shlex.quote(remote_project)}")
+
+    print(f"build Host      {args.host}:{remote_project}")
+
+    raw = remote.run(f"cat {remote_project}/build/compile_commands.json")
+    try:
+        db = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        fail(f"could not parse the remote compile database: {exc}")
+    print(f"database        {len(db)} entries")
+
+    remote_idf, remote_build = discover(db, remote_project)
+    idf_tag = remote.run(f"git -C {remote_idf} describe --tags 2>/dev/null || echo unknown").strip()
+    print(f"ESP-IDF         {remote_idf} at {idf_tag}")
+
+    idf_local = CACHE / "idf" / idf_tag
+    project_cache = CACHE / "projects" / slug
+
+    # The response files come first: -specs lives in one, and it decides
+    # whether the compiler reports picolibc's headers or newlib's.
+    print(f"mirroring       generated headers -> {project_cache}/build")
+    remote.fetch_tree(remote_build, project_cache / "build", HEADER_PATTERNS)
+    remote.fetch_tree(f"{remote_build}/toolchain", project_cache / "build" / "toolchain")
+
+    toolchain_local = project_cache / "build" / "toolchain"
+    toolchain_remote = f"{remote_build}/toolchain"
+    first = expand_response_files(
+        shlex.split(db[0]["command"]), toolchain_local, toolchain_remote
+    )
+    remote_sysroot = toolchain_includes(remote, first)
+    macros = target_macros(remote, first)
+    print(f"target macros   {len(macros)} from the cross-compiler")
+    sysroot_local = [idf_local / "sysroot" / str(n) for n in range(len(remote_sysroot))]
+
+    if args.refresh_idf or not (idf_local / "components").is_dir():
+        print(f"mirroring       ESP-IDF headers -> {idf_local}")
+        remote.fetch_tree(
+            f"{remote_idf}/components", idf_local / "components", HEADER_PATTERNS
+        )
+        print(f"mirroring       {len(remote_sysroot)} toolchain sysroot dirs")
+        for remote_dir, local_dir in zip(remote_sysroot, sysroot_local):
+            remote.fetch_tree(remote_dir, local_dir, HEADER_PATTERNS)
+    else:
+        print(f"mirroring       ESP-IDF headers already present at {idf_local}")
+
+    # Longest prefix first: the build tree is inside the project tree, and its
+    # generated headers live in the cache while the sources live in the checkout.
+    mapping = [
+        (remote_build, str(project_cache / "build")),
+        (remote_project, str(project)),
+        (remote_idf, str(idf_local)),
+    ]
+    rewritten = rewrite(
+        db, mapping, toolchain_local, toolchain_remote, sysroot_local, macros
+    )
+
+    project_cache.mkdir(parents=True, exist_ok=True)
+    out = project_cache / "compile_commands.json"
+    out.write_text(json.dumps(rewritten, indent=1))
+    print(f"database        {out}")
+
+    register(slug, project, project_cache)
+    print(f"registered      {slug} in {CLANGD_CONFIG}")
+    print()
+    print("Restart clangd to pick it up (in Neovim: :LspRestart).")
+
+
+if __name__ == "__main__":
+    main()
