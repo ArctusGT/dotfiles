@@ -145,7 +145,7 @@ alias treev='tree -a -p -u -g -h -s -I ".git|node_modules|.DS_Store"'
 export PATH="$HOME/.cargo/bin:$PATH"
 
 export PATH="$HOME/.local/bin:$PATH"
-eval "$(zoxide init zsh)"
+# eval "$(zoxide init zsh)"
 
 export EDITOR=nvim
 
