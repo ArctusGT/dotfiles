@@ -1,0 +1,27 @@
+{
+  "enabledPlugins": {},
+  "awaySummaryEnabled": false,
+  "theme": "dark",
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-tmux-bell"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-tmux-bell"
+          }
+        ]
+      }
+    ]
+  }
+}

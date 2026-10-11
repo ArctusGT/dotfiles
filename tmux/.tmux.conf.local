@@ -421,6 +421,12 @@ unbind C-b
 set -g prefix C-Space
 bind C-Space send-prefix
 
+# sessions: f = fuzzy pick/create (sesh-pick), L = last session,
+# a = jump to windows with the bell flag (e.g. Claude waiting for input)
+bind f display-popup -E -w 80% -h 70% "~/.local/bin/sesh-pick"
+bind L run-shell "sesh last || tmux display-message 'no last session'"
+bind a choose-tree -Zw -f '#{window_bell_flag}'
+
 # if you don't want Oh my tmux! to alter a binding or a setting, use #!important
 # bind c new-window -c '#{pane_current_path}' #!important
 

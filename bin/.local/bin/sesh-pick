@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# fzf picker for sesh: running tmux sessions, sesh.toml sessions, and every
+# git repo under the roots below. Meant to run inside `tmux display-popup`.
+roots=("$HOME/Dev" "$HOME/Work" "$HOME/Play")
+
+list() {
+  sesh list -t -c
+  fd -H -t d -d 3 --prune '^\.git$' "${roots[@]}" 2>/dev/null \
+    | sed -e 's#/\.git/\{0,1\}$##' -e "s#^$HOME#~#" | sort
+}
+
+sel=$(list | awk '!seen[$0]++' | fzf --reverse --no-sort --prompt='session> ' \
+  --header='enter: connect  ctrl-x: kill session' \
+  --bind 'ctrl-x:execute-silent(tmux kill-session -t {})+reload(sesh list -t -c)')
+[[ -n $sel ]] && exec sesh connect "$sel"

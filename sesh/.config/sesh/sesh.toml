@@ -1,0 +1,10 @@
+# Named sessions shown in sesh-pick (prefix f). Remote hosts get their own
+# session so `sesh connect mgmt-1` reattaches instead of opening a new ssh.
+[[session]]
+name = "mgmt-1"
+path = "~"
+startup_command = "ssh sysadmin@mgmt-1"
+
+[[session]]
+name = "dotfiles"
+path = "~/dotfiles"

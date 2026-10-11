@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Claude Code Notification/Stop hook: ring the bell on Claude's tmux pane so
+# its window gets the bell flag (shown as "!" in the status bar) until visited.
+cat >/dev/null # drain hook JSON on stdin
+[[ -n $TMUX_PANE ]] || exit 0
+tty=$(tmux display -p -t "$TMUX_PANE" '#{pane_tty}' 2>/dev/null) || exit 0
+printf '\a' >"$tty"

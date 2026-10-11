@@ -11,6 +11,7 @@ This repo uses **GNU Stow** to symlink configs into place.
 - `fzf` (required by `zsh-fzf-history-search`)
 - `zoxide` (`cargo install zoxide --locked`)
 - `lazygit`
+- `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
 `sudo dnf copr enable dejan/lazygit
 sudo dnf install lazygit`
 - `tectonic` (`cargo install tectonic`)
@@ -65,7 +66,7 @@ cd ~/dotfiles
 From inside `~/dotfiles`, run stow for the packages you want:
 
 ```bash
-stow zsh tmux nvim
+stow zsh tmux nvim bin sesh claude
 ```
 
 This creates symlinks like:
