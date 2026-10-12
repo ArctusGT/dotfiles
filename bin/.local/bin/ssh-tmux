@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# ssh-tmux HOST SESSION [DIR]: attach to (or create) tmux SESSION on HOST and
+# reconnect when the connection drops (sleep, wifi change, idle timeout).
+# Detaching or exiting the remote tmux ends the loop. Quote DIR ('~/repo')
+# so ~ expands on the remote side.
+host=$1 session=$2
+[[ -n $host && -n $session ]] || { echo "usage: ssh-tmux HOST SESSION [DIR]" >&2; exit 2; }
+remote="tmux -u new -A -s '$session'"
+[[ -n $3 ]] && remote+=" -c $3"
+
+while :; do
+  ssh -t -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectTimeout=10 \
+    "$host" "$remote"
+  (( $? == 255 )) || exit # 255 = connection error; anything else was deliberate
+  # undo mouse reporting, alt screen and hidden cursor left by the remote tmux
+  printf '\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?1049l\e[?25h'
+  echo "lost connection to $host, reconnecting in 3s (ctrl-c to stop)"
+  sleep 3
+done

@@ -1,9 +1,16 @@
-# Named sessions shown in sesh-pick (prefix f). Remote hosts get their own
-# session so `sesh connect mgmt-1` reattaches instead of opening a new ssh.
+# Named sessions shown in sesh-pick (prefix f).
+# Remote repos: ssh-tmux (bin/) attaches or creates a per-repo tmux session
+# on the remote and reconnects automatically if the connection drops.
+# The remote tmux also uses C-Space: press C-Space twice to reach it.
 [[session]]
-name = "mgmt-1"
+name = "slurm-infra@mgmt-1"
 path = "~"
-startup_command = "ssh sysadmin@mgmt-1"
+startup_command = "ssh-tmux sysadmin@mgmt-1 slurm-infra '~/slurm-infra'"
+
+[[session]]
+name = "iot-infra@mgmt-1"
+path = "~"
+startup_command = "ssh-tmux sysadmin@mgmt-1 iot-infra '~/iot-infra'"
 
 [[session]]
 name = "dotfiles"
