@@ -276,7 +276,7 @@ tmux_conf_theme_right_separator_sub="|"
 #     - #{username_ssh}
 tmux_conf_theme_status_left=" ❐ #S | ↑#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} "
 #tmux_conf_theme_status_left=" ❐ #S | ↑#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | #{pretty_pane_current_path} "
-tmux_conf_theme_status_right=" #{prefix}#{mouse}#{pairing}#{synchronized}#{?battery_status, #{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} "
+tmux_conf_theme_status_right=" #{S:#{W:#{?@claude_wait,#[range=user|#{window_id}#,fg=#ffff00#,bold]● #S:#I #[norange default],}}}#{prefix}#{mouse}#{pairing}#{synchronized}#{?battery_status, #{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} "
 
 # status left style
 tmux_conf_theme_status_left_fg="$tmux_conf_theme_colour_6,$tmux_conf_theme_colour_7,$tmux_conf_theme_colour_8"
@@ -422,10 +422,18 @@ set -g prefix C-Space
 bind C-Space send-prefix
 
 # sessions: f = fuzzy pick/create (sesh-pick), L = last session,
-# a = jump to windows with the bell flag (e.g. Claude waiting for input)
+# a = jump to Claude windows waiting for input (@claude_wait, set by the
+# claude-tmux-status hook) or any other window with the bell flag
 bind f display-popup -E -w 80% -h 70% "~/.local/bin/sesh-pick"
 bind L run-shell "sesh last || tmux display-message 'no last session'"
-bind a choose-tree -Zw -f '#{window_bell_flag}'
+set-hook -g after-select-window[10] 'set -wu @claude_wait'
+set-hook -g client-session-changed[10] 'set -wu @claude_wait'
+bind a choose-tree -Zw -f '#{||:#{@claude_wait},#{window_bell_flag}}'
+# clicking a waiting-Claude marker (a range=user|@<window_id> in status-right)
+# jumps to that window; any other status click keeps the default behaviour
+bind -T root MouseDown1Status if -F '#{m:@*,#{mouse_status_range}}' \
+  "run-shell 'tmux switch-client -c #{client_name} -t #{mouse_status_range} \\; set -wu -t #{mouse_status_range} @claude_wait'" \
+  'switch-client -t ='
 
 # if you don't want Oh my tmux! to alter a binding or a setting, use #!important
 # bind c new-window -c '#{pane_current_path}' #!important

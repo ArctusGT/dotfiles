@@ -8,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.local/bin/claude-tmux-bell"
+            "command": "~/.local/bin/claude-tmux-status wait"
           }
         ]
       }
@@ -18,7 +18,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.local/bin/claude-tmux-bell"
+            "command": "~/.local/bin/claude-tmux-status wait"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-tmux-status clear"
           }
         ]
       }

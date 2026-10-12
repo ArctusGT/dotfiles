@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Claude Code hook. `wait` (Notification, Stop) marks Claude's tmux window with
+# @claude_wait and rings its bell; `clear` (UserPromptSubmit) unmarks it.
+# Marked windows show in every session's status bar (see .tmux.conf.local).
+cat >/dev/null # drain hook JSON on stdin
+[[ -n $TMUX_PANE ]] || exit 0
+case $1 in
+  wait)
+    # no need to flag the window you're already looking at
+    [[ $(tmux display -p -t "$TMUX_PANE" '#{&&:#{window_active},#{session_attached}}') == 1 ]] && exit 0
+    tmux set -w -t "$TMUX_PANE" @claude_wait 1
+    tty=$(tmux display -p -t "$TMUX_PANE" '#{pane_tty}') && printf '\a' >"$tty"
+    ;;
+  clear) tmux set -wu -t "$TMUX_PANE" @claude_wait ;;
+esac
+exit 0
