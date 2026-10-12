@@ -6,9 +6,12 @@ cat >/dev/null # drain hook JSON on stdin
 [[ -n $TMUX_PANE ]] || exit 0
 case $1 in
   wait)
-    # no need to flag the window you're already looking at
-    [[ $(tmux display -p -t "$TMUX_PANE" '#{&&:#{window_active},#{session_attached}}') == 1 ]] && exit 0
-    tmux set -w -t "$TMUX_PANE" @claude_wait 1
+    # no need to flag the window you're already looking at. Over ssh an
+    # attached session doesn't mean you're looking, so still ring the bell:
+    # it passes through ssh and the local tmux marks the ssh window.
+    viewing=$(tmux display -p -t "$TMUX_PANE" '#{&&:#{window_active},#{session_attached}}')
+    [[ $viewing == 1 && -z $SSH_CONNECTION ]] && exit 0
+    [[ $viewing == 1 ]] || tmux set -w -t "$TMUX_PANE" @claude_wait 1
     tty=$(tmux display -p -t "$TMUX_PANE" '#{pane_tty}') && printf '\a' >"$tty"
     ;;
   clear) tmux set -wu -t "$TMUX_PANE" @claude_wait ;;

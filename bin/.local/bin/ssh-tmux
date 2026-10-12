@@ -8,10 +8,16 @@ host=$1 session=$2
 remote="tmux -u new -A -s '$session'"
 [[ -n $3 ]] && remote+=" -c $3"
 
+# tag the local window so a bell from the remote marks it (see alert-bell hook)
+if [[ -n $TMUX_PANE ]]; then
+  tmux set -w -t "$TMUX_PANE" @ssh_tmux "$host"
+  trap 'tmux set -wu -t "$TMUX_PANE" @ssh_tmux' EXIT
+fi
+
 while :; do
   ssh -t -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectTimeout=10 \
     "$host" "$remote"
-  (( $? == 255 )) || exit # 255 = connection error; anything else was deliberate
+  (( $? == 255 )) || break # 255 = connection error; anything else was deliberate
   # undo mouse reporting, alt screen and hidden cursor left by the remote tmux
   printf '\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?1049l\e[?25h'
   echo "lost connection to $host, reconnecting in 3s (ctrl-c to stop)"

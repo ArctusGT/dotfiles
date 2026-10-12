@@ -428,6 +428,9 @@ bind f display-popup -E -w 80% -h 70% "~/.local/bin/sesh-pick"
 bind L run-shell "sesh last || tmux display-message 'no last session'"
 set-hook -g after-select-window[10] 'set -wu @claude_wait'
 set-hook -g client-session-changed[10] 'set -wu @claude_wait'
+# a bell from an ssh-tmux window (@ssh_tmux) you're not looking at is almost
+# always a remote Claude waiting (claude-tmux-status there rings it): mark it
+set-hook -g alert-bell[10] "if -F '#{&&:#{@ssh_tmux},#{||:#{!:#{window_active}},#{!:#{session_attached}}}}' 'set -w @claude_wait 1'"
 bind a choose-tree -Zw -f '#{||:#{@claude_wait},#{window_bell_flag}}'
 # clicking a waiting-Claude marker (a range=user|@<window_id> in status-right)
 # jumps to that window; any other status click keeps the default behaviour
