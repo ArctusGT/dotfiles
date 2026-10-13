@@ -421,6 +421,11 @@ unbind C-b
 set -g prefix C-Space
 bind C-Space send-prefix
 
+# tmux picks vi or emacs copy-mode keys from $EDITOR when the server starts,
+# and a server started over `ssh host tmux ...` (ssh-tmux) has no $EDITOR, so
+# it got emacs keys, where a mouse drag selects but never copies. Pin vi.
+set -g mode-keys vi
+
 # tmux 3.8 defaults popups and menus to a grey theme: match the dark theme
 # instead (-q: older tmux, e.g. mgmt-1, may not know every option)
 set -gq popup-style "fg=default,bg=default"
