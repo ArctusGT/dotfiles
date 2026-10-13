@@ -147,8 +147,5 @@ alias treev='tree -a -p -u -g -h -s -I ".git|node_modules|.DS_Store"'
 path=($user_path $path)
 # eval "$(zoxide init zsh)"
 
-# macOS-only homebrew path (safe on Linux)
-if [[ -d /opt/homebrew/bin ]]; then
-  path=(/opt/homebrew/bin $path)
-fi
+path=(/opt/homebrew/bin(N/) $path)
 [[ -o interactive ]] || unalias tmux 2>/dev/null
