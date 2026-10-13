@@ -141,16 +141,14 @@ get_idf() {
 # source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 alias treev='tree -a -p -u -g -h -s -I ".git|node_modules|.DS_Store"'
 
-# Rust/Cargo
-export PATH="$HOME/.cargo/bin:$PATH"
-
-export PATH="$HOME/.local/bin:$PATH"
+# .zshenv already puts these first for every shell; a login shell's
+# path_helper (macOS) pushes them back behind the system dirs, so restore the
+# order. Array form, because `typeset -U path` only dedupes array assignments.
+path=("$HOME/.local/bin" "$HOME/.cargo/bin" $path)
 # eval "$(zoxide init zsh)"
-
-export EDITOR=nvim
 
 # macOS-only homebrew path (safe on Linux)
 if [[ -d /opt/homebrew/bin ]]; then
-  export PATH="/opt/homebrew/bin:$PATH"
+  path=(/opt/homebrew/bin $path)
 fi
 [[ -o interactive ]] || unalias tmux 2>/dev/null
