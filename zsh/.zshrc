@@ -141,10 +141,10 @@ get_idf() {
 # source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 alias treev='tree -a -p -u -g -h -s -I ".git|node_modules|.DS_Store"'
 
-# .zshenv already puts these first for every shell; a login shell's
-# path_helper (macOS) pushes them back behind the system dirs, so restore the
+# .zshenv already puts $user_path first for every shell; a login shell's
+# path_helper (macOS) pushes it back behind the system dirs, so restore the
 # order. Array form, because `typeset -U path` only dedupes array assignments.
-path=("$HOME/.local/bin" "$HOME/.cargo/bin" $path)
+path=($user_path $path)
 # eval "$(zoxide init zsh)"
 
 # macOS-only homebrew path (safe on Linux)

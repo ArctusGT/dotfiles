@@ -48,3 +48,16 @@ also sets it.
   belt and braces
 - Changing the login shell or the oh-my-zsh setup
 - Installing anything on either host
+
+## Comments
+
+2026-10-14, structural review, beyond this slice's scope, for the Maintainer:
+`/opt/homebrew/bin` is still prepended only by the interactive config, so a
+non-interactive shell on the Mac does not find Homebrew binaries, including
+`nvim`, which `EDITOR` now names. `ssh mac 'git commit'` would fail to open an
+editor. Mac non-interactive use is rare, so this slice left it out. Fixing it
+is one `/opt/homebrew/bin(N/)` entry at the front of the user dir list the
+every-shell startup file now keeps, plus deleting the interactive config's
+Homebrew block.
+
+---
