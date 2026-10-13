@@ -421,6 +421,22 @@ unbind C-b
 set -g prefix C-Space
 bind C-Space send-prefix
 
+# tmux 3.8 defaults popups and menus to a grey theme: match the dark theme
+# instead (-q: older tmux, e.g. mgmt-1, may not know every option)
+set -gq popup-style "fg=default,bg=default"
+set -gq popup-border-style "fg=#00afff"
+set -gq menu-style "fg=#e4e4e4,bg=#080808"
+set -gq menu-border-style "fg=#00afff"
+
+# EL10's tmux-3.3a git snapshot (reports "next-3.4", e.g. mgmt-1) aborts on
+# any capture-pane, so drop the theme bindings that run one (F = fpp,
+# U = urlscan/urlview). #{version} is a string there, so match it rather than
+# compare numbers.
+%if #{m:next-*,#{version}}
+unbind F
+unbind U
+%endif
+
 # sessions: f = fuzzy pick/create (sesh-pick), L = last session,
 # a = jump to Claude windows waiting for input (@claude_wait, set by the
 # claude-tmux-status hook) or any other window with the bell flag
@@ -430,7 +446,7 @@ set-hook -g after-select-window[10] 'set -wu @claude_wait'
 set-hook -g client-session-changed[10] 'set -wu @claude_wait'
 # a bell from an ssh-tmux window (@ssh_tmux) you're not looking at is almost
 # always a remote Claude waiting (claude-tmux-status there rings it): mark it
-set-hook -g alert-bell[10] "if -F '#{&&:#{@ssh_tmux},#{||:#{!:#{window_active}},#{!:#{session_attached}}}}' 'set -w @claude_wait 1'"
+set-hook -g alert-bell[10] "if -F '#{&&:#{@ssh_tmux},#{||:#{==:#{window_active},0},#{==:#{session_attached},0}}}' 'set -w @claude_wait 1'"
 bind a choose-tree -Zw -f '#{||:#{@claude_wait},#{window_bell_flag}}'
 # clicking a waiting-Claude marker (a range=user|@<window_id> in status-right)
 # jumps to that window; any other status click keeps the default behaviour
