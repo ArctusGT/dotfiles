@@ -1,7 +1,4 @@
 {
-  "enabledPlugins": {},
-  "awaySummaryEnabled": false,
-  "theme": "dark",
   "hooks": {
     "Notification": [
       {
@@ -33,5 +30,18 @@
         ]
       }
     ]
-  }
+  },
+  "enabledPlugins": {
+    "workmux-status@workmux": true
+  },
+  "extraKnownMarketplaces": {
+    "workmux": {
+      "source": {
+        "source": "github",
+        "repo": "raine/workmux"
+      }
+    }
+  },
+  "awaySummaryEnabled": false,
+  "theme": "dark"
 }

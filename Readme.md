@@ -11,9 +11,10 @@ This repo uses **GNU Stow** to symlink configs into place.
 - `fzf` (required by `zsh-fzf-history-search`)
 - `zoxide` (`cargo install zoxide --locked`)
 - `lazygit`
-- `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
 `sudo dnf copr enable dejan/lazygit
 sudo dnf install lazygit`
+- `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
+- `workmux` (worktree + tmux window per task, macOS only for now: `brew install raine/workmux/workmux`)
 - `tectonic` (`cargo install tectonic`)
 - `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
 - `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)
@@ -66,7 +67,7 @@ cd ~/dotfiles
 From inside `~/dotfiles`, run stow for the packages you want:
 
 ```bash
-stow zsh tmux nvim bin sesh claude
+stow zsh tmux nvim bin sesh claude workmux
 ```
 
 This creates symlinks like:
