@@ -1,0 +1,1 @@
+../../.agents/rules/research-is-opt-in.md

@@ -1,0 +1,1 @@
+../../.agents/docs/agents/SLICE-TEMPLATE.md

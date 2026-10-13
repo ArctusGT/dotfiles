@@ -1,0 +1,1 @@
+../../.agents/docs/agents/domain.md

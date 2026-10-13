@@ -1,0 +1,1 @@
+../../.agents/rules/solicited-work.md
