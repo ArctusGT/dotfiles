@@ -76,6 +76,11 @@ This creates symlinks like:
 - `~/.config/nvim -> ~/dotfiles/nvim/.config/nvim`
 - `~/.local/bin/espidf-index -> ~/dotfiles/bin/.local/bin/espidf-index`
 
+`zsh` also links `~/.zshenv`, which every zsh reads, including the one
+`ssh host '<cmd>'` runs. Stow refuses to replace a real file, so on a host
+that already has a `~/.zshenv`, fold anything it needs into
+`zsh/.zshenv` and remove it before stowing.
+
 ### 3) Preview changes (dry-run)
 ```bash
 stow -n zsh tmux nvim bin

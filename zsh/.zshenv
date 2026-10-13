@@ -1,7 +1,5 @@
-# Read by every zsh, including the non-interactive one `ssh host '<cmd>'`
-# starts, which never reads .zshrc. Keep it to environment variables: it runs
-# before every script and ssh command, so anything slow or noisy here is felt
-# everywhere.
+# Environment for every zsh, even `ssh host '<cmd>'`, which skips .zshrc.
+# Keep it to variables: it runs before every script and ssh command.
 
 # Keep PATH entries unique: .zshrc (interactive) and macOS's path_helper
 # (login) prepend some of these again.
