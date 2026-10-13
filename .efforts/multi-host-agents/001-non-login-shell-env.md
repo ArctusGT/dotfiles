@@ -34,13 +34,13 @@ also sets it.
   the new PATH, which slice 002 relies on to pick up a newer tmux.
 
 **Acceptance criteria:**
-- [ ] `ssh mgmt-1 'command -v claude; echo "$LANG $EDITOR"'` prints a path
+- [x] `ssh mgmt-1 'command -v claude; echo "$LANG $EDITOR"'` prints a path
       under `~/.local/bin` and a UTF-8 locale with `nvim`
-- [ ] `ssh mgmt-1 'echo $PATH'` lists `~/.local/bin` once, before `/usr/bin`
-- [ ] An interactive shell on each host prints the same PATH as before, apart
+- [x] `ssh mgmt-1 'echo $PATH'` lists `~/.local/bin` once, before `/usr/bin`
+- [x] An interactive shell on each host prints the same PATH as before, apart
       from ordering, with no duplicates
 - [x] `zsh -c 'echo "$LANG $EDITOR"'` on the Mac prints the same values
-- [ ] mgmt-1's dotfiles are pulled and restowed, and its stow reports no
+- [x] mgmt-1's dotfiles are pulled and restowed, and its stow reports no
       conflicts
 
 **Out of scope:**
