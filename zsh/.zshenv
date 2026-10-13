@@ -3,12 +3,13 @@
 # before every script and ssh command, so anything slow or noisy here is felt
 # everywhere.
 
-# Keep PATH entries unique: .zshrc and macOS's path_helper prepend some of
-# these again in interactive shells.
+# Keep PATH entries unique: .zshrc (interactive) and macOS's path_helper
+# (login) prepend some of these again.
 typeset -U path
 
-# Dirs that come before the system PATH. (N/) drops one that doesn't exist.
-# .zshrc re-applies this list after a login shell's path_helper reorders.
+# Dirs that come before the system PATH. ~/.local/bin always goes in; (N/)
+# keeps Cargo's bin only where it exists. .zshrc re-applies this list after a
+# login shell's path_helper reorders.
 user_path=(~/.local/bin ~/.cargo/bin(N/))
 path=($user_path $path)
 # A shell started without PATH in its environment doesn't export the one it
