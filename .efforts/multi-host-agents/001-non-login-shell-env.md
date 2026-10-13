@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** Commands run as `ssh host '<cmd>'` see the same PATH, locale and editor as an interactive shell
-**Status:** ready-for-agent
+**Status:** ready-for-closure
 **blocked-by:** none
 
 **Current behavior:**
@@ -59,5 +59,22 @@ editor. Mac non-interactive use is rare, so this slice left it out. Fixing it
 is one `/opt/homebrew/bin(N/)` entry at the front of the user dir list the
 every-shell startup file now keeps, plus deleting the interactive config's
 Homebrew block.
+
+---
+
+2026-10-14, code review, two judgement calls left for the Maintainer:
+
+- `LANG` is only a default. A value the ssh client sends and sshd accepts
+  (RHEL accepts `LANG` by default) passes through, so a client sending
+  `LANG=C` gets a non-UTF-8 shell. The Mac sends its own UTF-8 locale, so
+  this holds today; forcing UTF-8 would override a terminal's own choice.
+- `user_path` stays set as a plain variable in every zsh, scripts included,
+  because the interactive config re-applies it. A script assigning its own
+  `user_path` would only change its own copy, so the risk is a confusing name
+  collision rather than a broken PATH.
+
+Re-verified on mgmt-1 at the reviewed version (7795d85), where Cargo's bin
+now reaches non-interactive shells too; 227bb7b had sourced `~/.cargo/env`,
+which mgmt-1 does not have.
 
 ---
