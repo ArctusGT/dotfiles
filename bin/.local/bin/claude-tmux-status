@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Claude Code hook. `wait` (Notification, Stop) marks Claude's tmux window with
-# @claude_wait and rings its bell; `clear` (UserPromptSubmit) unmarks it.
-# Marked windows show in every session's status bar (see .tmux.conf.local).
+# Claude Code hook: claude-tmux-status wait|clear, hook JSON on stdin.
+# `wait` (Notification, Stop) marks Claude's tmux window with @claude_wait and
+# rings its bell, plus every client running inside another tmux (an ssh-tmux
+# relay); `clear` (UserPromptSubmit) unmarks it. Marked windows show in every
+# session's status bar (see .tmux.conf.local). Reads $TMUX_PANE, which Claude
+# inherits from its pane; does nothing outside tmux.
+[[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 cat >/dev/null # drain hook JSON on stdin
 [[ -n $TMUX_PANE ]] || exit 0
 case $1 in

@@ -112,12 +112,11 @@ This creates symlinks like:
 that already has a `~/.zshenv`, fold anything it needs into
 `zsh/.zshenv` and remove it before stowing.
 
-Remote hosts appear in the sesh picker (`prefix f`) as one entry each, such
-as `mgmt-1`, which runs `ssh-tmux HOST` from `bin/`: one ssh connection, one
-client on the host's tmux, back to the session last used there, reconnecting
-when the connection drops. Switch between the host's repos inside it, with
-`prefix prefix s` or workmux's sidebar. A second entry for the same host
-would add a second client, and workmux's jumps could then move the wrong one.
+Keep one sesh entry per remote host (see `sesh/.config/sesh/sesh.toml`). A
+second entry for the same host adds a second client to its tmux, and
+workmux's jumps can then move the wrong one. On the host, a new repo session
+is `tmux new -d -s <repo> -c ~/<repo>`, then `prefix prefix s` to switch to
+it.
 
 ### 3) Preview changes (dry-run)
 ```bash

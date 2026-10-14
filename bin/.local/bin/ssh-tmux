@@ -1,24 +1,18 @@
 #!/usr/bin/env bash
-# ssh-tmux HOST [SESSION [DIR]]: attach to tmux on HOST and reconnect when
-# the connection drops (sleep, wifi change, idle timeout).
-# Without SESSION, attaches to the host's most recently used session, or
-# creates `main` if the host has none. With SESSION, attaches to (or creates)
-# that session, starting in DIR; quote DIR ('~/repo') so ~ expands remotely.
-# Detaching or exiting the remote tmux ends the loop.
+# ssh-tmux HOST: attach to tmux on HOST and reconnect when the connection
+# drops (sleep, wifi change, idle timeout).
+# Attaches to the host's most recently used session, or creates `main` if the
+# host has none. Detaching or exiting the remote tmux ends the loop.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
-host=$1 session=$2
-[[ -n $host ]] || { echo "usage: ssh-tmux HOST [SESSION [DIR]]" >&2; exit 2; }
-if [[ -n $session ]]; then
-  remote="tmux -u new -A -s '$session'"
-  [[ -n $3 ]] && remote+=" -c $3"
-else
-  # Most recently used session, even one still attached: after a sleep or
-  # wifi drop the host can hold the dead connection's client for a while, and
-  # a bare `attach` would skip that session for another one. -D detaches the
-  # stale client so the host keeps one.
-  remote='last=$(tmux list-sessions -F "#{session_last_attached} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
+host=$1
+[[ -n $host ]] || { echo "usage: ssh-tmux HOST" >&2; exit 2; }
+
+# Most recently used session, even one still attached: after a sleep or wifi
+# drop the host can hold the dead connection's client for a while, and a bare
+# `attach` would skip that session for another one. -D detaches every other
+# client on the session, stale or not, so the host keeps exactly one.
+remote='last=$(tmux list-sessions -F "#{session_last_attached} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
 tmux -u new -AD -s "${last:-main}"'
-fi
 
 # tag the local window so a bell from the remote marks it (see alert-bell hook)
 if [[ -n $TMUX_PANE ]]; then
