@@ -12,7 +12,12 @@ if [[ -n $session ]]; then
   remote="tmux -u new -A -s '$session'"
   [[ -n $3 ]] && remote+=" -c $3"
 else
-  remote="tmux -u attach 2>/dev/null || tmux -u new -s main"
+  # Most recently used session, even one still attached: after a sleep or
+  # wifi drop the host can hold the dead connection's client for a while, and
+  # a bare `attach` would skip that session for another one. -d detaches the
+  # stale client so the host keeps one.
+  remote='s=$(tmux list-sessions -F "#{session_last_attached} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
+if [ -n "$s" ]; then tmux -u attach -d -t "$s"; else tmux -u new -s main; fi'
 fi
 
 # tag the local window so a bell from the remote marks it (see alert-bell hook)
