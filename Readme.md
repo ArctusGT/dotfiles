@@ -14,7 +14,10 @@ This repo uses **GNU Stow** to symlink configs into place.
 `sudo dnf copr enable dejan/lazygit
 sudo dnf install lazygit`
 - `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
-- `workmux` (worktree + tmux window per task, macOS only for now: `brew install raine/workmux/workmux`)
+- `workmux` (worktree + tmux window per task): `brew install raine/workmux/workmux` on macOS; on Linux the
+  `workmux-linux-<arch>.tar.gz` release binary, checked against its `.sha256`, into `~/.local/bin`. It needs
+  a tmux whose `capture-pane` works, so not EL10's dnf package (see below). Status icons need the Claude plugin on each host:
+  `claude plugin marketplace add raine/workmux` then `claude plugin install workmux-status`
 - `tectonic` (`cargo install tectonic`)
 - `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
 - `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)
