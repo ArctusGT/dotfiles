@@ -112,6 +112,13 @@ This creates symlinks like:
 that already has a `~/.zshenv`, fold anything it needs into
 `zsh/.zshenv` and remove it before stowing.
 
+Remote hosts appear in the sesh picker (`prefix f`) as one entry each, such
+as `mgmt-1`, which runs `ssh-tmux HOST` from `bin/`: one ssh connection, one
+client on the host's tmux, back to the session last used there, reconnecting
+when the connection drops. Switch between the host's repos inside it, with
+`prefix prefix s` or workmux's sidebar. A second entry for the same host
+would add a second client, and workmux's jumps could then move the wrong one.
+
 ### 3) Preview changes (dry-run)
 ```bash
 stow -n zsh tmux nvim bin

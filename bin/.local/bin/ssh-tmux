@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
-# ssh-tmux HOST SESSION [DIR]: attach to (or create) tmux SESSION on HOST and
-# reconnect when the connection drops (sleep, wifi change, idle timeout).
-# Detaching or exiting the remote tmux ends the loop. Quote DIR ('~/repo')
-# so ~ expands on the remote side.
+# ssh-tmux HOST [SESSION [DIR]]: attach to tmux on HOST and reconnect when
+# the connection drops (sleep, wifi change, idle timeout).
+# Without SESSION, attaches to the host's most recently used session, or
+# creates `main` if the host has none. With SESSION, attaches to (or creates)
+# that session, starting in DIR; quote DIR ('~/repo') so ~ expands remotely.
+# Detaching or exiting the remote tmux ends the loop.
+[[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 host=$1 session=$2
-[[ -n $host && -n $session ]] || { echo "usage: ssh-tmux HOST SESSION [DIR]" >&2; exit 2; }
-remote="tmux -u new -A -s '$session'"
-[[ -n $3 ]] && remote+=" -c $3"
+[[ -n $host ]] || { echo "usage: ssh-tmux HOST [SESSION [DIR]]" >&2; exit 2; }
+if [[ -n $session ]]; then
+  remote="tmux -u new -A -s '$session'"
+  [[ -n $3 ]] && remote+=" -c $3"
+else
+  remote="tmux -u attach 2>/dev/null || tmux -u new -s main"
+fi
 
 # tag the local window so a bell from the remote marks it (see alert-bell hook)
 if [[ -n $TMUX_PANE ]]; then

@@ -13,6 +13,11 @@ case $1 in
     [[ $viewing == 1 && -z $SSH_CONNECTION ]] && exit 0
     [[ $viewing == 1 ]] || tmux set -w -t "$TMUX_PANE" @claude_wait 1
     tty=$(tmux display -p -t "$TMUX_PANE" '#{pane_tty}') && printf '\a' >"$tty"
+    # tmux forwards a pane's bell only to clients on that pane's session, and
+    # an ssh-tmux client may sit on another one: ring every client directly
+    if [[ -n $SSH_CONNECTION ]]; then
+      tmux list-clients -F '#{client_tty}' | while read -r c; do printf '\a' >"$c"; done
+    fi
     ;;
   clear) tmux set -wu -t "$TMUX_PANE" @claude_wait ;;
 esac

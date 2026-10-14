@@ -1,16 +1,14 @@
 # Named sessions shown in sesh-pick (prefix f).
-# Remote repos: ssh-tmux (bin/) attaches or creates a per-repo tmux session
-# on the remote and reconnects automatically if the connection drops.
-# The remote tmux also uses C-Space: press C-Space twice to reach it.
+# A remote host is one entry, one ssh connection and one client on its tmux
+# server: ssh-tmux (bin/) reattaches to the host's last-used session and
+# reconnects if the connection drops. Move between the host's repos on the
+# host itself (its sidebar, workmux, or prefix s there), so workmux's jumps
+# move the client on screen. The remote tmux also uses C-Space: press it
+# twice to reach it.
 [[session]]
-name = "slurm-infra@mgmt-1"
+name = "mgmt-1"
 path = "~"
-startup_command = "ssh-tmux sysadmin@mgmt-1 slurm-infra '~/slurm-infra'"
-
-[[session]]
-name = "iot-infra@mgmt-1"
-path = "~"
-startup_command = "ssh-tmux sysadmin@mgmt-1 iot-infra '~/iot-infra'"
+startup_command = "ssh-tmux sysadmin@mgmt-1"
 
 [[session]]
 name = "dotfiles"
