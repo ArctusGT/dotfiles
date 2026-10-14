@@ -39,7 +39,7 @@ cannot talk to the old server, so the switch ends every running session.
       `server exited unexpectedly`
 - [x] Inside an `ssh-tmux` session, `#{version}` is the new version
 - [x] The theme's `prefix F` is bound again on mgmt-1
-- [ ] `ssh-tmux` sessions, the Claude status marker and mouse copy still work
+- [x] `ssh-tmux` sessions, the Claude status marker and mouse copy still work
       from the Mac after the switch
 
 **Out of scope:**
