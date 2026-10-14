@@ -427,7 +427,7 @@ bind C-Space send-prefix
 set -g mode-keys vi
 
 # tmux 3.8 defaults popups and menus to a grey theme: match the dark theme
-# instead (-q: older tmux, e.g. mgmt-1, may not know every option)
+# instead (-q: an older tmux may not know every option)
 set -gq popup-style "fg=default,bg=default"
 set -gq popup-border-style "fg=#00afff"
 set -gq menu-style "fg=#e4e4e4,bg=#080808"

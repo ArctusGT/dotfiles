@@ -7,9 +7,12 @@ GNU Stow. Each top-level directory except the ones below is a stow package
 whose contents mirror `$HOME`: `tmux/.tmux.conf.local` lands at
 `~/.tmux.conf.local`. `Readme.md` lists the packages and the stow commands.
 Used on macOS (the workstation) and on Linux hosts such as mgmt-1, so a change
-has to work on both — mgmt-1 runs an older tmux (`next-3.4`) than the Mac.
-Never run `tmux capture-pane` on mgmt-1: that build aborts and takes every
-session with it. Read state with `display -p` or `list-windows -F` instead.
+has to work on both. mgmt-1 runs tmux 3.8 built into `~/.local/opt` and
+linked as `~/.local/bin/tmux`; EL10's own `/usr/bin/tmux` (reports
+`next-3.4`) is still installed and aborts on any `capture-pane`, taking every
+session with it. So never reach tmux on mgmt-1 through a shell whose PATH
+lacks `~/.local/bin` (root, `sudo`, `env -i`), and prefer `display -p` or
+`list-windows -F` for reading state.
 
 Not stow packages, and never stowed:
 - `.agents/` — the shared kit (submodule).
