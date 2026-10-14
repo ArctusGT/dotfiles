@@ -16,8 +16,8 @@ case $1 in
     # tmux forwards a pane's bell only to clients on that pane's session, and
     # an ssh-tmux client may sit on another one: ring every client that is
     # itself inside a tmux (the Mac's), whose terminal type says so
-    tmux list-clients -F '#{client_termname} #{client_tty}' | while read -r t c; do
-      [[ $t == tmux* || $t == screen* ]] && printf '\a' >"$c"
+    for c in $(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_tty}'); do
+      printf '\a' >"$c"
     done
     ;;
   clear) tmux set -wu -t "$TMUX_PANE" @claude_wait ;;

@@ -17,7 +17,7 @@ else
   # a bare `attach` would skip that session for another one. -d detaches the
   # stale client so the host keeps one.
   remote='s=$(tmux list-sessions -F "#{session_last_attached} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
-if [ -n "$s" ]; then tmux -u attach -d -t "$s"; else tmux -u new -s main; fi'
+tmux -u new -AD -s "${s:-main}"'
 fi
 
 # tag the local window so a bell from the remote marks it (see alert-bell hook)
