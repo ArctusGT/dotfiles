@@ -14,10 +14,10 @@ case $1 in
     [[ $viewing == 1 ]] || tmux set -w -t "$TMUX_PANE" @claude_wait 1
     tty=$(tmux display -p -t "$TMUX_PANE" '#{pane_tty}') && printf '\a' >"$tty"
     # tmux forwards a pane's bell only to clients on that pane's session, and
-    # an ssh-tmux client may sit on another one: ring every client that is
-    # itself inside a tmux (the Mac's), whose terminal type says so
-    for c in $(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_tty}'); do
-      printf '\a' >"$c"
+    # the Mac's ssh-tmux client may be on another one. That client runs inside
+    # the Mac's tmux, so its terminal type is tmux*: ring every such client.
+    for relay_tty in $(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_tty}'); do
+      printf '\a' >"$relay_tty"
     done
     ;;
   clear) tmux set -wu -t "$TMUX_PANE" @claude_wait ;;

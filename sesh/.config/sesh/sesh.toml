@@ -2,7 +2,7 @@
 # A remote host is one entry, one ssh connection and one client on its tmux
 # server: ssh-tmux (bin/) reattaches to the host's last-used session and
 # reconnects if the connection drops. Move between the host's repos on the
-# host itself (its sidebar, workmux, or prefix s there), so workmux's jumps
+# host itself (workmux's sidebar, or prefix s there), so workmux's jumps
 # move the client on screen. The remote tmux also uses C-Space: press it
 # twice to reach it.
 [[session]]

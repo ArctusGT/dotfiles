@@ -14,10 +14,10 @@ if [[ -n $session ]]; then
 else
   # Most recently used session, even one still attached: after a sleep or
   # wifi drop the host can hold the dead connection's client for a while, and
-  # a bare `attach` would skip that session for another one. -d detaches the
+  # a bare `attach` would skip that session for another one. -D detaches the
   # stale client so the host keeps one.
-  remote='s=$(tmux list-sessions -F "#{session_last_attached} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
-tmux -u new -AD -s "${s:-main}"'
+  remote='last=$(tmux list-sessions -F "#{session_last_attached} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
+tmux -u new -AD -s "${last:-main}"'
 fi
 
 # tag the local window so a bell from the remote marks it (see alert-bell hook)
