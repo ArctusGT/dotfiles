@@ -2,7 +2,7 @@
 
 # dotfiles
 
-Configs for zsh, tmux, nvim, sesh and Claude Code, symlinked into `$HOME` with
+Configs for zsh, tmux, nvim, sesh, workmux and Claude Code, symlinked into `$HOME` with
 GNU Stow. Each top-level directory except the ones below is a stow package
 whose contents mirror `$HOME`: `tmux/.tmux.conf.local` lands at
 `~/.tmux.conf.local`. `Readme.md` lists the packages and the stow commands.

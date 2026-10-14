@@ -14,10 +14,7 @@ This repo uses **GNU Stow** to symlink configs into place.
 `sudo dnf copr enable dejan/lazygit
 sudo dnf install lazygit`
 - `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
-- `workmux` (worktree + tmux window per task): `brew install raine/workmux/workmux` on macOS; on Linux the
-  `workmux-linux-<arch>.tar.gz` release binary, checked against its `.sha256`, into `~/.local/bin`. It needs
-  a tmux whose `capture-pane` works, so not EL10's dnf package (see below). Status icons need the Claude plugin on each host:
-  `claude plugin marketplace add raine/workmux` then `claude plugin install workmux-status`
+- `workmux` (worktree + tmux window per task: `brew install raine/workmux/workmux`; Linux below)
 - `tectonic` (`cargo install tectonic`)
 - `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
 - `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)
@@ -29,12 +26,36 @@ sudo dnf config-manager --set-enabled crb
 sudo dnf install git curl zsh tmux fzf stow ripgrep fd-find ghostscript cargo npm libpng-devel openssl-devel freetype-devel luarocks ImageMagick
 ```
 
-On EL10, dnf's tmux is a git snapshot (`tmux -V` says `next-3.4`) that aborts
-the whole server on any `capture-pane`, which the theme's `F` binding and
-workmux both use. Build a tmux release into `~/.local/opt/tmux-<version>`
-(`./configure --prefix=...`, needing `libevent-devel` and `ncurses-devel`) and
-link its binary as `~/.local/bin/tmux`, which `zsh/.zshenv` puts first on
-PATH. Leave the dnf package installed; it is only a fallback.
+On EL10 (Enterprise Linux 10: RHEL and Rocky Linux 10), dnf's tmux is a git
+snapshot (`tmux -V` says `next-3.4`) that aborts the whole server on any
+`capture-pane`, which the theme's `F` binding and workmux both use. Build a
+tmux release into `~/.local/opt/tmux-<version>` and link it as
+`~/.local/bin/tmux`, which `zsh/.zshenv` puts first on PATH. Leave the dnf
+package installed; it is only a fallback.
+
+```sh
+sudo dnf install libevent-devel ncurses-devel bison
+v=3.8; mkdir -p ~/.local/src && cd ~/.local/src
+curl -fLO https://github.com/tmux/tmux/releases/download/$v/tmux-$v.tar.gz
+tar -xzf tmux-$v.tar.gz && cd tmux-$v
+./configure --prefix=$HOME/.local/opt/tmux-$v && make -j"$(nproc)" && make install
+ln -sfn ~/.local/opt/tmux-$v/bin/tmux ~/.local/bin/tmux
+```
+
+A running server keeps the old binary until it is ended (`/usr/bin/tmux
+kill-server`), which closes every session on the host.
+
+workmux on Linux comes from its release binary, checked against the
+published checksum, plus the Claude plugin that shows agent status:
+
+```sh
+v=v0.1.275; a=workmux-linux-amd64; cd ~/.local/src
+curl -fLO https://github.com/raine/workmux/releases/download/$v/$a.tar.gz
+curl -fL https://github.com/raine/workmux/releases/download/$v/$a.sha256 | sha256sum -c
+tar -xzf $a.tar.gz && install -m 755 workmux ~/.local/bin/workmux
+claude plugin marketplace add raine/workmux
+claude plugin install workmux-status
+```
 
 ### neovim
 ```sh
@@ -174,9 +195,9 @@ Nothing is written into the ESP-IDF project, and nothing changes on the build
 Host.
 
 `~/.config/clangd/config.yaml` is generated and holds machine-local absolute
-paths. Note that `~/.config` is itself a symlink to `nvim/.config`, so that file
-physically lands **inside this repository**; `.gitignore` is what keeps it out
-of git and off other machines.
+paths. Where `~/.config/clangd` is stowed from `nvim/.config/clangd`, as on
+mgmt-1, that file physically lands **inside this repository**; `.gitignore` is
+what keeps it out of git and off other machines.
 
 ### Traps
 
