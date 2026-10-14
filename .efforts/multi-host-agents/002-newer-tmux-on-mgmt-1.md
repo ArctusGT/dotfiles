@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** Replace mgmt-1's tmux snapshot, which aborts on `capture-pane`, with tmux 3.5 or newer
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/001-non-login-shell-env]
 
 **Current behavior:**
@@ -47,3 +47,29 @@ cannot talk to the old server, so the switch ends every running session.
 - Removing the `next-*` guard or the `capture-pane` warning in AGENTS.md; a
   follow-up can do that once no host runs the snapshot
 - workmux itself (slice 003)
+
+## Comments
+
+2026-10-14, code review, beyond this slice's scope, for the Maintainer:
+
+- A shell whose PATH lacks `~/.local/bin` (root, `sudo`, `env -i`, a
+  `/bin/sh` script) still runs `/usr/bin/tmux`. With no server running it
+  would start a snapshot server on the default socket, which aborts on
+  `capture-pane` again. Nothing guards against this beyond the warning in
+  AGENTS.md.
+- Processes started under the old server still carry its `TMUX` and
+  `TMUX_PANE` in their environment; a Claude daemon in the old
+  `tmux-spawn-*` systemd scope was still running at review. Their tmux calls
+  (hooks, markers) target a dead server until they restart.
+- The build links `libevent_core-2.1.so.7` and `libtinfo.so.6`. Minor dnf
+  updates keep it working; a major bump (EL11) breaks it, and nothing
+  rebuilds it. The build script lives outside the repo.
+- The build has systemd support off, where the dnf package had it on and ran
+  each pane in its own `tmux-spawn-*` scope. Panes now live in the server's
+  cgroup and can go down with it. `--enable-systemd` needs `systemd-devel`.
+- `man tmux` still shows the snapshot's page: the new man page sits under
+  `~/.local/opt/tmux-3.8/share/man`, which is not on MANPATH.
+- Housekeeping: a 4.8 MB `tmux-server-*.log` from the old server's `-vv` run
+  is still in mgmt-1's home directory.
+
+---
