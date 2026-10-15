@@ -1,11 +1,61 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state start"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state end"
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "hooks": [
           {
             "type": "command",
             "command": "~/.local/bin/claude-tmux-status wait"
+          }
+        ]
+      },
+      {
+        "matcher": "permission_prompt|elicitation_dialog",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state wait"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state wait"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state resume"
           }
         ]
       }
@@ -16,6 +66,30 @@
           {
             "type": "command",
             "command": "~/.local/bin/claude-tmux-status wait"
+          },
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state stop"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state agent-on"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state agent-off"
           }
         ]
       }
@@ -26,10 +100,18 @@
           {
             "type": "command",
             "command": "~/.local/bin/claude-tmux-status clear"
+          },
+          {
+            "type": "command",
+            "command": "~/.local/bin/claude-session-state prompt"
           }
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.local/bin/claude-statusline"
   },
   "enabledPlugins": {
     "workmux-status@workmux": true

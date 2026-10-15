@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Claude Code hook: claude-session-state EVENT, hook JSON on stdin.
+# Keeps one state file per Claude session under
+# ${XDG_STATE_HOME:-~/.local/state}/claude-sessions, which `claude-sessions`
+# reads. EVENT is the hook that ran:
+#   start      SessionStart        file appears, state idle
+#   prompt     UserPromptSubmit    state working
+#   resume     PostToolUse         state working again after a permission prompt
+#   wait       Notification        state waiting (permission prompt, question)
+#   stop       Stop                state idle
+#   agent-on   SubagentStart       one more running subagent
+#   agent-off  SubagentStop        one fewer
+#   end        SessionEnd          the session's files are removed
+# Changes only files in that directory, and is silent.
+[[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
+dir=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sessions
+input=$(cat)
+sid=$(jq -r '.session_id // empty' <<<"$input")
+[[ -n $sid ]] || exit 0
+mkdir -p "$dir"
+state_file=$dir/$sid.json
+agents=$dir/$sid.agents
+
+# The Claude process is the nearest ancestor named claude: hooks run under a
+# shell Claude starts, so $PPID alone can be that shell.
+claude_pid() {
+  local pid=$PPID comm
+  while ((pid > 1)); do
+    comm=$(ps -o comm= -p "$pid") || break
+    [[ ${comm##*/} == claude || ${comm##*/} =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && { echo "$pid"; return; }
+    pid=$(ps -o ppid= -p "$pid" | tr -d ' ')
+  done
+  echo "$PPID"
+}
+
+# Rewrite the state file through a temp file, so a reader never sees half of
+# one. Keeps `since` unless the state changes.
+set_state() {
+  local new=$1 old='{}'
+  [[ -f $state_file ]] && old=$(<"$state_file")
+  jq -n --argjson old "$old" --argjson in "$input" \
+    --arg state "$new" --arg pid "$(claude_pid)" --arg pane "${TMUX_PANE:-}" \
+    --argjson now "$(date +%s)" '
+    $old + {
+      session_id: $in.session_id,
+      pid: ($old.pid // ($pid | tonumber)),
+      cwd: ($in.cwd // $old.cwd),
+      tmux_pane: ($old.tmux_pane // (if $pane == "" then null else $pane end)),
+      name: ($old.name // ($in.prompt | if . then split("\n")[0][0:60] else null end)),
+      state: $state,
+      since: (if $old.state == $state then $old.since else $now end)
+    }' >"$state_file.tmp.$$" && mv "$state_file.tmp.$$" "$state_file"
+}
+
+case $1 in
+  start) set_state idle ;;
+  prompt) set_state working ;;
+  resume) [[ $(jq -r .state "$state_file" 2>/dev/null) == waiting ]] && set_state working ;;
+  wait) set_state waiting ;;
+  stop) set_state idle ;;
+  agent-on)
+    id=$(jq -r '.agent_id // empty' <<<"$input")
+    [[ -n $id ]] && mkdir -p "$agents" && : >"$agents/$id"
+    ;;
+  agent-off)
+    id=$(jq -r '.agent_id // empty' <<<"$input")
+    [[ -n $id ]] && rm -f "$agents/$id"
+    ;;
+  end) rm -rf "$state_file" "$dir/$sid.context.json" "$agents" ;;
+esac
+exit 0

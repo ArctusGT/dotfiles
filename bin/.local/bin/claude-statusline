@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Claude Code statusLine command: status JSON on stdin, one line on stdout.
+# Prints the session's context-window use, and records it with the session's
+# cost in ${XDG_STATE_HOME:-~/.local/state}/claude-sessions/<session>.context.json
+# for `claude-sessions`.
+[[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
+dir=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sessions
+input=$(cat)
+sid=$(jq -r '.session_id // empty' <<<"$input")
+
+if [[ -n $sid ]]; then
+  mkdir -p "$dir"
+  jq '{
+    model: .model.display_name,
+    used_tokens: (.context_window.current_usage // {}
+      | [.input_tokens, .cache_creation_input_tokens, .cache_read_input_tokens]
+      | map(. // 0) | add),
+    window_tokens: .context_window.context_window_size,
+    used_pct: .context_window.used_percentage,
+    cost_usd: .cost.total_cost_usd
+  }' <<<"$input" >"$dir/$sid.context.json.tmp.$$" &&
+    mv "$dir/$sid.context.json.tmp.$$" "$dir/$sid.context.json"
+fi
+
+jq -r '"\(.model.display_name // "claude")  ctx \(.context_window.used_percentage // 0 | floor)%"' <<<"$input"

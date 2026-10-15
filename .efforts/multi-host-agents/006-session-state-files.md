@@ -57,13 +57,13 @@ without an end hook are recognisable as stale: their pid is gone.
       context-window fields
 - [ ] A session's state reads `working` while it runs a turn, `waiting` while a
       permission prompt or question is open, and `idle` after it stops
-- [ ] Starting a subagent raises the session's subagent count and its finishing
+- [x] Starting a subagent raises the session's subagent count and its finishing
       lowers it
 - [ ] Context used, window size and percentage match what the session's own
       `/context` reports, within one turn
 - [ ] Ending a session removes its file; killing one leaves a file whose pid
       no longer exists
-- [ ] Each session's status line shows its context percentage
+- [x] Each session's status line shows its context percentage
 - [ ] The marker and bell from `claude-tmux-status` still work on both hosts
 
 **Out of scope:**
