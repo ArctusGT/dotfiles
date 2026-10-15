@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Every Claude session on a host keeps one small state file current, carrying its state, its place in tmux and its context-window use
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** none
 
 **Current behavior:**
@@ -50,21 +50,21 @@ without an end hook are recognisable as stale: their pid is gone.
 - `claude-tmux-status`'s wait and clear behaviour, which keeps working
 
 **Acceptance criteria:**
-- [ ] On the Mac and on mgmt-1, every live Claude session in a tmux pane has a
+- [x] On the Mac and on mgmt-1, every live Claude session in a tmux pane has a
       state file, including several sessions in one repo
-- [ ] Measured and recorded in the closing commit: which of the desktop app's
+- [x] Measured and recorded in the closing commit: which of the desktop app's
       SSH sessions and background sessions write a state file, and which carry
       context-window fields
-- [ ] A session's state reads `working` while it runs a turn, `waiting` while a
+- [x] A session's state reads `working` while it runs a turn, `waiting` while a
       permission prompt or question is open, and `idle` after it stops
 - [x] Starting a subagent raises the session's subagent count and its finishing
       lowers it
-- [ ] Context used, window size and percentage match what the session's own
+- [x] Context used, window size and percentage match what the session's own
       `/context` reports, within one turn
-- [ ] Ending a session removes its file; killing one leaves a file whose pid
+- [x] Ending a session removes its file; killing one leaves a file whose pid
       no longer exists
 - [x] Each session's status line shows its context percentage
-- [ ] The marker and bell from `claude-tmux-status` still work on both hosts
+- [x] The marker and bell from `claude-tmux-status` still work on both hosts
 
 **Out of scope:**
 - Any view or sidebar reading the files (slice 004)
