@@ -35,6 +35,10 @@ bespoke TUI.
 **Key interfaces:**
 - The state-file directory from slice 006, read locally and over
   `ssh sysadmin@mgmt-1`, which logs in without a prompt
+  - A pid can carry several sessions: a `claude daemon` hosts each of its
+    sessions under its own pid, so rows are keyed by session id, never by pid
+  - Desktop-app sessions write no context file, so their rows have no
+    context percentage
 - The hosts to include, as configuration rather than code
 - The `@ssh_tmux` window option `ssh-tmux` sets, mapping a host to the Mac
   window holding its session
