@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Every Claude session on a host keeps one small state file current, carrying its state, its place in tmux and its context-window use
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** none
 
 **Current behavior:**
