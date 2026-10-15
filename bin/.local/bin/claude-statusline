@@ -11,6 +11,7 @@ sid=$(jq -r '.session_id // empty' <<<"$input")
 if [[ -n $sid ]]; then
   mkdir -p "$dir"
   jq '{
+    name: .session_name,
     model: .model.display_name,
     used_tokens: (.context_window.current_usage // {}
       | [.input_tokens, .cache_creation_input_tokens, .cache_read_input_tokens]

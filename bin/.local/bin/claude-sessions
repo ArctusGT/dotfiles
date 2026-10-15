@@ -22,5 +22,5 @@ for state_file in "$dir"/*.json; do
   context=null
   [[ -f $dir/$sid.context.json ]] && context=$(<"$dir/$sid.context.json")
   jq -c --argjson n "${#agents[@]}" --argjson ctx "$context" \
-    '. + {subagents: $n, context: $ctx}' "$state_file"
+    '. + {name: $ctx.name?, subagents: $n, context: $ctx}' "$state_file"
 done

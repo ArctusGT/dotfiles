@@ -46,7 +46,6 @@ set_state() {
       pid: ($old.pid // ($pid | tonumber)),
       cwd: ($in.cwd // $old.cwd),
       tmux_pane: ($old.tmux_pane // (if $pane == "" then null else $pane end)),
-      name: ($old.name // ($in.prompt | if . then split("\n")[0][0:60] else null end)),
       state: $state,
       since: (if $old.state == $state then $old.since else $now end)
     }' >"$state_file.tmp.$$" && mv "$state_file.tmp.$$" "$state_file"
