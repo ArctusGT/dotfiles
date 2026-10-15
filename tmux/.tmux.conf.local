@@ -453,6 +453,10 @@ set-hook -g client-session-changed[10] 'set -wu @claude_wait'
 # always a remote Claude waiting (claude-tmux-status there rings it): mark it
 set-hook -g alert-bell[10] "if -F '#{&&:#{@ssh_tmux},#{||:#{==:#{window_active},0},#{==:#{session_attached},0}}}' 'set -w @claude_wait 1'"
 bind a choose-tree -Zw -f '#{||:#{@claude_wait},#{window_bell_flag}}'
+
+# windows: ctrl+left / ctrl+right, no prefix
+bind -n C-Left previous-window
+bind -n C-Right next-window
 # clicking a waiting-Claude marker (a range=user|@<window_id> in status-right)
 # jumps to that window; any other status click keeps the default behaviour
 bind -T root MouseDown1Status if -F '#{m:@*,#{mouse_status_range}}' \
