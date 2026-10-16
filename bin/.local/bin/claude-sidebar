@@ -174,9 +174,13 @@ case $1 in
     mkdir -p "$cache" && refresh
     serve &
     trap 'kill $! 2>/dev/null; rm -rf "$cache"' EXIT
+    # no --track: it holds back cursor moves while it finds the item again
+    # after each reload, and the list's order is stable without it. Esc and
+    # ctrl-c clear the query rather than closing the sidebar
     fzf --read0 --ansi --delimiter '\t' --with-nth 6.. <"$cache/rows" \
-      --track --id-nth 4 --layout reverse --no-scrollbar --info hidden \
-      --gap --prompt '' --bind "every(0.5):reload(cat '$cache/rows')" \
+      --layout reverse --no-scrollbar --info hidden --gap --prompt '' \
+      --bind "every(0.5):reload(cat '$cache/rows')" \
+      --bind "esc,ctrl-c,ctrl-g,ctrl-q:clear-query" \
       --bind "enter,left-click:execute-silent($self jump {1} {2} {3})+clear-query"
     ;;
   *) echo "usage: claude-sidebar [rows|pick N|jump HOST PANE SESSION]" >&2; exit 2 ;;
