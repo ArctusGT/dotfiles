@@ -136,9 +136,9 @@ host.
 | `M-1` … `M-9` | the same for the entry numbered 1 to 9 |
 | `M-s` | move into the sidebar, and back out |
 
-Only sessions in a tmux pane are numbered. The rest are dimmed below them and
-cannot be jumped to: `desktop` for the Claude desktop app's, `background` for
-a `--bg` session or a `claude daemon`. A remote session shows through the
+Only sessions in a tmux pane are numbered. A `--bg` session or a `claude
+daemon` is dimmed below them as `background`, and cannot be jumped to. Claude
+desktop app sessions are left out; the app's own sidebar lists them. A remote session shows through the
 Mac's session for that host, which `prefix f` opens; the sidebar then moves
 that host's one client to the session's pane.
 

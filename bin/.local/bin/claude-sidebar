@@ -48,13 +48,14 @@ remote_hosts() {
 }
 
 # claude-sessions' lines on stdin, tagged with where they came from, sessions
-# with a pane first; a header line before them, so every host shows even with
-# no sessions. The header carries the host's pane on show in the frame, if any
+# with a pane first, and desktop app sessions left out unless one has a pane; a
+# header line before them, so every host shows even with no sessions. The header carries the host's pane on show in the frame, if any
 tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5 pane on show
   jq -nc --arg label "$1" --arg down "$4" --arg current "$5" \
     '{header: true, $label, down: ($down != ""), $current}'
   [[ -n $4 ]] || jq -sc --arg host "$2" --arg relay "$3" \
-    'sort_by(.tmux_pane == null)[] + {$host, $relay}'
+    'map(select(.entrypoint != "claude-desktop" or .tmux_pane != null))
+     | sort_by(.tmux_pane == null)[] + {$host, $relay}'
 }
 
 # one NUL-terminated fzf item per header or session: ssh host, pane, relay
@@ -76,9 +77,8 @@ format() {
       else
         ($r.context.used_pct) as $pct
         | ($r.tmux_pane != null) as $jumpable
-        # a session with no pane is dimmed, and says what kind it is
+        # a session with no pane (a --bg one, or a daemon) is dimmed
         | (if $jumpable then "" else "\u001b[2m" end) as $dim
-        | (if $r.entrypoint == "claude-desktop" then "desktop" else "background" end) as $kind
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
            (if $jumpable then "\($n)" else "" end),
            (if $jumpable and $r.tmux_pane == $cur then "1" else "" end),
@@ -89,7 +89,7 @@ format() {
            + (if $pct == null then ""
               elif $pct >= $warn then "  \u001b[31m!ctx \($pct)%\u001b[0m"
               else "  ctx \($pct)%" end)
-           + (if $jumpable then "" else "  " + $dim + $kind + "\u001b[0m" end)]
+           + (if $jumpable then "" else "  " + $dim + "background\u001b[0m" end)]
       end
     | join("\t") + "\u0000"'
 }
@@ -140,10 +140,13 @@ jump() { # $1 ssh host, $2 pane, $3 relay session
     window=$(work list-windows -a -F '#{window_id} #{@ssh_tmux}' | awk -v h="$host" '$2 == h {print $1; exit}')
     [[ -n $window ]] || { tmux display-message "open $relay first (prefix f)"; return; }
     work switch-client "${client[@]}" -t "$window" \; select-window -t "$window"
-    # the host's one client from the Mac runs inside the Mac's tmux (tmux* term)
+    # the host's one client from the Mac runs inside the Mac's tmux (tmux*
+    # term). In the background, so a slow link does not hold up the caller,
+    # which for a click is fzf itself
     ssh "${ssh_opts[@]}" "$host" "
       client=\$(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_name}' | head -1)
-      [ -n \"\$client\" ] && tmux switch-client -c \"\$client\" -t '$pane' \\; select-window -t '$pane' \\; select-pane -t '$pane'"
+      [ -n \"\$client\" ] && tmux switch-client -c \"\$client\" -t '$pane' \\; select-window -t '$pane' \\; select-pane -t '$pane'" \
+      </dev/null >/dev/null 2>&1 &
   fi
   [[ -n $main ]] && tmux select-pane -t "${main%% *}"
   kick # rebuild now, so the list shows the move
