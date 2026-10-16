@@ -14,7 +14,7 @@ This repo uses **GNU Stow** to symlink configs into place.
 `sudo dnf copr enable dejan/lazygit
 sudo dnf install lazygit`
 - `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
-- `workmux` (worktree + tmux window per task: `brew install raine/workmux/workmux`; Linux below)
+- `jq` (`claude-sessions` and the Claude sessions sidebar)
 - `tectonic` (`cargo install tectonic`)
 - `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
 - `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)
@@ -28,7 +28,7 @@ sudo dnf install git curl zsh tmux fzf stow ripgrep fd-find ghostscript cargo np
 
 On EL10 (Enterprise Linux 10: RHEL and Rocky Linux 10), dnf's tmux is a git
 snapshot (`tmux -V` says `next-3.4`) that aborts the whole server on any
-`capture-pane`, which the theme's `F` binding and workmux both use. Build a
+`capture-pane`, which the theme's `F` binding uses. Build a
 tmux release into `~/.local/opt/tmux-<version>` and link it as
 `~/.local/bin/tmux`, which `zsh/.zshenv` puts first on PATH. Leave the dnf
 package installed; it is only a fallback.
@@ -44,18 +44,6 @@ ln -sfn ~/.local/opt/tmux-$v/bin/tmux ~/.local/bin/tmux
 
 A running server keeps the old binary until it is ended (`/usr/bin/tmux
 kill-server`), which closes every session on the host.
-
-workmux on Linux comes from its release binary, checked against the
-published checksum, plus the Claude plugin that shows agent status:
-
-```sh
-v=v0.1.275; a=workmux-linux-amd64; cd ~/.local/src
-curl -fLO https://github.com/raine/workmux/releases/download/$v/$a.tar.gz
-curl -fL https://github.com/raine/workmux/releases/download/$v/$a.sha256 | sha256sum -c
-tar -xzf $a.tar.gz && install -m 755 workmux ~/.local/bin/workmux
-claude plugin marketplace add raine/workmux
-claude plugin install workmux-status
-```
 
 ### neovim
 ```sh
@@ -98,7 +86,7 @@ cd ~/dotfiles
 From inside `~/dotfiles`, run stow for the packages you want:
 
 ```bash
-stow zsh tmux nvim bin sesh claude workmux
+stow zsh tmux nvim bin sesh claude
 ```
 
 This creates symlinks like:
@@ -113,10 +101,24 @@ that already has a `~/.zshenv`, fold anything it needs into
 `zsh/.zshenv` and remove it before stowing.
 
 Keep one sesh entry per remote host (see `sesh/.config/sesh/sesh.toml`). A
-second entry for the same host adds a second client to its tmux, and
-workmux's jumps can then move the wrong one. On the host, a new repo session
+second entry for the same host adds a second client to its tmux, and the
+sidebar's jumps can then move the wrong one. On the host, a new repo session
 is `tmux new -d -s <repo> -c ~/<repo>`, then `prefix prefix s` to switch to
 it.
+
+### Claude sessions sidebar
+
+`prefix C-t` opens a pane on the left of the current window listing every
+Claude session on the Mac and on each host a sesh entry reaches through
+`ssh-tmux`. Each entry shows host and repo, the session's name, then its
+state, time in that state, running subagents (`+N`) and context use. Context
+at or past `CLAUDE_CTX_WARN` percent (default 50) shows red as `!ctx`, the cue
+to hand off and clear. `Enter` jumps to the session's pane, through the host's
+`ssh-tmux` window for a remote one. A session with `(no pane)`, from the
+desktop app or `--bg`, is listed and does not jump. A host that does not
+answer shows as one `unreachable` entry. `prefix C-t` again closes the pane.
+The list comes from `claude-sessions` on each host, refreshed every 2s over
+one shared ssh connection per host.
 
 ### 3) Preview changes (dry-run)
 ```bash

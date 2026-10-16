@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+# claude-sidebar [toggle|rows|jump]: list every Claude session on this host and
+# on each host the sesh config reaches through `ssh-tmux`, and jump to one.
+# With no argument, runs the list in fzf, refreshed every 2s; Enter jumps.
+#   toggle            open or close the list as a left pane in the current
+#                     window (the tmux binding)
+#   rows              print the list once, as fzf reads it
+#   jump HOST PANE SESSION
+#                     focus PANE on HOST (empty HOST = this one); a remote pane
+#                     is shown through the Mac's SESSION, its ssh-tmux relay
+# CLAUDE_CTX_WARN     context percentage a row is marked at (default 50)
+# SESH_CONFIG         sesh config the hosts come from
+#                     (default ~/.config/sesh/sesh.toml)
+[[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
+self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+warn=${CLAUDE_CTX_WARN:-50}
+sesh_config=${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}
+
+# "<session name>\t<ssh host>" for each sesh entry started by ssh-tmux
+remote_hosts() {
+  [[ -f $sesh_config ]] || return 0
+  awk '/^\[\[session\]\]/ {name=""}
+       /^name *=/ {name=$0; sub(/^name *= *"/, "", name); sub(/".*/, "", name)}
+       /^startup_command *=.*ssh-tmux / {
+         host=$0; sub(/.*ssh-tmux +/, "", host); sub(/[ "].*/, "", host)
+         print name "\t" host }' "$sesh_config"
+}
+
+# one NUL-terminated fzf item per session:
+# ssh host, pane, relay session, session id, then three display lines
+format() { # $1 label, $2 ssh host, $3 relay session
+  jq -rj --arg label "$1" --arg host "$2" --arg relay "$3" \
+    --argjson now "$(date +%s)" --argjson warn "$warn" '
+    def ago: if . < 60 then "\(.)s" elif . < 3600 then "\(. / 60 | floor)m"
+             else "\(. / 3600 | floor)h" end;
+    (.context.used_pct) as $pct
+    | [$host, (.tmux_pane // ""), $relay, .session_id,
+       "\($label) \(.cwd | split("/") | last)\n  \(.name // .session_id[:8])\n"
+       + "  \(.state) \($now - .since | ago)"
+       + (if .subagents > 0 then "  +\(.subagents)" else "" end)
+       + (if $pct == null then ""
+          elif $pct >= $warn then "  \u001b[31m!ctx \($pct)%\u001b[0m"
+          else "  ctx \($pct)%" end)
+       + (if .tmux_pane == null then "  (no pane)" else "" end)]
+    | join("\t") + "\u0000"'
+}
+
+rows() {
+  local tmp; tmp=$(mktemp -d) || return
+  # hosts in parallel, so an unreachable one costs one ConnectTimeout, not more
+  { claude-sessions | format local "" "" >"$tmp/0"; } &
+  local i=0 name host
+  while IFS=$'\t' read -r name host; do
+    i=$((i + 1))
+    {
+      # one master connection per host, so a refresh every 2s is not a login
+      if out=$(ssh -o BatchMode=yes -o ConnectTimeout=3 -o ControlMaster=auto \
+        -o ControlPath=/tmp/claude-sidebar-%C -o ControlPersist=60 \
+        "$host" claude-sessions 2>/dev/null); then
+        [[ -n $out ]] && format "$name" "$host" "$name" <<<"$out"
+      else
+        printf '%s\t\t\t%s\t%s unreachable\0' "$host" "unreachable-$host" "$name"
+      fi >"$tmp/$i"
+    } &
+  done < <(remote_hosts)
+  wait
+  cat "$tmp"/*
+  rm -rf "$tmp"
+}
+
+jump() { # $1 ssh host, $2 pane, $3 relay session
+  local host=$1 pane=$2 relay=$3
+  [[ -n $pane ]] || return 0 # no tmux pane: a desktop or background session
+  if [[ -z $host ]]; then
+    tmux switch-client -t "$pane" \; select-window -t "$pane" \; select-pane -t "$pane"
+    return
+  fi
+  # the Mac window holding this host's relay, tagged by ssh-tmux
+  local window
+  window=$(tmux list-windows -a -F '#{window_id} #{@ssh_tmux}' | awk -v h="$host" '$2 == h {print $1; exit}')
+  if [[ -n $window ]]; then
+    tmux switch-client -t "$window" \; select-window -t "$window"
+  else
+    sesh connect "$relay"
+  fi
+  # the host's one client from the Mac runs inside the Mac's tmux (tmux* term)
+  ssh -o BatchMode=yes -o ConnectTimeout=3 -o ControlPath=/tmp/claude-sidebar-%C "$host" "
+    client=\$(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_name}' | head -1)
+    [ -n \"\$client\" ] && tmux switch-client -c \"\$client\" -t '$pane' \\; select-window -t '$pane' \\; select-pane -t '$pane'"
+}
+
+toggle() {
+  local open
+  open=$(tmux list-panes -F '#{pane_id} #{@claude_sidebar}' | awk '$2 == 1 {print $1; exit}')
+  if [[ -n $open ]]; then
+    tmux kill-pane -t "$open"
+  else
+    tmux split-window -hbf -l 34 "$self" \; set -p @claude_sidebar 1
+  fi
+}
+
+case $1 in
+  rows) rows ;;
+  jump) jump "$2" "$3" "$4" ;;
+  toggle) toggle ;;
+  "")
+    "$self" rows | fzf --read0 --ansi --delimiter '\t' --with-nth 5.. \
+      --track --id-nth 4 --layout reverse --no-scrollbar --info hidden \
+      --gap --prompt '' --bind "every(2):reload-sync($self rows)" \
+      --bind "enter:execute-silent($self jump {1} {2} {3})+clear-query"
+    ;;
+  *) echo "usage: claude-sidebar [toggle|rows|jump HOST PANE SESSION]" >&2; exit 2 ;;
+esac

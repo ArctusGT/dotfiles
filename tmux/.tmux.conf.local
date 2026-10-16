@@ -453,6 +453,8 @@ set-hook -g client-session-changed[10] 'set -wu @claude_wait'
 # always a remote Claude waiting (claude-tmux-status there rings it): mark it
 set-hook -g alert-bell[10] "if -F '#{&&:#{@ssh_tmux},#{||:#{==:#{window_active},0},#{==:#{session_attached},0}}}' 'set -w @claude_wait 1'"
 bind a choose-tree -Zw -f '#{||:#{@claude_wait},#{window_bell_flag}}'
+# C-t = toggle the Claude sessions sidebar (every host sesh reaches) on the left
+bind C-t run-shell "~/.local/bin/claude-sidebar toggle"
 
 # windows: ctrl+left / ctrl+right, no prefix
 bind -n C-Left previous-window
