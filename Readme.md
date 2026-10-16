@@ -107,6 +107,11 @@ sidebar's jumps can then move the wrong one. On the host, a new repo session
 is `tmux new -d -s <repo> -c ~/<repo>`, then `prefix prefix s` to switch to
 it.
 
+While a host's session is open, the Mac hides its own bar for that session,
+so the host's bar, with the host's windows, is the only one on screen.
+`ctrl+left` and `ctrl+right` there move between the host's windows; the
+host's other keys take the prefix twice (`C-Space C-Space`).
+
 ### Claude sessions sidebar
 
 Run `tmux-frame` in place of `tmux`. It opens a frame: a tmux of its own

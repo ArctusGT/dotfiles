@@ -3,6 +3,8 @@
 # drops (sleep, wifi change, idle timeout).
 # Attaches to the host's most recently used session, or creates `main` if the
 # host has none. Detaching or exiting the remote tmux ends the loop.
+# Inside tmux, hides the local session's bar while it runs, so the remote's
+# bar is the one on screen.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 host=$1
 [[ -n $host ]] || { echo "usage: ssh-tmux HOST" >&2; exit 2; }
@@ -15,9 +17,19 @@ remote='last=$(tmux list-sessions -F "#{session_last_attached} #{session_name}" 
 tmux -u new -AD -s "${last:-main}"'
 
 # tag the local window so a bell from the remote marks it (see alert-bell hook)
+# and window keys pass through to it, and hide the local session's bar so the
+# remote's, with the remote's windows, is the only one on screen
 if [[ -n $TMUX_PANE ]]; then
-  tmux set -w -t "$TMUX_PANE" @ssh_tmux "$host"
-  trap 'tmux set -wu -t "$TMUX_PANE" @ssh_tmux' EXIT
+  session=$(tmux display -p -t "$TMUX_PANE" '#{session_id}')
+  tmux set -w -t "$TMUX_PANE" @ssh_tmux "$host" \; set -t "$session" status off
+  # on ctrl-c or a kill as well as a normal exit. The bar is restored by
+  # session id, because after a closed window the pane is already gone
+  untag() {
+    tmux set -wu -t "$TMUX_PANE" @ssh_tmux 2>/dev/null
+    tmux set -u -t "$session" status 2>/dev/null
+  }
+  trap untag EXIT
+  trap 'untag; trap - EXIT; exit 1' HUP INT TERM
 fi
 
 while :; do
@@ -25,7 +37,8 @@ while :; do
     "$host" "$remote"
   (( $? == 255 )) || break # 255 = connection error; anything else was deliberate
   # undo mouse reporting, alt screen and hidden cursor left by the remote tmux
-  printf '\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?1049l\e[?25h'
+  # and stop if that fails: the window was closed, and its terminal is gone
+  printf '\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?1049l\e[?25h' 2>/dev/null || break
   echo "lost connection to $host, reconnecting in 3s (ctrl-c to stop)"
   sleep 3
 done
