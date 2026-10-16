@@ -4,10 +4,25 @@
 # rings its bell, plus every client running inside another tmux (an ssh-tmux
 # relay); `clear` (UserPromptSubmit) unmarks it. Marked windows show in every
 # session's status bar (see .tmux.conf.local). Reads $TMUX_PANE, which Claude
-# inherits from its pane; does nothing outside tmux.
+# inherits from its pane. A session with no pane, run by a `claude daemon`,
+# still rings the relay clients on `wait`, so the Mac marks its ssh window.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 cat >/dev/null # drain hook JSON on stdin
-[[ -n $TMUX_PANE ]] || exit 0
+
+# tmux forwards a pane's bell only to clients on that pane's session, and the
+# Mac's ssh-tmux client may be on another one. That client runs inside the
+# Mac's tmux, so its terminal type is tmux*: ring every such client.
+ring_relays() {
+  local relay_tty
+  for relay_tty in $(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_tty}' 2>/dev/null); do
+    printf '\a' >"$relay_tty"
+  done
+}
+
+if [[ -z $TMUX_PANE ]]; then
+  [[ $1 == wait ]] && ring_relays
+  exit 0
+fi
 case $1 in
   wait)
     # no need to flag the window you're already looking at. Over ssh an
@@ -17,12 +32,7 @@ case $1 in
     [[ $viewing == 1 && -z $SSH_CONNECTION ]] && exit 0
     [[ $viewing == 1 ]] || tmux set -w -t "$TMUX_PANE" @claude_wait 1
     tty=$(tmux display -p -t "$TMUX_PANE" '#{pane_tty}') && printf '\a' >"$tty"
-    # tmux forwards a pane's bell only to clients on that pane's session, and
-    # the Mac's ssh-tmux client may be on another one. That client runs inside
-    # the Mac's tmux, so its terminal type is tmux*: ring every such client.
-    for relay_tty in $(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_tty}'); do
-      printf '\a' >"$relay_tty"
-    done
+    ring_relays
     ;;
   clear) tmux set -wu -t "$TMUX_PANE" @claude_wait ;;
 esac
