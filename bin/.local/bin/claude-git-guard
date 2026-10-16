@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Claude Code PreToolUse hook on Bash: deny a command that runs git reset,
+# git stash or git restore. Each one rewrites the shared index or working
+# tree, which holds the Maintainer's staged work (.agents/AGENTS.md, Commits).
+#
+# Reads the hook payload as JSON on stdin and prints a deny decision when the
+# command matches; prints nothing otherwise. Changes nothing.
+#
+# Usage: claude-git-guard < payload.json
+#        claude-git-guard --help
+usage() {
+  awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"
+}
+case "${1:-}" in -h|--help) usage; exit 0 ;; esac
+
+cmd=$(jq -r '.tool_input.command // empty')
+
+# git at a command boundary, any global options (-C dir, -c k=v, --flag),
+# then one of the banned subcommands. A quoted "git reset" is not matched.
+re='(^|[;&|({[:space:]])git([[:space:]]+(-[Cc][[:space:]]+[^[:space:]]+|-[^[:space:]]+))*[[:space:]]+(reset|stash|restore)([[:space:];&|)]|$)'
+
+if printf '%s' "$cmd" | grep -Eq "$re"; then
+  jq -n '{hookSpecificOutput: {
+    hookEventName: "PreToolUse",
+    permissionDecision: "deny",
+    permissionDecisionReason: "git reset, stash and restore are banned here: they rewrite the index the Maintainer stages work in (.agents/AGENTS.md, Commits). To inspect a commit in isolation, use git archive into scratch. If the index really needs changing, ask the Maintainer."
+  }}'
+fi
