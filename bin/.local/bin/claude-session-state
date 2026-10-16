@@ -40,12 +40,14 @@ set_state() {
   [[ -f $state_file ]] && old=$(<"$state_file")
   jq -n --argjson old "$old" --argjson in "$input" \
     --arg state "$new" --arg pid "$(claude_pid)" --arg pane "${TMUX_PANE:-}" \
+    --arg entry "${CLAUDE_CODE_ENTRYPOINT:-}" \
     --argjson now "$(date +%s)" '
     $old + {
       session_id: $in.session_id,
       pid: ($old.pid // ($pid | tonumber)),
       cwd: ($in.cwd // $old.cwd),
       tmux_pane: ($old.tmux_pane // (if $pane == "" then null else $pane end)),
+      entrypoint: ($old.entrypoint // (if $entry == "" then null else $entry end)),
       state: $state,
       since: (if $old.state == $state then $old.since else $now end)
     }' >"$state_file.tmp.$$" && mv "$state_file.tmp.$$" "$state_file"

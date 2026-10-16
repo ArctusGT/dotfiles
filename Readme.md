@@ -136,10 +136,11 @@ host.
 | `M-1` … `M-9` | the same for the entry numbered 1 to 9 |
 | `M-s` | move into the sidebar, and back out |
 
-Only sessions in a tmux pane are numbered; one from the desktop app or `--bg`
-shows `(no pane)`. A remote session shows through the Mac's session for that
-host, which `prefix f` opens; the sidebar then moves that host's one client to
-the session's pane.
+Only sessions in a tmux pane are numbered. The rest are dimmed below them and
+cannot be jumped to: `desktop` for the Claude desktop app's, `background` for
+a `--bg` session or a `claude daemon`. A remote session shows through the
+Mac's session for that host, which `prefix f` opens; the sidebar then moves
+that host's one client to the session's pane.
 
 `M-` is Option, which Ghostty sends as Alt only with `macos-option-as-alt =
 true` in its config.

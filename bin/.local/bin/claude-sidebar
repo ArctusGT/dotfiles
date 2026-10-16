@@ -76,17 +76,20 @@ format() {
       else
         ($r.context.used_pct) as $pct
         | ($r.tmux_pane != null) as $jumpable
+        # a session with no pane is dimmed, and says what kind it is
+        | (if $jumpable then "" else "\u001b[2m" end) as $dim
+        | (if $r.entrypoint == "claude-desktop" then "desktop" else "background" end) as $kind
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
            (if $jumpable then "\($n)" else "" end),
            (if $jumpable and $r.tmux_pane == $cur then "1" else "" end),
-           (if $jumpable then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
-           + "  \($r.name // $r.session_id[:8])\n"
-           + "  \($r.state) \($now - $r.since | ago)"
+           $dim + (if $jumpable then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
+           + $dim + "  \($r.name // $r.session_id[:8])\n"
+           + $dim + "  \($r.state) \($now - $r.since | ago)"
            + (if $r.subagents > 0 then "  +\($r.subagents)" else "" end)
            + (if $pct == null then ""
               elif $pct >= $warn then "  \u001b[31m!ctx \($pct)%\u001b[0m"
               else "  ctx \($pct)%" end)
-           + (if $jumpable then "" else "  (no pane)" end)]
+           + (if $jumpable then "" else "  " + $dim + $kind + "\u001b[0m" end)]
       end
     | join("\t") + "\u0000"'
 }
