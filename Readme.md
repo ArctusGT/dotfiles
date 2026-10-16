@@ -14,7 +14,8 @@ This repo uses **GNU Stow** to symlink configs into place.
 `sudo dnf copr enable dejan/lazygit
 sudo dnf install lazygit`
 - `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
-- `jq` (`claude-sessions` and the Claude sessions sidebar)
+- `jq` (`claude-sessions` and the Claude sessions sidebar), plus `fzf` 0.74 or
+  later, `curl` and `perl` for the sidebar
 - `tectonic` (`cargo install tectonic`)
 - `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
 - `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)
@@ -120,8 +121,9 @@ its number, repo, name, then state, time in that state, running subagents
 (`+N`) and context use. Context at or past `CLAUDE_CTX_WARN` percent (default
 50) shows red as `!ctx`, the cue to hand off and clear. A host that does not
 answer shows `unreachable` under its heading. The list comes from
-`claude-sessions` on each host, refreshed every 2s over one shared ssh
-connection per host.
+`claude-sessions` on each host, rebuilt every second, and at once when a
+tmux client changes session or window, over one shared ssh connection per
+host.
 
 | key | does |
 |---|---|

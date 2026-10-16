@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # tmux-frame: open the frame, a tmux with no bar holding the Claude sessions
 # sidebar on the left and a client of the usual tmux on the right. Run it in
-# place of `tmux`; it reattaches when the frame is already running.
+# place of `tmux`, from outside tmux (it refuses inside one); it reattaches
+# when the frame is already running.
 #   tmux-frame main   the right pane's program: attach to the usual tmux's
 #                     last session, and close the frame once that client ends
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
