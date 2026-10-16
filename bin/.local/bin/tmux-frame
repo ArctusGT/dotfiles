@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# tmux-frame: open the frame, a tmux with no bar holding the Claude sessions
+# sidebar on the left and a client of the usual tmux on the right. Run it in
+# place of `tmux`; it reattaches when the frame is already running.
+#   tmux-frame main   the right pane's program: attach to the usual tmux's
+#                     last session, and close the frame once that client ends
+[[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
+self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+frame=(tmux -L frame -f "$HOME/.tmux-frame.conf")
+
+if [[ $1 == main ]]; then
+  env -u TMUX tmux attach 2>/dev/null || env -u TMUX tmux new
+  "${frame[@]}" kill-server
+  exit
+fi
+[[ -z $TMUX ]] || { echo "tmux-frame: run it outside tmux" >&2; exit 1; }
+
+if ! "${frame[@]}" has-session -t frame 2>/dev/null; then
+  "${frame[@]}" new-session -d -s frame -x "$(tput cols)" -y "$(tput lines)" "$self main" \; \
+    set -p @frame_main 1 \; \
+    split-window -hbf -l 34 "$HOME/.local/bin/claude-sidebar" \; \
+    set -p @claude_sidebar 1 \; \
+    select-pane -t '{right}'
+fi
+exec "${frame[@]}" attach -t frame

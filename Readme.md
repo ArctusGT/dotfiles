@@ -108,17 +108,34 @@ it.
 
 ### Claude sessions sidebar
 
-`prefix C-t` opens a pane on the left of the current window listing every
-Claude session on the Mac and on each host a sesh entry reaches through
-`ssh-tmux`. Each entry shows host and repo, the session's name, then its
-state, time in that state, running subagents (`+N`) and context use. Context
-at or past `CLAUDE_CTX_WARN` percent (default 50) shows red as `!ctx`, the cue
-to hand off and clear. `Enter` jumps to the session's pane, through the host's
-`ssh-tmux` window for a remote one. A session with `(no pane)`, from the
-desktop app or `--bg`, is listed and does not jump. A host that does not
-answer shows as one `unreachable` entry. `prefix C-t` again closes the pane.
-The list comes from `claude-sessions` on each host, refreshed every 2s over
-one shared ssh connection per host.
+Run `tmux-frame` in place of `tmux`. It opens a frame: a tmux of its own
+with no bar, the sidebar on the left and the usual tmux on the right, bar and
+windows as always. The frame binds no prefix, so every tmux key reaches the
+right pane, and `prefix f` there switches only that pane. Detaching the right
+pane closes the frame.
+
+The sidebar lists every Claude session on the Mac and on each host a sesh
+entry reaches through `ssh-tmux`, under one heading per host. Each entry shows
+its number, repo, name, then state, time in that state, running subagents
+(`+N`) and context use. Context at or past `CLAUDE_CTX_WARN` percent (default
+50) shows red as `!ctx`, the cue to hand off and clear. A host that does not
+answer shows `unreachable` under its heading. The list comes from
+`claude-sessions` on each host, refreshed every 2s over one shared ssh
+connection per host.
+
+| key | does |
+|---|---|
+| click, or `Enter` in the sidebar | show that session in the right pane |
+| `M-1` … `M-9` | the same for the entry numbered 1 to 9 |
+| `M-s` | move into the sidebar, and back out |
+
+Only sessions in a tmux pane are numbered; one from the desktop app or `--bg`
+shows `(no pane)`. A remote session shows through the Mac's session for that
+host, which `prefix f` opens; the sidebar then moves that host's one client to
+the session's pane.
+
+`M-` is Option, which Ghostty sends as Alt only with `macos-option-as-alt =
+true` in its config.
 
 ### 3) Preview changes (dry-run)
 ```bash
