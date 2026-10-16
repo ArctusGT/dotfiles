@@ -168,7 +168,8 @@ serve() {
   local sum last_sum="" shown last_shown=""
   while :; do
     refresh
-    sum=$(cksum <"$cache/rows")
+    # without field 6, the session on show, which moves the cursor, not the rows
+    sum=$(perl -0pe 's/^((?:[^\t]*\t){5})[^\t]*/$1/' "$cache/rows" | cksum)
     shown=$(position 6 1)
     if [[ $sum != "$last_sum" ]]; then
       fzf_do "reload-sync(cat '$cache/rows')" && last_sum=$sum
