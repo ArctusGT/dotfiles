@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # claude-sidebar [rows|pick N|jump]: list every Claude session on this host and
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
-# jump to one. With no argument, runs the list in fzf, refreshed every 2s; Enter
-# or a click jumps. `tmux-frame` runs it as the frame's left pane, and a jump
-# moves the frame's right pane; run elsewhere, a jump moves the usual tmux's
-# most recent client.
+# jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
+# A background loop rebuilds the list into a cache every second, so fzf never
+# waits on a host. `tmux-frame` runs it as the frame's left pane: a jump moves
+# the frame's right pane, and the session on show there is highlighted. Run
+# elsewhere, a jump moves the usual tmux's most recent client.
+# Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar.
 #   rows              print the list once, as fzf reads it
-#   pick N            jump to the entry numbered N (the frame's M-1..9)
+#   pick N            jump to the entry numbered N (the frame's M-1..9), as
+#                     the running sidebar shows it
 #   jump HOST PANE SESSION
 #                     focus PANE on HOST (empty HOST = this one); a remote pane
 #                     is shown through the Mac's SESSION, its ssh-tmux relay
@@ -18,9 +21,15 @@ self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 warn=${CLAUDE_CTX_WARN:-50}
 sesh_config=${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ControlPath=/tmp/claude-sidebar-%C)
+cache=${TMPDIR:-/tmp}/claude-sidebar
 
 # the usual tmux server, from inside the frame's server too
 work() { env -u TMUX -u TMUX_PANE tmux "$@"; }
+
+# "<pane id> <pane tty>" of the frame's right pane; empty outside the frame
+frame_main() {
+  tmux list-panes -s -F '#{@frame_main} #{pane_id} #{pane_tty}' 2>/dev/null | awk '$1 == 1 {print $2, $3; exit}'
+}
 
 # "<session name>\t<ssh host>" for each sesh entry started by ssh-tmux
 remote_hosts() {
@@ -34,22 +43,26 @@ remote_hosts() {
 
 # claude-sessions' lines on stdin, tagged with where they came from, sessions
 # with a pane first; a header line before them, so every host shows even with
-# no sessions
-tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty
-  jq -nc --arg label "$1" --arg down "$4" '{header: true, $label, down: ($down != "")}'
+# no sessions. The header carries the host's pane on show in the frame, if any
+tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5 pane on show
+  jq -nc --arg label "$1" --arg down "$4" --arg current "$5" \
+    '{header: true, $label, down: ($down != ""), $current}'
   [[ -n $4 ]] || jq -sc --arg host "$2" --arg relay "$3" \
     'sort_by(.tmux_pane == null)[] + {$host, $relay}'
 }
 
 # one NUL-terminated fzf item per header or session: ssh host, pane, relay
 # session, id, entry number, then the display lines. Sessions with a pane are
-# numbered in order across hosts, for `pick`
+# numbered in order across hosts, for `pick`; the one on show is reversed
 format() {
   jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" '
     def ago: if . < 60 then "\(.)s" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
-    foreach .[] as $r (0; if ($r.header | not) and $r.tmux_pane != null then . + 1 else . end; [$r, .])
-    | .[0] as $r | .[1] as $n
+    foreach .[] as $r ({n: 0, cur: ""};
+      if $r.header then .cur = $r.current
+      elif $r.tmux_pane != null then .n += 1 else . end;
+      [$r, .n, .cur])
+    | .[0] as $r | .[1] as $n | .[2] as $cur
     | if $r.header then
         ["", "", "", "host-\($r.label)", "",
          "\u001b[1m\($r.label)\u001b[0m" + (if $r.down then "  \u001b[31munreachable\u001b[0m" else "" end)]
@@ -58,7 +71,8 @@ format() {
         | ($r.tmux_pane != null) as $jumpable
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
            (if $jumpable then "\($n)" else "" end),
-           (if $jumpable then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
+           (if $jumpable and $r.tmux_pane == $cur then "\u001b[7m" else "" end)
+           + (if $jumpable then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\u001b[0m\n"
            + "  \($r.name // $r.session_id[:8])\n"
            + "  \($r.state) \($now - $r.since | ago)"
            + (if $r.subagents > 0 then "  +\($r.subagents)" else "" end)
@@ -73,18 +87,26 @@ format() {
 # every host's tagged lines, local first
 collect() {
   local tmp; tmp=$(mktemp -d) || return
+  # what the frame's right pane shows: a local pane, or a host's relay window
+  local main shown="" relay_host=""
+  main=$(frame_main)
+  [[ -n $main ]] && read -r shown relay_host < <(work display -p -c "${main#* }" '#{pane_id} #{@ssh_tmux}')
   # hosts in parallel, so an unreachable one costs one ConnectTimeout, not more
-  { claude-sessions | tag local "" "" "" >"$tmp/0"; } &
+  { claude-sessions | tag local "" "" "" "$([[ -z $relay_host ]] && echo "$shown")" >"$tmp/0"; } &
   local i=0 name host
   while IFS=$'\t' read -r name host; do
     i=$((i + 1))
     {
-      # one master connection per host, so a refresh every 2s is not a login
-      if out=$(ssh "${ssh_opts[@]}" -o ControlMaster=auto -o ControlPersist=60 \
-        "$host" claude-sessions 2>/dev/null); then
-        tag "$name" "$host" "$name" "" <<<"$out"
+      # one master connection per host, so a refresh is not a login. After
+      # the sessions, \036 and the pane the Mac's client there is on
+      if out=$(ssh "${ssh_opts[@]}" -o ControlMaster=auto -o ControlPersist=60 "$host" \
+        "claude-sessions; printf '\036'; tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{pane_id}' | head -1" \
+        2>/dev/null); then
+        local remote_shown=""
+        [[ $relay_host == "$host" ]] && remote_shown=${out#*$'\036'}
+        tag "$name" "$host" "$name" "" "${remote_shown//$'\n'/}" <<<"${out%%$'\036'*}"
       else
-        tag "$name" "$host" "$name" unreachable </dev/null
+        tag "$name" "$host" "$name" unreachable "" </dev/null
       fi >"$tmp/$i"
     } &
   done < <(remote_hosts)
@@ -98,7 +120,7 @@ jump() { # $1 ssh host, $2 pane, $3 relay session
   [[ -n $pane ]] || return 0 # a header, or a desktop or background session
   # inside the frame, move the client in its right pane and focus that pane
   local main client=()
-  main=$(tmux list-panes -s -F '#{@frame_main} #{pane_id} #{pane_tty}' 2>/dev/null | awk '$1 == 1 {print $2, $3; exit}')
+  main=$(frame_main)
   [[ -n $main ]] && client=(-c "${main#* }")
   if [[ -z $host ]]; then
     work switch-client "${client[@]}" -t "$pane" \; select-window -t "$pane" \; select-pane -t "$pane"
@@ -114,13 +136,33 @@ jump() { # $1 ssh host, $2 pane, $3 relay session
       [ -n \"\$client\" ] && tmux switch-client -c \"\$client\" -t '$pane' \\; select-window -t '$pane' \\; select-pane -t '$pane'"
   fi
   [[ -n $main ]] && tmux select-pane -t "${main%% *}"
+  touch "$cache/kick" 2>/dev/null # rebuild now, to move the highlight
+}
+
+# rebuild the cache: the tagged lines `pick` reads, and the rows fzf shows,
+# each replaced whole so a reader never sees half of one
+refresh() {
+  collect >"$cache/tagged.new" && format <"$cache/tagged.new" >"$cache/rows.new" &&
+    mv "$cache/tagged.new" "$cache/tagged" && mv "$cache/rows.new" "$cache/rows"
+}
+
+# refresh every second, or as soon as a jump asks
+serve() {
+  while :; do
+    refresh
+    for _ in 1 2 3 4 5; do [[ -e $cache/kick ]] && break; sleep 0.2; done
+    rm -f "$cache/kick"
+  done
 }
 
 pick() { # $1 entry number, counted as `format` numbers them
   local host pane relay
-  IFS=$'\x1f' read -r host pane relay < <(collect | jq -sr --argjson n "$1" '
+  # the running sidebar's list, so N is the number on screen
+  local tagged=$cache/tagged
+  [[ -f $tagged ]] || { mkdir -p "$cache"; collect >"$cache/once"; tagged=$cache/once; }
+  IFS=$'\x1f' read -r host pane relay < <(jq -sr --argjson n "$1" '
     [.[] | select((.header | not) and .tmux_pane != null)][$n - 1] // empty
-    | [.host, .tmux_pane, .relay] | join("\u001f")')
+    | [.host, .tmux_pane, .relay] | join("\u001f")' "$tagged")
   jump "$host" "$pane" "$relay"
 }
 
@@ -129,9 +171,12 @@ case $1 in
   pick) pick "$2" ;;
   jump) jump "$2" "$3" "$4" ;;
   "")
-    "$self" rows | fzf --read0 --ansi --delimiter '\t' --with-nth 6.. \
+    mkdir -p "$cache" && refresh
+    serve &
+    trap 'kill $! 2>/dev/null; rm -rf "$cache"' EXIT
+    fzf --read0 --ansi --delimiter '\t' --with-nth 6.. <"$cache/rows" \
       --track --id-nth 4 --layout reverse --no-scrollbar --info hidden \
-      --gap --prompt '' --bind "every(2):reload-sync($self rows)" \
+      --gap --prompt '' --bind "every(0.5):reload(cat '$cache/rows')" \
       --bind "enter,left-click:execute-silent($self jump {1} {2} {3})+clear-query"
     ;;
   *) echo "usage: claude-sidebar [rows|pick N|jump HOST PANE SESSION]" >&2; exit 2 ;;
