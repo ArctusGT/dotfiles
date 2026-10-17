@@ -14,9 +14,9 @@ shopt -s nullglob
 
 # {session id: pane} of those windows; the default server even when run from
 # inside the sidebar's frame
-attached=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
-  -F '#{?@claude_attach,#{@claude_attach} #{pane_id},}' 2>/dev/null |
-  jq -Rn '[inputs | select(. != "") | split(" ") | {(.[0]): .[1]}] | add // {}')
+attached=$(env -u TMUX -u TMUX_PANE tmux list-panes -a -f '#{@claude_attach}' \
+  -F '#{@claude_attach} #{pane_id}' 2>/dev/null |
+  jq -Rn '[inputs | split(" ") | {(.[0]): .[1]}] | add // {}')
 
 for state_file in "$dir"/*.json; do
   [[ $state_file == *.context.json ]] && continue

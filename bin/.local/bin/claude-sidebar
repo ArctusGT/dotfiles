@@ -17,10 +17,11 @@
 #                     focus PANE on HOST (empty HOST = this one); a remote pane
 #                     is shown through the Mac's SESSION, its ssh-tmux relay.
 #                     With no PANE, opens background Claude session ID first
-#   attach ID TMUX_SESSION
+#   attach ID [CLIENT]
 #                     print the pane showing background Claude session ID on
 #                     this host, opening it with `claude attach` in a new window
-#                     of TMUX_SESSION, tagged @claude_attach, if none does
+#                     of CLIENT's tmux session, tagged @claude_attach, if none
+#                     does
 # CLAUDE_CTX_WARN     context percentage an entry is marked at (default 50)
 # SESH_CONFIG         sesh config the hosts come from
 #                     (default ~/.config/sesh/sesh.toml)
@@ -131,17 +132,18 @@ collect() {
 }
 
 # the pane showing background session $1 on this host, opened in a new window
-# of tmux session $2 if none does
-attach() { # $1 session id, $2 tmux session
-  local pane job
+# of client $2's tmux session (default: the most recent client's) if none does
+attach() { # $1 session id, $2 client
+  local pane job session
   # the tag, not the cached rows, so a second select before the next refresh
   # finds the first window
-  pane=$(work list-panes -a -F '#{@claude_attach} #{pane_id}' | awk -v s="$1" '$1 == s {print $2; exit}')
+  pane=$(work list-panes -a -f "#{==:#{@claude_attach},$1}" -F '#{pane_id}' | head -1)
   if [[ -z $pane ]]; then
     # `claude attach` takes the daemon's job id, which need not be the session's
     job=$(claude agents --json | jq -r --arg s "$1" 'first(.[] | select(.sessionId == $s) | .id) // empty')
     [[ -n $job ]] || return 1
-    pane=$(work new-window -d -P -F '#{pane_id}' -t "$2:" "claude attach $job") || return 1
+    session=$(work display -p ${2:+-c "$2"} '#{session_name}') || return 1
+    pane=$(work new-window -d -P -F '#{pane_id}' -t "$session:" "claude attach $job") || return 1
     work set -w -t "$pane" @claude_attach "$1"
   fi
   echo "$pane"
@@ -149,13 +151,13 @@ attach() { # $1 session id, $2 tmux session
 
 jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
   local host=$1 pane=$2 relay=$3 id=$4
-  [[ -n $pane || -n $id ]] || return 0 # a header
+  [[ -n $id ]] || return 0 # a header
   # inside the frame, move the client in its right pane and focus that pane
   local main client=()
   main=$(frame_main)
   [[ -n $main ]] && client=(-c "${main#* }")
   if [[ -z $host ]]; then
-    [[ -n $pane ]] || pane=$(attach "$id" "$(work display -p "${client[@]}" '#{session_name}')") || return
+    [[ -n $pane ]] || pane=$(attach "$id" "${main#* }") || return
     work switch-client "${client[@]}" -t "$pane" \; select-window -t "$pane" \; select-pane -t "$pane"
   else
     # the Mac window holding this host's relay, tagged by ssh-tmux
@@ -170,7 +172,7 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
       client=\$(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_name}' | head -1)
       [ -n \"\$client\" ] || exit
       pane='$pane'
-      [ -n \"\$pane\" ] || pane=\$(claude-sidebar attach '$id' \"\$(tmux display -p -c \"\$client\" '#{session_name}')\") || exit
+      [ -n \"\$pane\" ] || pane=\$(claude-sidebar attach '$id' \"\$client\") || exit
       tmux switch-client -c \"\$client\" -t \"\$pane\" \\; select-window -t \"\$pane\" \\; select-pane -t \"\$pane\"" \
       </dev/null >/dev/null 2>&1 &
   fi
@@ -218,15 +220,15 @@ serve() {
 }
 
 pick() { # $1 entry number, counted as `format` numbers them
-  local host pane relay
+  local host pane relay id
   # the running sidebar's list, so N is the number on screen
   local tagged=$cache/tagged
   [[ -f $tagged ]] || { mkdir -p "$cache"; collect >"$cache/once"; tagged=$cache/once; }
-  IFS=$'\x1f' read -r host pane relay < <(jq -sr --argjson n "$1" '
+  IFS=$'\x1f' read -r host pane relay id < <(jq -sr --argjson n "$1" '
     [.[] | select((.header | not) and .tmux_pane != null)][$n - 1] // empty
-    | [.host, .tmux_pane, .relay] | join("\u001f")' "$tagged")
+    | [.host, .tmux_pane, .relay, .session_id] | join("\u001f")' "$tagged")
   [[ -n $pane ]] || return 0
-  jump "$host" "$pane" "$relay"
+  jump "$host" "$pane" "$relay" "$id"
   [[ -S $cache/fzf.sock ]] && fzf_do "pos($(position 5 "$1"))"
 }
 
