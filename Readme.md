@@ -175,7 +175,14 @@ list), is dimmed below them as `background`. Selecting it opens it with
 `claude attach` in a new window on its own host, in the tmux session on show
 there, and the entry is numbered like the rest while that window is open.
 Selecting it again goes back to the same window. Closing the window, or
-`ctrl+z` in it, leaves the session running and the entry dimmed again. Claude
+`ctrl+z` in it, leaves the session running and the entry dimmed again.
+
+A pane follows the session it shows. Switching a Claude window to another
+session from Claude Code's session list moves the pane's entry to that
+session, found by the session's name in the pane's title, and switching back
+moves it back. A window opened to hold a session that now shows another is
+not reused: selecting the first session again opens a new one. A title naming
+no session, or more than one, leaves the entry where it was. Claude
 desktop app sessions are left out; the app's own sidebar lists them. A remote session shows through the
 Mac's session for that host, which `prefix f` opens; the sidebar then moves
 that host's one client to the session's pane.

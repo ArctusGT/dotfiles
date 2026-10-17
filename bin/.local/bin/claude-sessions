@@ -7,9 +7,12 @@
 # Claude Code's own record holds for it, else the status line's). Removes the
 # files of a session whose process is gone, which is how a killed session is
 # cleared.
-# A background session open in a pane `claude-sidebar` tagged @claude_attach,
-# on the default tmux server, gets that pane as `tmux_pane`. A recorded pane
-# the default server no longer has is dropped to null. A pre-warmed spare, which
+# `tmux_pane` is the pane on the default tmux server showing the session: one
+# running Claude Code whose title names it and no other session, else the one
+# it was opened in (recorded by the hooks, or tagged @claude_attach by
+# `claude-sidebar`) while that pane's title names no other session. An
+# interactive session whose pane shows another one is left out, since that
+# pane is the other session's entry. A pre-warmed spare, which
 # a `claude daemon` keeps idle for its next background job and which has
 # nothing to attach to, is left out.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
@@ -17,20 +20,21 @@ dir=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sessions
 [[ -d $dir ]] || exit 0
 shopt -s nullglob
 
-# {pane: session id or ""} for every pane, the session id where the pane is
-# tagged @claude_attach; the default server even when run from inside the
-# sidebar's frame
+# every pane on the default server, even when run from inside the sidebar's
+# frame: its id, its @claude_attach tag, whether it runs Claude Code, and its
+# title with Claude Code's status glyph (idle ✳, working ◐ ◑) taken off
 panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
-  -F '#{pane_id} #{@claude_attach}' 2>/dev/null |
-  jq -Rn '[inputs | split(" ") | {(.[0]): (.[1] // "")}] | add // {}')
-attached=$(jq -c 'to_entries | map(select(.value != "") | {(.value): .key}) | add // {}' <<<"$panes")
+  -F '#{pane_id}	#{@claude_attach}	#{pane_current_command}	#{pane_title}' 2>/dev/null |
+  jq -Rn '[inputs | split("\t") | {id: .[0], tag: .[1], claude: (.[2] == "claude"),
+           title: (.[3:] | join("\t") | sub("^[✳◐◑] "; ""))}]')
+[[ -n $panes ]] || panes='[]'
 
-# {session id: {name, spare}} from Claude Code's own records
+# {session id: {name, spare, kind}} from Claude Code's own records
 # (~/.claude/sessions/<pid>.json); keyed by id, since their pid need not be
 # the one the hooks record. With no records the glob vanishes under nullglob,
 # so `cat` gets /dev/null as stdin rather than waiting on the caller's
 records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
-  jq -sc 'map({(.sessionId): {name, spare}}) | add // {}' 2>/dev/null)
+  jq -sc 'map({(.sessionId): {name, spare, kind}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
 
 for state_file in "$dir"/*.json; do
@@ -44,10 +48,31 @@ for state_file in "$dir"/*.json; do
   agents=("$dir/$sid.agents"/*)
   context=null
   [[ -f $dir/$sid.context.json ]] && context=$(<"$dir/$sid.context.json")
-  jq -c --argjson n "${#agents[@]}" --argjson ctx "$context" \
-    --argjson attached "$attached" --argjson panes "$panes" --argjson records "$records" \
+  jq -c --argjson n "${#agents[@]}" --argjson ctx "$context" --argjson records "$records" \
     '($records[.session_id] // {}) as $rec
      | select($rec.spare != true)
-     | . + {name: ($rec.name // $ctx.name?), subagents: $n, context: $ctx,
-          tmux_pane: ((.tmux_pane | select(. != null and $panes[.] != null)) // $attached[.session_id])}' "$state_file"
-done
+     | . + {name: ($rec.name // $ctx.name?), subagents: $n, context: $ctx}' "$state_file"
+done | jq -sc --argjson panes "$panes" --argjson records "$records" '
+  # the ids of the sessions a title names, by either of their names
+  def named($t): [.[] | select(any(.name, .context.name?; . == $t)) | .session_id];
+  . as $sessions
+  # {pane: the one session its title names, else null}, for Claude panes
+  | ($panes | map({key: .id, value: (if .claude then (.title as $t | $sessions | named($t)) else [] end
+                                     | if length == 1 then .[0] else null end)})
+     | from_entries) as $shows
+  # {session id: pane} of tagged panes not showing another session
+  | ($panes | map(select(.tag != "" and ($shows[.id] // .tag) == .tag) | {(.tag): .id})
+     | add // {}) as $attached
+  | ($panes | map({(.id): true}) | add // {}) as $live
+  | $sessions[]
+  | .session_id as $s
+  # the pane the session was opened in: recorded by the hooks, else tagged
+  | ((.tmux_pane | select(. != null and $live[.])) // $attached[$s]) as $own
+  # a pane whose title names it, its own first; else its own, unless that
+  # pane now shows another session
+  | ([$panes[].id | select($shows[.] == $s)] | (map(select(. == $own)) + .)[0]) as $titled
+  | (if $own != null and ($shows[$own] // $s) != $s then null else $own end) as $kept
+  | ($titled // $kept) as $pane
+  # an interactive client showing another session is that session'"'"'s entry
+  | select(($pane == null and $own != null and $records[$s].kind == "interactive") | not)
+  | .tmux_pane = $pane'

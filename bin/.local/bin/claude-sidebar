@@ -209,9 +209,10 @@ collect() {
 # of client $2's tmux session (default: the most recent client's) if none does
 attach() { # $1 session id, $2 client
   local pane job session
-  # the tag, not the cached rows, so a second select before the next refresh
-  # finds the first window
-  pane=$(work list-panes -a -f "#{==:#{@claude_attach},$1}" -F '#{pane_id}' | head -1)
+  # claude-sessions now, not the cached rows, so a second select before the
+  # next refresh finds the first window by its tag, and a tagged pane since
+  # switched to another session is not reused
+  pane=$(claude-sessions | jq -r --arg s "$1" 'select(.session_id == $s) | .tmux_pane // empty')
   if [[ -z $pane ]]; then
     # `claude attach` takes the daemon's job id, which need not be the session's
     job=$(claude agents --json | jq -r --arg s "$1" '.[] | select(.sessionId == $s) | .id // empty')
