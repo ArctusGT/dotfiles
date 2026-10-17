@@ -35,7 +35,7 @@ alone.
 - [x] An entry with no context record shows no bar
 - [x] The third line fits the sidebar's width with state, time and `+N`
       subagents beside the bar
-- [ ] The Readme describes the bar where it now describes `!ctx`
+- [x] The Readme describes the bar where it now describes `!ctx`
 
 **Out of scope:**
 - The Clawd icon (slice 012)
