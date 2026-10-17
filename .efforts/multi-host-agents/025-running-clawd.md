@@ -61,6 +61,6 @@ For the Maintainer, from review, beyond what the slice asked:
   15-frame cycle per session in the prototype, would weigh on how many
   frames a gather renders.
 - `kick` still reaches `gathering` through a flag file polled 5 times a
-  second, which is most of what the idle sidebar now spends over the old
-  one (12.6% of a core against 11.3%). A second fifo, opened read-write by
-  `kick` so a stale one cannot hang a tmux hook, would end the polling.
+  second, as it did before this slice: a sleep fork each, and up to 200 ms
+  before a jump shows. A second fifo, opened read-write by `kick` so a
+  stale one cannot hang a tmux hook, would end the polling.
