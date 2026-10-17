@@ -38,7 +38,7 @@ over ignoring the wheel on a mirror float.
 - The mirror's ssh stream to a host, for a mgmt-1 pane
 
 **Acceptance criteria:**
-- [ ] Over a float mirroring a Claude Code pane, the wheel scrolls Claude
+- [x] Over a float mirroring a Claude Code pane, the wheel scrolls Claude
       Code's transcript, seen in the float and in the source pane alike
 - [x] Over a float mirroring a shell pane, the wheel scrolls the shell's
       history in copy-mode, and scrolling back to the bottom leaves it
