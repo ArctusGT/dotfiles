@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** Cmd+Up/Down at a window's top or bottom edge moves to the previous or next sidebar entry from any pane of an entry's window, not only from the Claude pane itself
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
