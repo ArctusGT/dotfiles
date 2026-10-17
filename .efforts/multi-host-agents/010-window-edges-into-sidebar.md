@@ -49,7 +49,7 @@ vertical edges, and for Cmd+Left to enter the sidebar.
 - [x] In the Mac's `mgmt-1` window, Cmd+Up/Down move between mgmt-1's panes
       and cross to the neighbouring entry only from mgmt-1's top or lowest
       pane
-- [ ] The Readme's key table describes the edges
+- [x] The Readme's key table describes the edges
 
 **Out of scope:**
 - Cmd+Right from a window's rightmost pane (nothing to its right)

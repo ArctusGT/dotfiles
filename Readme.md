@@ -120,7 +120,7 @@ host's other keys take the prefix twice (`C-Space C-Space`).
 
 | key | does |
 |---|---|
-| `Cmd+arrow` | focus the pane that way; nothing at the window's edge |
+| `Cmd+arrow` | focus the pane that way; at the window's edge, see the sidebar's keys below |
 | `Cmd+Shift+arrow` | swap with the pane that way, focus staying on the moved pane |
 | `Option+drag` from one pane to another | swap the two, in place of tmux's own move of a floating pane |
 
@@ -157,6 +157,15 @@ window, over one shared ssh connection per host.
 | click, or `Enter` in the sidebar | show that session in the right pane |
 | `M-1` … `M-9` | the same for the entry numbered 1 to 9 |
 | `M-s` | move into the sidebar, and back out |
+| `Cmd+Left` in a window's leftmost pane | move into the sidebar |
+| `Cmd+Up`, `Cmd+Down` in the sidebar | move its cursor |
+| `Cmd+Right` in the sidebar | as `Enter` |
+| `Cmd+Down` in a window's lowest pane, `Cmd+Up` in its top one | show the next or previous numbered entry, across hosts; nothing past either end, or when the right pane shows no numbered entry |
+
+In the Mac's `mgmt-1` window the edges are those of the host's pane: the Mac
+asks the host over the sidebar's ssh connection, so in the frame
+`Cmd+Left`, `Cmd+Up` and `Cmd+Down` there each take a round trip to the host.
+Outside the frame the edges do nothing.
 
 Only sessions in a tmux pane are numbered. A background session, one a `claude
 daemon` runs (`--bg`, or sent to the background from Claude Code's session
