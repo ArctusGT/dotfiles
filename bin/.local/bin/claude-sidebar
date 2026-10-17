@@ -213,14 +213,14 @@ collect() {
 # the Mac a repo's sesh session: the basename, with `.` and `:`, which a tmux
 # target cannot hold, turned to `_`
 tmux_session_for() { # $1 directory
-  local dir=$1 common top
+  local dir=$1 common top name
   common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
   case $common in
     */.git) dir=${common%/.git} ;;
     ?*) top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && dir=$top ;;
   esac
-  dir=$(basename "$dir")
-  echo "${dir//[.:]/_}"
+  name=$(basename "$dir")
+  echo "${name//[.:]/_}"
 }
 
 # the pane showing background session $1 on this host. If none does, opens one
