@@ -82,27 +82,29 @@ format() {
   jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" --argjson width "$(line_width)" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
-    # context use as a line across the entry: the filled share heavy, each
-    # cell coloured by how far along the bar it sits on the gradient palette
-    # of the tmux theme, copied from tmux/.tmux.conf rather than read from
-    # tmux, reversed to run green to red as a full context is the bad end. The
-    # rest light, in the grey (59) of the gap line fzf draws. All red at $warn.
-    # Colours end at the default foreground (39), not a reset, so a background
-    # entry stays dimmed. No record ($pct null): the whole line grey
+    # context use as a line across the entry, $width columns with the
+    # percentage label at its end: the used share a heavy rule, each cell
+    # coloured by how far along the bar it sits on the gradient palette of the
+    # tmux theme, copied from tmux/.tmux.conf rather than read from tmux,
+    # reversed to run green to red as a full context is the bad end. The rest
+    # a light dashed rule in grey (59). All red at $warn. Colours end at the
+    # default foreground (39), not a reset, so a background entry stays
+    # dimmed. No record ($pct null): the whole line grey, with no label
     def ctxline($pct):
       def paint($sgr): "\u001b[\($sgr)m" + .;
-      def gradient($len):
+      # the first . cells of a bar $cells long, each in its palette colour
+      def gradient($cells):
         [46, 82, 118, 154, 190, 226, 220, 214, 208, 202, 196] as $palette
-        | [range(.) as $i | "━" | paint("38;5;\($palette[$i * ($palette | length) / $len | floor])")]
+        | [range(.) as $i | "━" | paint("38;5;\($palette[$i * ($palette | length) / $cells | floor])")]
         | join("");
       if $pct == null then "┈" * $width | paint("38;5;59")
       else
         " \($pct)%" as $label
-        | ($width - ($label | length)) as $len
-        | ([$pct * $len / 100 | round, $len] | min) as $full
-        | ("┈" * ($len - $full) | paint("38;5;59")) as $rest
+        | ($width - ($label | length)) as $cells
+        | ([$pct * $cells / 100 | round, $cells] | min) as $full
+        | ("┈" * ($cells - $full) | paint("38;5;59")) as $rest
         | if $pct >= $warn then ("━" * $full | paint(31)) + $rest + ($label | paint(31))
-          else ($full | gradient($len)) + $rest + ($label | paint(39))
+          else ($full | gradient($cells)) + $rest + ($label | paint(39))
           end
       end + "\u001b[39m";
     foreach .[] as $r ({n: 0, cur: ""};
