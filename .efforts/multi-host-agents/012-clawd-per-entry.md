@@ -54,7 +54,7 @@ own hats, and a three-line Clawd per entry over a one-character glyph.
   `~/.claude.json` at `.cachedGrowthBookFeatures.tengu_birthday_hat`, but no
   shipped code reads it yet, so there is no hat to copy
 - Each host's flag is collected with its sessions and carried as `hat` on
-  every session row; `format` does not draw it. The hat criterion and the
+  the host's header row; `format` does not draw it. The hat criterion and the
   Readme's hat sentence wait on a Claude Code release that draws it. Dropping
   the plumbing until then is the other choice
 
