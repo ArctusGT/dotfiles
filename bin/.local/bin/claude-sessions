@@ -4,8 +4,9 @@
 # ${XDG_STATE_HOME:-~/.local/state}/claude-sessions.
 # Each object carries the session's state file plus `subagents` (a count) and
 # `context` (the status line's last record, or null), and `name`, the one
-# Claude Code's own record holds for it, else the status line's. Removes the files of a
-# session whose process is gone, which is how a killed session is cleared.
+# Claude Code's own record holds for it, else the status line's. Removes the
+# files of a session whose process is gone, which is how a killed session is
+# cleared.
 # A background session open in a pane `claude-sidebar` tagged @claude_attach,
 # on the default tmux server, gets that pane as `tmux_pane`. A recorded pane
 # the default server no longer has is dropped to null. A pre-warmed spare, which
@@ -27,7 +28,7 @@ attached=$(jq -c 'to_entries | map(select(.value != "") | {(.value): .key}) | ad
 # {session id: {name, spare}} from Claude Code's own records
 # (~/.claude/sessions/<pid>.json); keyed by id, since their pid need not be
 # the one the hooks record
-records=$(cat ~/.claude/sessions/*.json 2>/dev/null |
+records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
   jq -sc 'map({(.sessionId): {name, spare}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
 
@@ -44,7 +45,8 @@ for state_file in "$dir"/*.json; do
   [[ -f $dir/$sid.context.json ]] && context=$(<"$dir/$sid.context.json")
   jq -c --argjson n "${#agents[@]}" --argjson ctx "$context" \
     --argjson attached "$attached" --argjson panes "$panes" --argjson records "$records" \
-    'select($records[.session_id].spare != true)
-     | . + {name: ($records[.session_id].name // $ctx.name?), subagents: $n, context: $ctx,
+    '($records[.session_id] // {}) as $rec
+     | select($rec.spare != true)
+     | . + {name: ($rec.name // $ctx.name?), subagents: $n, context: $ctx,
           tmux_pane: ((.tmux_pane | select(. != null and $panes[.] != null)) // $attached[.session_id])}' "$state_file"
 done
