@@ -52,7 +52,7 @@ Cmd over another modifier to match omarchy's Super habits.
 - [ ] Option+dragging from one pane and releasing over another in the
       same Mac window swaps them; a plain drag still selects text
 - [ ] Cmd+arrows at a window's edge leave focus where it was
-- [ ] The Readme's key table lists the new keys and says Ghostty's Cmd+arrow
+- [x] The Readme's key table lists the new keys and says Ghostty's Cmd+arrow
       defaults are given up
 
 **Out of scope:**

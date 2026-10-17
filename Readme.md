@@ -90,6 +90,9 @@ From inside `~/dotfiles`, run stow for the packages you want:
 stow zsh tmux nvim bin sesh claude
 ```
 
+On the Mac, also `stow ghostty` (Ghostty's keys; hosts like mgmt-1 do not
+need it).
+
 This creates symlinks like:
 - `~/.zshrc -> ~/dotfiles/zsh/.zshrc`
 - `~/.tmux.conf -> ~/dotfiles/tmux/.tmux.conf`
@@ -112,6 +115,20 @@ that Mac session, so the host's bar, with the host's windows, is the only one
 on screen.
 `ctrl+left` and `ctrl+right` there move between the host's windows; the
 host's other keys take the prefix twice (`C-Space C-Space`).
+
+### Panes
+
+| key | does |
+|---|---|
+| `Cmd+arrow` | focus the pane that way; nothing at the window's edge |
+| `Cmd+Shift+arrow` | swap with the pane that way, focus staying on the moved pane |
+| `Option+drag` from one pane to another | swap the two |
+
+In an `ssh-tmux` window such as `mgmt-1`, the `Cmd` keys act on the host's
+panes. They come from the `ghostty` package, which gives up Ghostty's own
+`Cmd+arrow` defaults (line start and end, jump to prompt): tmux has no `Cmd`
+modifier, so Ghostty sends them as `Ctrl+Option(+Shift)+arrow`, and those
+keys do the same.
 
 ### Claude sessions sidebar
 
