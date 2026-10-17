@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's Clawd, context line, headings and dimming, and fzf's pointer, highlight and accents everywhere it runs, take TokyoNight Night's colours from the terminal palette
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -35,7 +35,7 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
 **Acceptance criteria:**
 - [x] Every colour `claude-sidebar` writes is a terminal palette number or a
       hex value naming the TokyoNight colour it stands for
-- [x] The context line runs green to red in TokyoNight's colours, and turns
+- [ ] The context line runs green to red in TokyoNight's colours, and turns
       the warn red at `CLAUDE_CTX_WARN`
 - [x] The sidebar's focused entry, pointer and match highlight use TokyoNight
       accents, and `sesh-pick` (`prefix f`) shows the same
@@ -48,10 +48,18 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
 - Changing what the sidebar shows or its layout
 
 **For the Maintainer:**
-- The gradient spans the whole bar, as the old one did, so below the
-  default `CLAUDE_CTX_WARN` of 50 a line shows only green and yellow; orange
-  and red show only with the warn level above 75. Spreading it up to `$warn`
-  instead would change what a colour means, so it waits on a yes.
+- The gradient spans the whole bar, by quarters, as the old one did, so
+  at the default `CLAUDE_CTX_WARN` of 50 a line shows green, then yellow,
+  then all red: orange shows only with the warn level above 50, the
+  gradient's red above 75. The context-line criterion stays open on this.
+  Spreading the gradient up to `$warn` instead would change what a colour
+  means, so it waits on a yes.
+- A background entry still carries its dim (SGR 2 ahead of every colour,
+  closed by 39 rather than a reset); whether it reads as dimmed in Ghostty
+  needs a look.
 - Host headings are bold blue (palette 4), where they were bold default
   foreground; idle Clawd is TokyoNight's dark5 (#737aa2) rather than
   palette 8, which reads too dark under a background entry's dim.
+- On mgmt-1 only fzf 0.58 accepting the options is measured; its shells
+  and tmux pick the colours up once the repo is pulled there and its tmux
+  server is restarted or given them with `set-environment -g`.
