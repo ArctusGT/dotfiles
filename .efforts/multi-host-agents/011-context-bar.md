@@ -31,9 +31,9 @@ alone.
 **Acceptance criteria:**
 - [ ] An entry at 24% shows a bar about a quarter filled and `24%`, in the
       theme's symbols and colours
-- [ ] An entry at or past `CLAUDE_CTX_WARN` shows its bar and number red
-- [ ] An entry with no context record shows no bar
-- [ ] The third line fits the sidebar's width with state, time and `+N`
+- [x] An entry at or past `CLAUDE_CTX_WARN` shows its bar and number red
+- [x] An entry with no context record shows no bar
+- [x] The third line fits the sidebar's width with state, time and `+N`
       subagents beside the bar
 - [ ] The Readme describes the bar where it now describes `!ctx`
 

@@ -73,6 +73,18 @@ format() {
   jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
+    # context use as the tmux theme draws its battery bar (◼/◻, 4 cells), the
+    # filled cells along its gradient palette turned around, green to red, as
+    # context running out is the bad end. All red at $warn. $dim is restored
+    # after each colour, for a background entry
+    def ctxbar($dim):
+      ([. / 25 | round, 4] | min) as $full
+      | if . >= $warn then
+          "\u001b[31m" + "◼" * $full + "◻" * (4 - $full) + " \(.)%\u001b[0m" + $dim
+        else
+          ([46, 226, 208, 196][:$full] | map("\u001b[38;5;\(.)m◼") | add // "")
+          + "\u001b[0m" + $dim + "◻" * (4 - $full) + " \(.)%"
+        end;
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
       elif $r.tmux_pane != null then .n += 1 else . end;
@@ -93,9 +105,7 @@ format() {
            + $dim + "  \($r.name // $r.session_id[:8])\n"
            + $dim + "  \($r.state) \($now - $r.since | ago)"
            + (if $r.subagents > 0 then "  +\($r.subagents)" else "" end)
-           + (if $pct == null then ""
-              elif $pct >= $warn then "  \u001b[31m!ctx \($pct)%\u001b[0m"
-              else "  ctx \($pct)%" end)
+           + (if $pct == null then "" else "  " + ($pct | ctxbar($dim)) end)
            + (if $numbered then "" else "  " + $dim + "background\u001b[0m" end)]
       end
     | join("\t") + "\u0000"'
