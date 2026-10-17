@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The tmux bar and pane borders, in the usual tmux, the frame and mgmt-1's tmux, take TokyoNight Night's colours, and Ghostty's theme moves into the repo as the one source of the palette
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -51,3 +51,13 @@ the terminal palette as the source over hex in every tool.
 - The sidebar's own colours and fzf (slice 002)
 - nvim, lazygit and Claude Code (slice 003)
 - Light or other TokyoNight variants, and switching between them
+
+**For the Maintainer:**
+- Criteria 1 and 4 wait on hand steps: removing `theme = TokyoNight` from
+  the Application Support Ghostty config, then a pull on mgmt-1
+- "Every hex value" is read as the repo's own tmux configs; the vendored
+  oh-my-tmux submodule (`tmux/.tmux/`) keeps its own hex defaults
+- Readme's "filled in the tmux battery bar's colours" (the sidebar's
+  context line) no longer holds: the battery bar is now TokyoNight red,
+  yellow and green by palette number, while the sidebar keeps the old
+  256-colour gradient. The sidebar's colours are slice 002's
