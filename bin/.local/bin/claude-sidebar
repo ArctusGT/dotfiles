@@ -205,16 +205,20 @@ collect() {
   rm -rf "$tmp"
 }
 
-# the tmux session for directory $1: named for the main repo holding it, the
-# parent of its common git directory, so a subdirectory and every worktree of
-# a repo share one; outside a repo, for $1 itself. Either way the name sesh
-# gives a repo's root, so on the Mac the repo's sesh session: the basename,
-# with `.` and `:`, which a tmux target cannot hold, turned to `_`
-repo_session_name() { # $1 directory
-  local dir common
-  dir=$1
-  common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) &&
-    dir=$(dirname "$common")
+# the tmux session for directory $1: named for the repo holding it, so a
+# subdirectory and every linked worktree of a repo share one. A repo's common
+# git directory is its root's .git; a submodule's sits in its superproject's
+# .git/modules, so a submodule is named for its own checkout. Outside a repo,
+# named for $1 itself. Either way the name sesh gives that directory, so on
+# the Mac a repo's sesh session: the basename, with `.` and `:`, which a tmux
+# target cannot hold, turned to `_`
+tmux_session_for() { # $1 directory
+  local dir=$1 common top
+  common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  case $common in
+    */.git) dir=${common%/.git} ;;
+    ?*) top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && dir=$top ;;
+  esac
   dir=$(basename "$dir")
   echo "${dir//[.:]/_}"
 }
@@ -235,7 +239,7 @@ attach() { # $1 session id
     # `claude attach` takes the daemon's job id, which need not be the session's
     job=$(claude agents --json | jq -r --arg s "$1" '.[] | select(.sessionId == $s) | .id // empty')
     [[ -n $job ]] || return 1
-    tmux_session=$(repo_session_name "$cwd")
+    tmux_session=$(tmux_session_for "$cwd")
     # tagged in the same call, so a select racing this one finds the window.
     # The new window, or session, becomes current, which `set` without -t
     # relies on. The pane, not the window, so a split beside it does not share
