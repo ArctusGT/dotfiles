@@ -22,7 +22,7 @@
 #                     this host, opening it with `claude attach` in a new window
 #                     of CLIENT's tmux session, tagged @claude_attach, if none
 #                     does
-# CLAUDE_CTX_WARN     context percentage an entry is marked at (default 50)
+# CLAUDE_CTX_WARN     context percentage an entry's bar turns red at (default 50)
 # SESH_CONFIG         sesh config the hosts come from
 #                     (default ~/.config/sesh/sesh.toml)
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
@@ -73,10 +73,11 @@ format() {
   jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
-    # context use drawn as the tmux theme draws its battery bar: ◼/◻ in 4
-    # cells, the length it picks for a narrow client. Filled cells run its
-    # gradient palette reversed, green to red, as a full context is the bad
-    # end. All red at $warn.
+    # context use in the style of the tmux theme's battery bar, its symbols and
+    # palette copied from tmux/.tmux.conf.local rather than read from tmux:
+    # ◼/◻ in 4 cells, the length it picks for a narrow client. Filled cells
+    # run its gradient palette reversed, green to red, as a full context is
+    # the bad end; empty ones stay plain. All red at $warn.
     # Colours end at the default foreground (39), not a reset, so a background
     # entry stays dimmed
     def ctxbar:
