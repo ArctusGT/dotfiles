@@ -483,38 +483,43 @@ gathering() {
   done
 }
 
+# wait for `serve`, in its locals: for the next gather on fd $gathered, or,
+# while a session is $working, for that or the tick at $next (microseconds),
+# moving $next on by $tick. Succeeds if a gather came. The waits are read
+# timeouts, with no sleep to fork
+await_gather() {
+  local now delay
+  if [[ $working != true ]]; then
+    read -r -u "$gathered" || return
+    next=$((${EPOCHREALTIME/[.,]/} + tick))
+    return 0
+  fi
+  delay=$((next - ${EPOCHREALTIME/[.,]/}))
+  if ((delay > 0)); then
+    printf -v delay '0.%06d' "$delay"
+    read -r -t "$delay" -u "$gathered" && return 0
+  fi
+  now=${EPOCHREALTIME/[.,]/}
+  next=$((next + tick))
+  # behind: drop the missed ticks
+  ((next > now)) || next=$((now + tick))
+  return 1
+}
+
 # redraw after each gather, and at every tick, 8 a second, while a session
 # works, so its Clawd runs; with none working it sleeps until the next gather,
 # so the rows change no more than once a second. fzf reloads only when the
 # rows changed, and its cursor moves only when the right pane's session did,
 # so it is not taken from an entry being browsed to
 serve() {
-  local frame=0 working=false fresh check_shown=false sum last_sum="" shown last_shown=""
-  # the next tick, in microseconds, kept to a schedule so a slow draw does
-  # not slow the frame rate
-  local tick=125000 next delay gathered
-  # read and write, so the fifo always has a reader and a writer: `read`
-  # then waits for a line rather than seeing end of file, and the waits are
-  # read timeouts, with no sleep to fork
+  local frame=0 working=false check_shown=false sum last_sum="" shown last_shown=""
+  # ticks kept to a schedule, so a slow draw does not slow the frame rate
+  local tick=125000 next gathered
+  # read and write, so the fifo always has a reader and a writer, and `read`
+  # waits for a line rather than seeing end of file
   exec {gathered}<>"$cache/gathered"
   while :; do
-    fresh=false
-    if [[ $working != true ]]; then
-      read -r -u "$gathered" && fresh=true
-      next=$((${EPOCHREALTIME/[.,]/} + tick))
-    else
-      delay=$((next - ${EPOCHREALTIME/[.,]/}))
-      if ((delay > 0)); then
-        printf -v delay '0.%06d' "$delay"
-        read -r -t "$delay" -u "$gathered" && fresh=true
-      fi
-      if [[ $fresh == false ]]; then
-        next=$((next + tick))
-        # behind: drop the missed ticks
-        ((next > ${EPOCHREALTIME/[.,]/})) || next=$((${EPOCHREALTIME/[.,]/} + tick))
-      fi
-    fi
-    if [[ $fresh == true ]]; then
+    if await_gather; then
       # the state whose Clawd moves, as `picture` in format draws him
       working=$(jq -s 'any(.[]; .state == "working")' "$cache/tagged")
       check_shown=true
@@ -529,6 +534,8 @@ serve() {
     # show, which moves the cursor, not the rows
     if [[ $working == true ]]; then
       fzf_do "reload-sync(cat '$cache/rows')"
+      # fzf holds a running frame now, which the first still draw replaces
+      last_sum=""
     else
       sum=$(perl -0pe 's/^((?:[^\t]*\t){5})[^\t]*/$1/' "$cache/rows" | cksum)
       [[ $sum != "$last_sum" ]] && fzf_do "reload-sync(cat '$cache/rows')" && last_sum=$sum
