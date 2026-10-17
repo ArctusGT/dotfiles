@@ -8,6 +8,11 @@ return {
       image = {
         enabled = false,
       },
+      -- lazygit takes its theme from lazygit's own config, as it does outside
+      -- nvim, rather than from one snacks writes from nvim's highlights
+      lazygit = {
+        configure = false,
+      },
       picker = {
         hidden = true,
         sources = {
