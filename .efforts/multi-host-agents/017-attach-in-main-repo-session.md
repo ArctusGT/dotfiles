@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** A background session's `claude attach` window opens in the tmux session named for the git repo its working directory belongs to, so a job in a subdirectory or a worktree joins its repo's session rather than starting one of its own
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -49,3 +49,14 @@ The Maintainer chose the main repo's name over the cwd's last component.
 - Moving windows already open into their repo's session
 - Interactive sessions started by hand, and how sesh names sessions it
   starts itself
+
+## Comments
+
+- For the Maintainer: a submodule is named for its own checkout, so a job
+  in `dotfiles/.agents` opens in `_agents`, not `dotfiles`. The Key
+  interfaces formula (parent of the common git dir) would have given
+  `modules`. Say if a submodule should join its superproject's session
+  instead.
+- Not handled: a linked worktree whose common git dir is not `<root>/.git`
+  (a worktree of a submodule, a bare repo, `--separate-git-dir`) gets a
+  session of its own, named for the worktree.

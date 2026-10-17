@@ -207,9 +207,9 @@ collect() {
 
 # the tmux session for directory $1: named for the repo holding it, so a
 # subdirectory and every linked worktree of a repo share one, and for $1 itself
-# outside a repo. Either way the name sesh gives that directory, so on the Mac
-# a repo's sesh session: the basename, with `.` and `:`, which a tmux target
-# cannot hold, turned to `_`
+# outside a repo. Either way the name sesh gives the repo's root, or $1, so on
+# the Mac a repo's sesh session: the basename, with `.` and `:`, which a tmux
+# target cannot hold, turned to `_`
 tmux_session_for() { # $1 directory
   local dir=$1 common_git_dir top name
   common_git_dir=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
