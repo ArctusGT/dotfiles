@@ -7,7 +7,8 @@
 # the frame's right pane, and fzf's cursor follows the session on show there
 # however it changed. Run elsewhere, a jump moves the usual tmux's most recent
 # client.
-# Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar.
+# Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the refresh loop's errors
+# in ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the list.
 #   rows              print the list once, as fzf reads it
 #   pick N            jump to the entry numbered N (the frame's M-1..9), as
 #                     the running sidebar shows it
@@ -387,7 +388,8 @@ case $1 in
   attach) attach "$2" ;;
   "")
     mkdir -p "$cache" && refresh
-    serve &
+    # errors to a log: written to the pane, they stay over fzf until it redraws
+    serve 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
     trap 'kill $! 2>/dev/null; rm -rf "$cache"' EXIT
     # no --track: it holds back cursor moves while it finds the item again
     # after each reload, and the list's order is stable without it. Esc and
