@@ -1,0 +1,53 @@
+## A Clawd beside each entry, wearing Claude's hat
+
+**Category:** enhancement
+**Summary:** Each sidebar entry gets Clawd, Claude Code's three-line block-character mascot, coloured by the session's state, and he wears the birthday hat whenever Claude Code's own flag for it is on
+**Status:** ready-for-agent
+**blocked-by:** []
+
+**Current behavior:**
+An entry is three lines of text: number, repo; name; state, time, subagents
+and context. The sidebar is 34 columns wide.
+
+**Desired behavior:**
+Clawd's three banner lines sit to the left of each session entry's three
+lines, with the entry's number beside him. His colour shows the session's
+state (working, waiting, idle), and a background entry's Clawd is dimmed with
+the rest of it. Headers have no Clawd.
+
+When `tengu_birthday_hat` is true in a host's `~/.claude.json`, that host's
+Clawds wear the birthday hat, so the sidebar follows Claude Code's own. The
+flag is read per host, with the sessions, so each host follows its own Claude
+Code.
+
+The sidebar widens by Clawd's width, so names, paths and the third line keep
+the room they have now.
+
+The Maintainer chose to follow Claude Code's flag rather than the sidebar's
+own hats, and a three-line Clawd per entry over a one-character glyph.
+
+**Key interfaces:**
+- `tengu_birthday_hat` in `~/.claude.json`: Claude Code's cached feature
+  flag, not a documented setting. It may be renamed or removed; a missing
+  flag means no hat
+- Clawd's banner art, as Claude Code draws it, and the hat's form: take both
+  from what Claude Code shows rather than inventing a likeness
+- The per-host collection, which already runs `claude-sessions` on each host
+  over the shared ssh connection; the flag comes back the same way
+- The sidebar's width, set where `tmux-frame` splits the frame and where the
+  frame keeps it on resize
+
+**Acceptance criteria:**
+- [ ] Every session entry shows a three-line Clawd beside its three lines,
+      coloured by its state, dimmed for a background entry
+- [ ] With `tengu_birthday_hat` set true in a host's `~/.claude.json` (by
+      hand, for the test), that host's Clawds wear the hat and the other
+      host's do not
+- [ ] With the flag false or absent, no hat
+- [ ] Entry text is cut no shorter than before the slice
+- [ ] The Readme describes the icon, its colours and the hat
+
+**Out of scope:**
+- The context bar (slice 011)
+- Hats of the sidebar's own choosing
+- Animating Clawd
