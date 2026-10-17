@@ -122,17 +122,6 @@
     "type": "command",
     "command": "~/.local/bin/claude-statusline"
   },
-  "enabledPlugins": {
-    "clawd-pet@claude-pet-market": true
-  },
-  "extraKnownMarketplaces": {
-    "claude-pet-market": {
-      "source": {
-        "source": "github",
-        "repo": "yuyongyan29-dev/claude-pet"
-      }
-    }
-  },
   "awaySummaryEnabled": false,
   "theme": "dark-ansi"
 }

@@ -256,21 +256,6 @@ manager. Open `nvim` and run the appropriate sync/install command for your setup
 nvim
 ```
 
-### Claude Code plugins
-The `claude` package enables `clawd-pet`, the Clawd that walks above the
-prompt, from the third-party marketplace `claude-pet-market`
-(github.com/yuyongyan29-dev/claude-pet). The settings declare it but do not
-fetch it, so each host installs it once:
-```bash
-claude plugin marketplace add yuyongyan29-dev/claude-pet
-claude plugin install clawd-pet@claude-pet-market
-```
-The marketplace follows the repo's `main`: Claude Code takes only a branch or
-tag as its ref, and the repo tags few releases. To take a newer version, read
-its `clawd-pet/hooks/` changes first, then
-`claude plugin marketplace update claude-pet-market` and
-`claude plugin update clawd-pet@claude-pet-market`.
-
 ---
 
 ## `espidf-index`: reading ESP-IDF firmware in Neovim
