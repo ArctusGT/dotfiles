@@ -172,8 +172,11 @@ Outside the frame the edges do nothing.
 Only sessions in a tmux pane are numbered. A background session, one a `claude
 daemon` runs (`--bg`, or sent to the background from Claude Code's session
 list), is dimmed below them as `background`. Selecting it opens it with
-`claude attach` in a new window on its own host, in the tmux session on show
-there, and the entry is numbered like the rest while that window is open.
+`claude attach` in a new window on its own host, in the tmux session named for
+its repo, the last component of its directory with `.` and `:` as `_`, as sesh
+names a directory it has no entry for, so on the Mac the window joins the
+repo's sesh session. A missing session is created on that host. The entry is numbered like
+the rest while that window is open.
 Selecting it again goes back to the same window. Closing the window, or
 `ctrl+z` in it, leaves the session running and the entry dimmed again. Claude
 desktop app sessions are left out; the app's own sidebar lists them. A remote

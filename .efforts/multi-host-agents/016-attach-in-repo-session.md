@@ -48,7 +48,7 @@ wherever it is.
       sessions; two in the same repo share one
 - [x] A reselect still reaches the existing window rather than opening a
       second
-- [ ] The Readme's paragraph on background entries says where they open
+- [x] The Readme's paragraph on background entries says where they open
 
 **Out of scope:**
 - Moving windows already open into their repo's session
