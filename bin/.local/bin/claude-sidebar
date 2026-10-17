@@ -146,9 +146,10 @@ attach() { # $1 session id, $2 client
     # by id, which a session name with `.` or `:` would not survive as a target
     session=$(work display -p ${2:+-c "$2"} '#{session_id}') || return 1
     # tagged in the same call, so a select racing this one finds the window.
-    # The new window becomes current, which `set` without -t relies on
+    # The new window becomes current, which `set` without -t relies on. The
+    # pane, not the window, so a split beside it does not share the tag
     pane=$(work new-window -P -F '#{pane_id}' -t "$session:" "claude attach $job" \; \
-      set -w @claude_attach "$1") || return 1
+      set -p @claude_attach "$1") || return 1
   fi
   echo "$pane"
 }

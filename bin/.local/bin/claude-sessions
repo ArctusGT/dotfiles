@@ -5,14 +5,14 @@
 # Each object carries the session's state file plus `subagents` (a count) and
 # `context` (the status line's last record, or null). Removes the files of a
 # session whose process is gone, which is how a killed session is cleared.
-# A background session open in a window `claude-sidebar` tagged @claude_attach,
-# on the default tmux server, gets that window's pane as `tmux_pane`.
+# A background session open in a pane `claude-sidebar` tagged @claude_attach,
+# on the default tmux server, gets that pane as `tmux_pane`.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 dir=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sessions
 [[ -d $dir ]] || exit 0
 shopt -s nullglob
 
-# {session id: pane} of those windows; the default server even when run from
+# {session id: pane} of those panes; the default server even when run from
 # inside the sidebar's frame
 attached=$(env -u TMUX -u TMUX_PANE tmux list-panes -a -f '#{@claude_attach}' \
   -F '#{@claude_attach} #{pane_id}' 2>/dev/null |
