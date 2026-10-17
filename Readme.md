@@ -90,7 +90,8 @@ From inside `~/dotfiles`, run stow for the packages you want:
 stow zsh tmux nvim bin sesh claude lazygit
 ```
 
-On the Mac, also `stow ghostty` (Ghostty's keys; hosts like mgmt-1 do not
+On the Mac, also `stow ghostty` (Ghostty's keys and its TokyoNight Night theme,
+the palette tmux's bar names by number; hosts like mgmt-1 do not
 need it).
 
 This creates symlinks like:
