@@ -1,7 +1,7 @@
 ## Context use as a bar
 
 **Category:** enhancement
-**Summary:** Each sidebar entry shows its context use as a bar in the tmux theme's battery-bar style, with the percentage beside it, turning red at CLAUDE_CTX_WARN as the text does now
+**Summary:** Each sidebar entry ends in its own gap line: a full-width horizontal bar whose filled part shows context use in the tmux theme's gradient colours, with the percentage at its end, turning red at CLAUDE_CTX_WARN
 **Status:** ready-for-human
 **blocked-by:** []
 
@@ -11,45 +11,40 @@ An entry's third line ends `ctx 24%`, or `!ctx 62%` in red once at or past
 nothing.
 
 **Desired behavior:**
-The text becomes a short bar and the percentage, e.g. `◼◼◻◻◻ 24%`. The bar
-uses the symbols the usual tmux's theme gives its battery bar and colours its
-filled part along the theme's gradient palette. At or past `CLAUDE_CTX_WARN`
-the bar and number are red, as `!ctx` is now. No record, no bar.
+Each session entry gets a fourth line in place of the blank row fzf's
+`--gap` draws between entries: a horizontal bar across the sidebar's width
+with the percentage at its end, e.g. `━━━━━━┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 24%`. The
+filled share is a heavy line coloured by where it reaches along the theme's
+gradient palette, green first, since a full context is the bad end; the rest
+is a light line in the gap's grey. At or past `CLAUDE_CTX_WARN` the filled
+part and the number are red, as `!ctx` was. An entry with no record shows
+the line all grey, with no number. Headers keep a plain gap. The third line
+loses its `ctx` text, so it no longer overflows the sidebar.
 
-The Maintainer chose bar plus percentage, red at the warn level, over a bar
-alone.
+The Maintainer chose this over a short `◼◻◻◻` bar on the third line, after
+fzf's `--gap-line` proved to be one string for every gap, unable to carry a
+per-entry value. Bar plus percentage, red at the warn level, still holds.
 
 **Key interfaces:**
-- The theme's `tmux_conf_battery_bar_symbol_full` / `_empty` and
-  `tmux_conf_battery_bar_palette` settings: the look to match. The sidebar
-  reads nothing from tmux at runtime for this; the symbols and colours are
+- fzf's `--gap`, dropped, and the sidebar's own last line in its place;
+  `--highlight-line` may run the focused entry's shading across it
+- The theme's `tmux_conf_battery_bar_palette` gradient: the colours to
+  match. The sidebar reads nothing from tmux at runtime; the colours are
   carried as the sidebar's own
 - The sidebar's `format`, which builds each entry's lines, and the
   `context.used_pct` field `claude-sessions` reports
 - `CLAUDE_CTX_WARN`, unchanged
 
 **Acceptance criteria:**
-- [ ] An entry at 24% shows a bar about a quarter filled and `24%`, in the
-      theme's symbols and colours
-- [x] An entry at or past `CLAUDE_CTX_WARN` shows its bar and number red
-- [x] An entry with no context record shows no bar
-- [x] The third line fits the sidebar's width with state, time and `+N`
-      subagents beside the bar
-- [x] The Readme describes the bar where it now describes `!ctx`
+- [ ] An entry at 24% ends in a line about a quarter filled, in the
+      theme's gradient colours, with `24%` at its end
+- [ ] An entry at or past `CLAUDE_CTX_WARN` shows its filled part and
+      number red
+- [ ] An entry with no context record ends in an all-grey line
+- [ ] Entries stay visibly separated, with no blank row between them, and
+      the third line fits the sidebar's width, `background` included
+- [ ] The Readme describes the line where it described the bar
 
 **Out of scope:**
 - The Clawd icon (slice 012)
 - Changing what `claude-sessions` or the status line record
-
-**For the Maintainer:**
-- The first criterion waits on a look at the sidebar. The filled cells run
-  the theme's gradient reversed, green first, since a full context is the
-  bad end where a full battery is the good one; in the theme's own order a
-  24% bar would show a red cell. Keep the reversal, or take the theme's order
-- At the default `CLAUDE_CTX_WARN` of 50 a bar below it fills at most two
-  cells, so only green and yellow show before it all turns red. Orange and
-  red cells would show only with the warn level above about 62
-- Beyond this slice: a background entry's third line overflows the sidebar
-  and fzf cuts `background` to `backg··` (`  idle 6m  +2  ◼◻◻◻ 17%
-  background` is 35 columns in a 34-column pane). The bar is as wide as
-  `ctx 17%` was, so this predates it
