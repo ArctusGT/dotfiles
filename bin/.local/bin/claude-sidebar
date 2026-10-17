@@ -206,17 +206,18 @@ collect() {
 }
 
 # the tmux session for directory $1: named for the repo holding it, so a
-# subdirectory and every linked worktree of a repo share one. A repo's common
-# git directory is its root's .git; a submodule's sits in its superproject's
-# .git/modules, so a submodule is named for its own checkout. Outside a repo,
-# named for $1 itself. Either way the name sesh gives that directory, so on
-# the Mac a repo's sesh session: the basename, with `.` and `:`, which a tmux
-# target cannot hold, turned to `_`
+# subdirectory and every linked worktree of a repo share one, and for $1 itself
+# outside a repo. Either way the name sesh gives that directory, so on the Mac
+# a repo's sesh session: the basename, with `.` and `:`, which a tmux target
+# cannot hold, turned to `_`
 tmux_session_for() { # $1 directory
-  local dir=$1 common top name
-  common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
-  case $common in
-    */.git) dir=${common%/.git} ;;
+  local dir=$1 common_git_dir top name
+  common_git_dir=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+  case $common_git_dir in
+    # the main checkout's .git, which its worktrees share
+    */.git) dir=${common_git_dir%/.git} ;;
+    # a submodule's, under its superproject's .git/modules, whose parent is
+    # no checkout: name it for its own top level instead
     ?*) top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) && dir=$top ;;
   esac
   name=$(basename "$dir")
