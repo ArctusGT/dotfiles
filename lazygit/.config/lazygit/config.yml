@@ -1,0 +1,16 @@
+# TokyoNight Night, matching Ghostty. A colour name is the terminal's own
+# palette slot, so Ghostty's theme supplies it. lazygit has names only for the
+# eight normal slots, so the dim border (Ghostty's bright black) and the
+# selection (Ghostty's selection-background) are hex.
+gui:
+  theme:
+    activeBorderColor: [blue, bold]
+    inactiveBorderColor: ["#414868"]
+    searchingActiveBorderColor: [yellow, bold]
+    optionsTextColor: [blue]
+    selectedLineBgColor: ["#33467c"]
+    cherryPickedCommitFgColor: [blue]
+    cherryPickedCommitBgColor: [magenta]
+    markedBaseCommitFgColor: [blue]
+    markedBaseCommitBgColor: [yellow]
+    unstagedChangesColor: [red]
