@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Selecting a background Claude session in the sidebar opens it in a tmux window of its own on its host, reused on later selects, so it becomes a numbered, jumpable entry like any other
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/004-cross-host-agent-view]
 
 **Current behavior:**
@@ -28,7 +28,7 @@ back to dimmed.
 - `claude attach <job id|name>`: opens a background session in the current
   terminal, on the Mac and on mgmt-1; `claude agents --json` maps a
   session id to its job id
-- A window option carrying the attached session id, read by the sidebar's
+- A pane option carrying the attached session id, read by the sidebar's
   per-host collection alongside `claude-sessions`
 - The tmux session the window opens in: the one the frame's right pane shows
   on the Mac, or the one the Mac's relay client is on for a remote host
@@ -38,11 +38,11 @@ back to dimmed.
 **Acceptance criteria:**
 - [x] Selecting a Mac background entry opens it in a new window in the right
       pane's tmux session and shows it there
-- [ ] Selecting a mgmt-1 background entry opens it in a window on mgmt-1 and
+- [x] Selecting a mgmt-1 background entry opens it in a window on mgmt-1 and
       shows it in the Mac's `mgmt-1` session
 - [x] Selecting the same entry again jumps to that window; no second window
       opens
-- [ ] An entry with an open window is numbered, reachable by its hotkey, and
+- [x] An entry with an open window is numbered, reachable by its hotkey, and
       followed by the cursor
 - [x] Closing the window leaves the session running and the entry dimmed again
 - [x] The Readme describes what selecting a background entry does
