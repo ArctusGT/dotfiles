@@ -25,7 +25,8 @@ export EDITOR=nvim
 # Palette numbers, and hex for #283457, TokyoNight's selection blue, which
 # the 16 lack. fzf keeps the terminal's own foreground and background, and
 # fg+:-1 keeps it on the current line too. The gutter is palette 0, a shade
-# under the background, as fzf draws it as a bar
+# under the background, since at its default fzf 0.74 draws it as a bar in
+# the foreground on every line
 export FZF_DEFAULT_OPTS="--color=gutter:0,fg+:-1,bg+:#283457\
 ,hl:6,hl+:6,pointer:5,marker:5,spinner:5,prompt:6,info:8,header:3\
 ,border:4,separator:8,scrollbar:8"
