@@ -27,10 +27,10 @@ there instead of moving to the next entry.
   host's active pane
 
 **Acceptance criteria:**
-- [ ] On the Mac, Cmd+Down from the shell pane under an entry's Claude pane
+- [x] On the Mac, Cmd+Down from the shell pane under an entry's Claude pane
       shows the next entry
-- [ ] The same from a shell pane under a mgmt-1 entry's Claude pane
-- [ ] Cmd+Up/Down from a Claude pane at the edge behaves as before
+- [x] The same from a shell pane under a mgmt-1 entry's Claude pane
+- [x] Cmd+Up/Down from a Claude pane at the edge behaves as before
 
 **Out of scope:**
 - Cmd+Left into the sidebar, which does not look up an entry
