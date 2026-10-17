@@ -36,7 +36,7 @@ back to dimmed.
   must not hold up fzf (see the background ssh in a remote jump)
 
 **Acceptance criteria:**
-- [ ] Selecting a Mac background entry opens it in a new window in the right
+- [x] Selecting a Mac background entry opens it in a new window in the right
       pane's tmux session and shows it there
 - [ ] Selecting a mgmt-1 background entry opens it in a window on mgmt-1 and
       shows it in the Mac's `mgmt-1` session
