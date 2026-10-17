@@ -204,11 +204,11 @@ collect() {
   rm -rf "$tmp"
 }
 
-# the pane showing background session $1 on this host, opened if none does in
-# a new window of the tmux session named for its repo, which is created
-# detached if absent
+# the pane showing background session $1 on this host. If none does, opens one
+# in a new window of the tmux session named for the session's directory,
+# creating that tmux session detached if absent
 attach() { # $1 session id
-  local row pane cwd job name open
+  local row pane cwd job tmux_session open
   # claude-sessions now, not the cached rows, so a second select before the
   # next refresh finds the first window by its tag, and a tagged pane since
   # switched to another session is not reused
@@ -220,19 +220,20 @@ attach() { # $1 session id
     # `claude attach` takes the daemon's job id, which need not be the session's
     job=$(claude agents --json | jq -r --arg s "$1" '.[] | select(.sessionId == $s) | .id // empty')
     [[ -n $job ]] || return 1
-    # the name sesh gives a directory it has no entry for: its basename, with
-    # the `.` and `:` a tmux target cannot hold as `_`. On the Mac, the
-    # repo's sesh session
-    name=$(basename "$cwd")
-    name=${name//[.:]/_}
+    # the name sesh gives a directory it has no entry for, so on the Mac the
+    # repo's sesh session: its basename, with `.` and `:`, which a tmux target
+    # cannot hold, turned to `_`
+    tmux_session=$(basename "$cwd")
+    tmux_session=${tmux_session//[.:]/_}
     # tagged in the same call, so a select racing this one finds the window.
     # The new window, or session, becomes current, which `set` without -t
     # relies on. The pane, not the window, so a split beside it does not share
     # the tag
-    if work has-session -t "=$name" 2>/dev/null; then
-      open=(new-window -t "=$name:")
+    # `=` matches the name exactly, where a bare target also takes a prefix
+    if work has-session -t "=$tmux_session" 2>/dev/null; then
+      open=(new-window -t "=$tmux_session:")
     else
-      open=(new-session -d -s "$name")
+      open=(new-session -d -s "$tmux_session")
     fi
     pane=$(work "${open[@]}" -P -F '#{pane_id}' -c "$cwd" "claude attach $job" \; \
       set -p @claude_attach "$1") || return 1
