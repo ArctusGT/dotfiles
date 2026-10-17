@@ -39,14 +39,14 @@ wherever it is.
   session, which `jump` already does for panes in other sessions
 
 **Acceptance criteria:**
-- [ ] Selecting a Mac background entry whose repo has a sesh session opens
+- [x] Selecting a Mac background entry whose repo has a sesh session opens
       its window in that session and shows it
 - [ ] Selecting a mgmt-1 background entry opens its window in a mgmt-1 tmux
       session named for its repo, creating the session when absent, and the
       Mac's `mgmt-1` window shows it
-- [ ] Two background sessions in different repos end in different tmux
+- [x] Two background sessions in different repos end in different tmux
       sessions; two in the same repo share one
-- [ ] A reselect still reaches the existing window rather than opening a
+- [x] A reselect still reaches the existing window rather than opening a
       second
 - [ ] The Readme's paragraph on background entries says where they open
 
