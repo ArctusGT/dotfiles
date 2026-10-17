@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Each sidebar entry shows its context use as a bar in the tmux theme's battery-bar style, with the percentage beside it, turning red at CLAUDE_CTX_WARN as the text does now
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -40,3 +40,16 @@ alone.
 **Out of scope:**
 - The Clawd icon (slice 012)
 - Changing what `claude-sessions` or the status line record
+
+**For the Maintainer:**
+- The first criterion waits on a look at the sidebar. The filled cells run
+  the theme's gradient reversed, green first, since a full context is the
+  bad end where a full battery is the good one; in the theme's own order a
+  24% bar would show a red cell. Keep the reversal, or take the theme's order
+- At the default `CLAUDE_CTX_WARN` of 50 a bar below it fills at most two
+  cells, so only green and yellow show before it all turns red. Orange and
+  red cells would show only with the warn level above about 62
+- Beyond this slice: a background entry's third line overflows the sidebar
+  and fzf cuts `background` to `backg··` (`  idle 6m  +2  ◼◻◻◻ 17%
+  background` is 35 columns in a 34-column pane). The bar is as wide as
+  `ctx 17%` was, so this predates it
