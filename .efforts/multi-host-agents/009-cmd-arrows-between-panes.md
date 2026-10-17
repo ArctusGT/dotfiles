@@ -62,3 +62,13 @@ Cmd over another modifier to match omarchy's Super habits.
   split rather than swapping
 - Option+drag inside an `ssh-tmux` window
 - Linux desktops: the Mac's Ghostty is the only terminal these keys come from
+
+## Comments
+
+- The frame did need one binding: tmux 3.8's default `M-MouseDrag1Pane` is
+  `move-pane -M`, which took the drag in the frame before the usual tmux saw
+  it. `tmux/.tmux-frame.conf` now passes it on.
+- For the Maintainer, beyond this slice: ten root bindings in
+  `tmux/.tmux.conf.local` now repeat "in an `@ssh_tmux` window send the key
+  on, otherwise act here" (`C-Left`/`C-Right` and the eight `C-M-` keys).
+  Nothing to fold them into yet; worth revisiting if slice 010 adds more.

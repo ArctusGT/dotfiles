@@ -480,7 +480,8 @@ bind -n C-M-S-Up    if -F '#{@ssh_tmux}' 'send-keys C-M-S-Up'    { if -F '#{pane
 bind -n C-M-S-Down  if -F '#{@ssh_tmux}' 'send-keys C-M-S-Down'  { if -F '#{pane_at_bottom}' '' 'swap-pane -d -t "{down-of}"' }
 # Option+drag from one pane, released over another, swaps the two. In a mouse
 # binding `=` and the default pane are both the pane under the pointer, so the
-# drag's start is kept in @drag_src for the swap at its end
+# drag's start is kept in @drag_src for the swap at its end. tmux fires
+# M-MouseDrag1Pane once per drag, not per move, so @drag_src holds the start
 bind -n M-MouseDrag1Pane select-pane -t = \; set -wF @drag_src '#{pane_id}'
 bind -n M-MouseDragEnd1Pane run-shell -t = -C 'swap-pane -d -s "#{@drag_src}" -t "#{pane_id}"'
 # clicking a waiting-Claude marker (a range=user|@<window_id> in status-right)
