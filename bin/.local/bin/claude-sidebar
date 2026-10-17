@@ -183,13 +183,19 @@ format() {
     # four different bandana colours for session $id, main then stripes, from
     # a stable hash of the id, so a session wears the same bandana on every
     # refresh and from either host
+    def djb: reduce explode[] as $c (5381; (. * 33 + $c) % 2147483647);
     def bandana($id):
-      reduce range(4) as $_ (
-        {h: ($id | reduce explode[] as $c (5381; (. * 33 + $c) % 2147483647)),
-         pool: bandana_colours, picked: []};
-        (.pool | length) as $n | (.h % $n) as $i
-        | {h: (.h / $n | floor), pool: (.pool | del(.[$i])), picked: (.picked + [.pool[$i]])})
-      | .picked;
+      [foreach range(4) as $_ ({h: ($id | djb), pool: bandana_colours};
+         (.pool | length) as $n | (.h % $n) as $i
+         | {h: (.h / $n | floor), pool: (.pool | del(.[$i])), pick: .pool[$i]};
+         .pick)];
+    # a cell of 8 pixels (colours or null) as its octant, in the colour of
+    # its first lit pixel
+    def octant:
+      ([range(8) as $k | select(.[$k] != null) | pow(2; $k)] | add // 0) as $bits
+      | (map(values) | first) as $ink
+      | octants[$bits:$bits + 1]
+      | if $ink == null then . else paint($ink) end;
     # Clawd wearing the bandana of session $id, as three lines, his body in
     # the colour for $state: working orange, waiting yellow, idle grey,
     # the only states claude-session-state writes
@@ -200,10 +206,8 @@ format() {
       | (stand | map(split("") | map($colour[.]))) as $px
       | [range(3) as $line
           | [range(8) as $i
-              | [range(4) as $y | range(2) as $x | $px[4 * $line + $y][2 * $i + $x]] as $cell
-              | ([range(8) | select($cell[.] != null) | pow(2; .)] | add // 0) as $bits
-              | octants[$bits:$bits + 1]
-              | if $bits == 0 then . else paint($cell | map(values) | first) end]
+              | [range(4) as $y | range(2) as $x | $px[4 * $line + $y][2 * $i + $x]]
+              | octant]
           | join("")];
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
