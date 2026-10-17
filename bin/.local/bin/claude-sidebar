@@ -79,11 +79,11 @@ format() {
     # Colours end at the default foreground (39), not a reset, so a background
     # entry stays dimmed
     def ctxbar:
-      ([(. / 25 | round), 4] | min) as $full
+      (. / 25 | round) as $full
       | if . >= $warn then
           "\u001b[31m" + "◼" * $full + "◻" * (4 - $full) + " \(.)%\u001b[39m"
         else
-          ([46, 226, 208, 196][:$full] | map("\u001b[38;5;\(.)m◼") | add // "")
+          ([46, 226, 208, 196][:$full] | map("\u001b[38;5;\(.)m◼") | join(""))
           + "\u001b[39m" + "◻" * (4 - $full) + " \(.)%"
         end;
     foreach .[] as $r ({n: 0, cur: ""};
