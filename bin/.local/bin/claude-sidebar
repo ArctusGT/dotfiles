@@ -37,7 +37,7 @@ ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ServerAliveInterval=2
 cache=${TMPDIR:-/tmp}/claude-sidebar
 # prints Claude Code's cached birthday-hat flag on the host it runs on: true,
 # or false when it is false, absent, or has no ~/.claude.json
-hat_flag='jq '\''.cachedGrowthBookFeatures.tengu_birthday_hat == true'\'' ~/.claude.json 2>/dev/null || echo false'
+read_hat_flag='jq '\''.cachedGrowthBookFeatures.tengu_birthday_hat == true'\'' ~/.claude.json 2>/dev/null || echo false'
 
 # the usual tmux server, from inside the frame's server too
 work() { env -u TMUX -u TMUX_PANE tmux "$@"; }
@@ -62,7 +62,7 @@ remote_hosts() {
 # header line before them, so every host shows even with no sessions. The
 # header carries the host's pane on show in the frame, if any, and whether its
 # Claude Code has the birthday hat on
-tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5 pane on show, $6 hat_flag's output
+tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5 pane on show, $6 read_hat_flag's output
   jq -nc --arg label "$1" --arg down "$4" --arg current "$5" --arg hat "$6" \
     '{header: true, $label, down: ($down != ""), $current, hat: ($hat == "true")}'
   [[ -n $4 ]] || jq -sc --arg host "$2" --arg relay "$3" \
@@ -116,7 +116,8 @@ format() {
     # Clawd as Claude Code 2.1.292 draws him standing in its banner, open eyes
     # and arms down: his three rows, each padded to his 9 columns, in the
     # 256-colour for $state: working in his own orange, waiting yellow, idle
-    # grey. Each ends at the default foreground (39), as ctxline does
+    # grey, the only states claude-session-state writes. Each ends at the
+    # default foreground (39), as ctxline does
     def clawd($state):
       {working: 173, waiting: 220, idle: 245}[$state] as $colour
       | [" ▐▛███▛█ ", "▝▜██████▀", " ▝▝   ▝▝ "]
@@ -161,7 +162,7 @@ collect() {
   main=$(frame_main)
   [[ -n $main ]] && read -r shown relay_host < <(work display -p -c "${main#* }" '#{pane_id} #{@ssh_tmux}')
   # hosts in parallel, so an unreachable one costs one ConnectTimeout, not more
-  { claude-sessions | tag local "" "" "" "$([[ -z $relay_host ]] && echo "$shown")" "$(eval "$hat_flag")" >"$tmp/0"; } &
+  { claude-sessions | tag local "" "" "" "$([[ -z $relay_host ]] && echo "$shown")" "$(eval "$read_hat_flag")" >"$tmp/0"; } &
   local i=0 name host
   while IFS=$'\t' read -r name host; do
     i=$((i + 1))
@@ -170,11 +171,11 @@ collect() {
       # the sessions, \036, the pane the Mac's client there is on, \036 and
       # the host's hat flag
       if out=$(ssh "${ssh_opts[@]}" -o ControlMaster=auto -o ControlPersist=60 "$host" \
-        "claude-sessions; printf '\036'; tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{pane_id}' | head -1; printf '\036'; $hat_flag" \
+        "claude-sessions; printf '\036'; tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{pane_id}' | head -1; printf '\036'; $read_hat_flag" \
         2>/dev/null); then
-        local rest=${out#*$'\036'} remote_shown=""
-        [[ $relay_host == "$host" ]] && remote_shown=${rest%%$'\036'*}
-        tag "$name" "$host" "$name" "" "${remote_shown//$'\n'/}" "${rest#*$'\036'}" <<<"${out%%$'\036'*}"
+        local after_sessions=${out#*$'\036'} remote_shown=""
+        [[ $relay_host == "$host" ]] && remote_shown=${after_sessions%%$'\036'*}
+        tag "$name" "$host" "$name" "" "${remote_shown//$'\n'/}" "${after_sessions#*$'\036'}" <<<"${out%%$'\036'*}"
       else
         tag "$name" "$host" "$name" unreachable "" </dev/null
       fi >"$tmp/$i"
