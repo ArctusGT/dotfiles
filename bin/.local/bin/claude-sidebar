@@ -208,7 +208,7 @@ collect() {
 # a new window of the tmux session named for its repo, which is created
 # detached if absent
 attach() { # $1 session id
-  local session pane cwd job name
+  local session pane cwd job name open
   # claude-sessions now, not the cached rows, so a second select before the
   # next refresh finds the first window by its tag, and a tagged pane since
   # switched to another session is not reused
@@ -229,13 +229,10 @@ attach() { # $1 session id
     # The new window, or session, becomes current, which `set` without -t
     # relies on. The pane, not the window, so a split beside it does not share
     # the tag
-    if work has-session -t "=$name" 2>/dev/null; then
-      pane=$(work new-window -P -F '#{pane_id}' -t "=$name:" -c "$cwd" "claude attach $job" \; \
-        set -p @claude_attach "$1") || return 1
-    else
-      pane=$(work new-session -d -P -F '#{pane_id}' -s "$name" -c "$cwd" "claude attach $job" \; \
-        set -p @claude_attach "$1") || return 1
-    fi
+    open=(new-session -d -s "$name")
+    work has-session -t "=$name" 2>/dev/null && open=(new-window -t "=$name:")
+    pane=$(work "${open[@]}" -P -F '#{pane_id}' -c "$cwd" "claude attach $job" \; \
+      set -p @claude_attach "$1") || return 1
   fi
   echo "$pane"
 }
