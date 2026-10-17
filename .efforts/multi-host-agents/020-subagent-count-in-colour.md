@@ -26,9 +26,9 @@ The Maintainer chose colour alone over a glyph or a list of the subagents.
 - `claude-sessions`' `subagents` count, unchanged
 
 **Acceptance criteria:**
-- [ ] On the Mac, an entry with running subagents shows `+N` in orange,
+- [x] On the Mac, an entry with running subagents shows `+N` in orange,
       idle, working and background entries alike
-- [ ] An entry after it in the list keeps its own colours
+- [x] An entry after it in the list keeps its own colours
 - [ ] The same on a mgmt-1 entry, once mgmt-1 has pulled
 
 **Out of scope:**
