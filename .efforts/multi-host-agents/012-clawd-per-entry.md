@@ -38,13 +38,13 @@ own hats, and a three-line Clawd per entry over a one-character glyph.
   frame keeps it on resize
 
 **Acceptance criteria:**
-- [ ] Every session entry shows a three-line Clawd beside its three lines,
+- [x] Every session entry shows a three-line Clawd beside its three lines,
       coloured by its state, dimmed for a background entry
 - [ ] With `tengu_birthday_hat` set true in a host's `~/.claude.json` (by
       hand, for the test), that host's Clawds wear the hat and the other
       host's do not
 - [ ] With the flag false or absent, no hat
-- [ ] Entry text is cut no shorter than before the slice
+- [x] Entry text is cut no shorter than before the slice
 - [ ] The Readme describes the icon, its colours and the hat
 
 **Out of scope:**

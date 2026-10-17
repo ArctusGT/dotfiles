@@ -19,7 +19,7 @@ fi
 if ! "${frame[@]}" has-session -t frame 2>/dev/null; then
   "${frame[@]}" new-session -d -s frame -x "$(tput cols)" -y "$(tput lines)" "$self main" \; \
     set -p @frame_main 1 \; \
-    split-window -hbf -l 34 "$HOME/.local/bin/claude-sidebar" \; \
+    split-window -hbf -l 44"$HOME/.local/bin/claude-sidebar" \; \
     set -p @claude_sidebar 1 \; \
     select-pane -t '{right}'
 fi

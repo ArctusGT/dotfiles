@@ -108,6 +108,15 @@ format() {
           else ($full | gradient($cells)) + $rest + ($label | paint(39))
           end
       end + "\u001b[39m";
+    # Clawd as Claude Code 2.1.292 draws him standing in its banner, open eyes
+    # and arms down, one string per row padded to his 9 columns, in the
+    # 256-colour for $state: working in his own orange, waiting yellow, idle
+    # grey. Ends at the default foreground (39), as ctxline does
+    def clawd($row; $state):
+      [" ▐▛███▛█ ",
+       "▝▜██████▀",
+       " ▝▝   ▝▝ "][$row]
+      | "\u001b[38;5;\({working: 173, waiting: 220}[$state] // 245)m" + . + "\u001b[39m ";
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
       elif $r.tmux_pane != null then .n += 1 else . end;
@@ -127,9 +136,9 @@ format() {
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
            (if $numbered then "\($n)" else "" end),
            (if $numbered and $r.tmux_pane == $cur then "1" else "" end),
-           $dim + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
-           + $dim + "  \($r.name // $r.session_id[:8])\n"
-           + $dim + "  \($r.state) \($now - $r.since | ago)"
+           $dim + clawd(0; $r.state) + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
+           + $dim + clawd(1; $r.state) + "  \($r.name // $r.session_id[:8])\n"
+           + $dim + clawd(2; $r.state) + "  \($r.state) \($now - $r.since | ago)"
            + (if $r.subagents > 0 then "  +\($r.subagents)" else "" end)
            + (if $numbered then "" else "  " + $dim + "background\u001b[0m" end)
            # reset at the end, or the dim of a background entry leaks into
