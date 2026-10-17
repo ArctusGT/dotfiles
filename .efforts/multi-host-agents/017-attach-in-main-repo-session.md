@@ -35,7 +35,7 @@ The Maintainer chose the main repo's name over the cwd's last component.
   to the Maintainer rather than renaming sesh's sessions
 
 **Acceptance criteria:**
-- [ ] A Mac background session started in a subdirectory of `dotfiles`, and
+- [x] A Mac background session started in a subdirectory of `dotfiles`, and
       one in a `.claude/worktrees/<name>` worktree of it, each open in the
       `dotfiles` tmux session sesh uses
 - [ ] A mgmt-1 background session in a subdirectory of a repo opens in the
