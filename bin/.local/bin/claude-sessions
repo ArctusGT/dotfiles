@@ -53,21 +53,21 @@ for state_file in "$dir"/*.json; do
      | select($rec.spare != true)
      | . + {name: ($rec.name // $ctx.name?), subagents: $n, context: $ctx}' "$state_file"
 done | jq -sc --argjson panes "$panes" --argjson records "$records" '
-  # the ids of the sessions a title names, by either of their names
-  def named($t): [.[] | select(any(.name, .context.name?; . == $t)) | .session_id];
   . as $sessions
+  # the one session a title names, by either of its names
+  | def titled: .title as $t
+      | [$sessions[] | select(any(.name, .context.name?; . == $t)) | .session_id]
+      | select(length == 1) | .[0];
   # {pane: session id} of the panes the hooks recorded a session in
-  | ($sessions | map(select(.tmux_pane != null) | {(.tmux_pane): .session_id}) | add // {}) as $opened
+  ($sessions | map(select(.tmux_pane) | {key: .tmux_pane, value: .session_id}) | from_entries) as $opened
   # {pane: the session it shows}: the one its title names, for a Claude pane,
   # else the one tagged on it, else the one the hooks recorded in it
-  | ($panes | map({key: .id, value: (
-        (if .claude then (.title as $t | $sessions | named($t) | select(length == 1) | .[0]) else empty end)
-        // (.tag | select(. != "")) // $opened[.id])})
+  | ($panes | map({key: .id, value: ((select(.claude) | titled) // (.tag | select(. != "")) // $opened[.id])})
      | from_entries) as $shows
   | $sessions[]
   | .session_id as $s
   # an interactive client whose pane shows another session is left out: the
   # pane is the other entry now
-  | select(.tmux_pane as $p | $records[$s].kind == "interactive" and ($shows[$p // ""] // $s) != $s | not)
+  | select($records[$s].kind != "interactive" or ($shows[.tmux_pane // ""] // $s) == $s)
   # its recorded pane first, while that still shows it
   | .tmux_pane = ([.tmux_pane, $panes[].id] | map(select(. != null and $shows[.] == $s)) | .[0])'
