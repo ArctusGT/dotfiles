@@ -165,7 +165,9 @@ format() {
            $dim + $clawd0 + " " + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
            + $dim + $clawd1 + "   \($r.name // $r.session_id[:8])\n"
            + $dim + $clawd2 + "   \($r.state) \($now - $r.since | ago)"
-           + (if $r.subagents > 0 then "  +\($r.subagents)" else "" end)
+           # running subagents in the working colour, so an idle session
+           # whose subagents are still at work stands out
+           + (if $r.subagents > 0 then "  " + ("+\($r.subagents)" | paint(orange)) else "" end)
            + (if $numbered then "" else "  " + $dim + "background\u001b[0m" end)
            # reset at the end, or the dim of a background entry leaks into
            # the entries fzf draws after it
