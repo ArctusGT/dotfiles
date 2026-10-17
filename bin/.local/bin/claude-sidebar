@@ -132,66 +132,78 @@ format() {
           + ("┈" * ($cells - $full) | paint(terminal_black))
           + ($label | if $warned then paint(red) else . end)
       end;
-    # Clawd as Claude Code 2.1.292 draws him standing in its banner, open eyes
-    # and arms down, as pixels (# body) on a grid 18 wide, drawn two pixel
-    # rows to a line in quarter blocks, in the colour for $state: working
-    # orange, waiting yellow, idle grey, the only states
-    # claude-session-state writes
-    def clawd_px: [
-      "...#############..",
-      "...##.#######.##..",
-      ".#################",
-      "...#############..",
-      "...#.#.......#.#.."
+    # Clawd standing, as Claude Code 2.1.292 draws him in its banner, open
+    # eyes and arms down, redrawn 16 pixels wide and 12 tall under a
+    # bandana in place of his head-top row: B body, m the bandana, 1 2 3 its
+    # stripes, the ribbon at the right in stripe 3. Drawn in octants, cells 2
+    # pixels wide and 4 tall from rows 0, 4 and 8, each drawn in one colour
+    # on the background, so the frame keeps every cell to one colour
+    def stand: [
+      "..............3.",
+      "..............3.",
+      "..112233mmmmmm.3",
+      "..112233mmmmmm.3",
+      "..BB.BBBBBB.BB..",
+      "..BB.BBBBBB.BB..",
+      "BBBBBBBBBBBBBBBB",
+      "BBBBBBBBBBBBBBBB",
+      "..BBBBBBBBBBBB..",
+      "..BBBBBBBBBBBB..",
+      "..B.B......B.B..",
+      "..B.B......B.B.."
     ];
-    # A hat sits on Clawd, picked by a stable hash of the folder name, so
-    # every session of a repo wears one hat on every host; a home directory
-    # wears none. Four pixel rows, a filled; the last covers the head-top
-    # row, so it is at least as wide as the head (x 3-15), which also keeps
-    # each cell to one colour. Colours keep clear of the state colours and red
-    def hats: [
-      ["......aaaaaaa.....", "......aaaaaaa.....", "......aaaaaaa.....", "..aaaaaaaaaaaaaaa."],  # top hat
-      ["..................", "......aaaaaaa.....", "....aaaaaaaaaaa...", "...aaaaaaaaaaaaaaa"],  # cap
-      [".........a........", "........aaa.......", ".......aaaaa......", "..aaaaaaaaaaaaaaa."],  # wizard
-      ["..................", "...a.....a.....a..", "...aa...aaa...aa..", "...aaaaaaaaaaaaa.."],  # crown
-      ["..................", "........aaa.......", ".....aaaaaaaaa....", "...aaaaaaaaaaaaa.."],  # beanie
-      ["..................", ".....aaaaaaaaa....", "....aaaaaaaaaaa...", "...aaaaaaaaaaaaa.."],  # helmet
-      [".........a........", ".........a........", ".....aaaaaaaaa....", "...aaaaaaaaaaaaa.."],  # antenna cap
-      ["..................", "......aa...aa.....", "......aaaaaaa.....", "aaaaaaaaaaaaaaaaaa"],  # cowboy
-      ["..................", "..................", "................a.", "...aaaaaaaaaaaaa.a"],  # bandana
-      ["..................", "........aaa.......", "........aaa.......", "...aaaaaaaaaaaaa.."],  # mohawk
-      ["......aaaaaaa.....", ".....aaaaaaaaa....", "......aaaaaaa.....", "...aaaaaaaaaaaaa.."]   # chef
-    ];
-    def hat_colours: [blue, green, "36", "35",
-      "38;2;115;218;202", "38;2;157;124;216", "38;2;192;202;245"]; # teal, purple, fg
-    # quarter blocks by pixel bits: 1 upper left, 2 upper right, 4 lower
-    # left, 8 lower right
-    def quadrants: [" ","▘","▝","▀","▖","▌","▞","▛","▗","▚","▐","▜","▄","▙","▟","█"];
-    # Clawd in $state with the hat for folder $cwd, as four lines: rows 0-3
-    # the hat, Clawd one row lower so the head-top (row 3) sits under the
-    # brim, rows 4-7 his eyes, arms, body and legs. Each pixel is a colour
-    # or null; each cell takes the colour of its first lit pixel
-    def picture($state; $cwd):
-      {working: orange, waiting: yellow, idle: dark5}[$state] as $body
-      | (if $cwd | test("^/(Users|home)/[^/]+/?$|^/root/?$") then null
-         else
-           ($cwd | sub("/$"; "") | split("/") | last
-             | reduce explode[] as $c (5381; (. * 33 + $c) % 2147483647)) as $h
-           | {art: hats[$h % (hats | length)],
-              colour: hat_colours[($h / (hats | length) | floor) % (hat_colours | length)]}
-         end) as $hat
-      | ([range(3) | "." * 18] + clawd_px | map(explode | map(if . == 35 then $body else null end))) as $grid
-      | (if $hat == null then $grid
-         else reduce range(4) as $y ($grid;
-           .[$y] = [range(18) as $x
-             | if $hat.art[$y][$x:$x+1] == "a" then $hat.colour else .[$y][$x] end])
-         end) as $px
-      | [range(4) as $l
-          | [range(9) as $i
-              | [$px[2*$l][2*$i], $px[2*$l][2*$i+1], $px[2*$l+1][2*$i], $px[2*$l+1][2*$i+1]] as $q
-              | ($q | map(select(. != null)) | first) as $colour
-              | quadrants[[range(4) as $k | if $q[$k] != null then pow(2; $k) else 0 end] | add]
-              | if $colour == null then . else paint($colour) end]
+    # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
+    # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
+    # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
+    # name, and the 26 sets Unicode encodes elsewhere are the quadrants,
+    # U+1FB82, U+2582, U+1FB85, U+2586, U+1CEA8, U+1CEAB, U+1CEA3, U+1CEA0,
+    # U+1FBE6 and U+1FBE7
+    def octants:
+      " 𜺨𜺫🮂𜴀▘𜴁𜴂𜴃𜴄▝𜴅𜴆𜴇𜴈▀" +
+      "𜴉𜴊𜴋𜴌🯦𜴍𜴎𜴏𜴐𜴑𜴒𜴓𜴔𜴕𜴖𜴗" +
+      "𜴘𜴙𜴚𜴛𜴜𜴝𜴞𜴟🯧𜴠𜴡𜴢𜴣𜴤𜴥𜴦" +
+      "𜴧𜴨𜴩𜴪𜴫𜴬𜴭𜴮𜴯𜴰𜴱𜴲𜴳𜴴𜴵🮅" +
+      "𜺣𜴶𜴷𜴸𜴹𜴺𜴻𜴼𜴽𜴾𜴿𜵀𜵁𜵂𜵃𜵄" +
+      "▖𜵅𜵆𜵇𜵈▌𜵉𜵊𜵋𜵌▞𜵍𜵎𜵏𜵐▛" +
+      "𜵑𜵒𜵓𜵔𜵕𜵖𜵗𜵘𜵙𜵚𜵛𜵜𜵝𜵞𜵟𜵠" +
+      "𜵡𜵢𜵣𜵤𜵥𜵦𜵧𜵨𜵩𜵪𜵫𜵬𜵭𜵮𜵯𜵰" +
+      "𜺠𜵱𜵲𜵳𜵴𜵵𜵶𜵷𜵸𜵹𜵺𜵻𜵼𜵽𜵾𜵿" +
+      "𜶀𜶁𜶂𜶃𜶄𜶅𜶆𜶇𜶈𜶉𜶊𜶋𜶌𜶍𜶎𜶏" +
+      "▗𜶐𜶑𜶒𜶓▚𜶔𜶕𜶖𜶗▐𜶘𜶙𜶚𜶛▜" +
+      "𜶜𜶝𜶞𜶟𜶠𜶡𜶢𜶣𜶤𜶥𜶦𜶧𜶨𜶩𜶪𜶫" +
+      "▂𜶬𜶭𜶮𜶯𜶰𜶱𜶲𜶳𜶴𜶵𜶶𜶷𜶸𜶹𜶺" +
+      "𜶻𜶼𜶽𜶾𜶿𜷀𜷁𜷂𜷃𜷄𜷅𜷆𜷇𜷈𜷉𜷊" +
+      "𜷋𜷌𜷍𜷎𜷏𜷐𜷑𜷒𜷓𜷔𜷕𜷖𜷗𜷘𜷙𜷚" +
+      "▄𜷛𜷜𜷝𜷞▙𜷟𜷠𜷡𜷢▟𜷣▆𜷤𜷥█";
+    # TokyoNight Night shades a bandana takes, clear of the state colours:
+    # red, green, blue, magenta, cyan, teal, fg, blue1, purple
+    def bandana_colours: [red, green, blue, "35", "36", "38;2;115;218;202",
+      "38;2;192;202;245", "38;2;42;195;222", "38;2;157;124;216"];
+    # four different bandana colours for session $id, main then stripes, from
+    # a stable hash of the id, so a session wears the same bandana on every
+    # refresh and from either host
+    def bandana($id):
+      reduce range(4) as $_ (
+        {h: ($id | reduce explode[] as $c (5381; (. * 33 + $c) % 2147483647)),
+         pool: bandana_colours, picked: []};
+        (.pool | length) as $n | (.h % $n) as $i
+        | {h: (.h / $n | floor), pool: (.pool | del(.[$i])), picked: (.picked + [.pool[$i]])})
+      | .picked;
+    # Clawd wearing the bandana of session $id, as three lines, his body in
+    # the colour for $state: working orange, waiting yellow, idle grey,
+    # the only states claude-session-state writes
+    def picture($state; $id):
+      (bandana($id) as [$main, $s1, $s2, $s3]
+        | {B: {working: orange, waiting: yellow, idle: dark5}[$state],
+           m: $main, "1": $s1, "2": $s2, "3": $s3}) as $colour
+      | (stand | map(explode | map([.] | implode | $colour[.]))) as $px
+      | [range(3) as $line
+          | [range(8) as $i
+              | [range(4) as $y | range(2) as $x | $px[4 * $line + $y][2 * $i + $x]] as $cell
+              | ($cell | map(select(. != null)) | first) as $c
+              | if $c == null then " "
+                else ([range(8) | select($cell[.] == $c) | pow(2; .)] | add) as $bits
+                | octants[$bits:$bits + 1] | paint($c) end]
           | join("")];
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
@@ -211,14 +223,13 @@ format() {
         | ($r.tmux_pane != null) as $numbered
         # a session with no pane (a --bg one, or a daemon) is dimmed
         | (if $numbered then "" else "\u001b[2m" end) as $dim
-        | picture($r.state; $r.cwd) as [$pic0, $pic1, $pic2, $pic3]
+        | picture($r.state; $r.session_id) as [$pic0, $pic1, $pic2]
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
            (if $numbered then "\($n)" else "" end),
            (if $numbered and $r.tmux_pane == $cur then "1" else "" end),
-           $dim + $pic0 + "\n"
-           + $dim + $pic1 + " " + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
-           + $dim + $pic2 + "   \($r.name // $r.session_id[:8])\n"
-           + $dim + $pic3 + "   \($r.state) \($now - $r.since | ago)"
+           $dim + $pic0 + " " + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
+           + $dim + $pic1 + "   \($r.name // $r.session_id[:8])\n"
+           + $dim + $pic2 + "   \($r.state) \($now - $r.since | ago)"
            # running subagents in the working colour, so an idle session
            # whose subagents are still at work stands out
            + (if $r.subagents > 0 then "  " + ("+\($r.subagents)" | paint(orange)) else "" end)

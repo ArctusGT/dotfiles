@@ -38,13 +38,13 @@ the starting point.
 - A session's colours from a stable hash of its id, computed in jq
 
 **Acceptance criteria:**
-- [ ] Each session's bandana differs from the others on show and stays the
+- [x] Each session's bandana differs from the others on show and stays the
       same across sidebar restarts
-- [ ] The standing pose has no cell holding more than two colours, checked
+- [x] The standing pose has no cell holding more than two colours, checked
       by a script that counts them, as the prototype's clash count does
-- [ ] Entries are four lines; clicks, M-1..9 and Cmd+Up/Down at an edge land
+- [x] Entries are four lines; clicks, M-1..9 and Cmd+Up/Down at an edge land
       on the right entry
-- [ ] A background entry's Clawd and bandana are dim
+- [x] A background entry's Clawd and bandana are dim
 - [ ] The Maintainer judges it by eye in the frame, on a Mac and a mgmt-1
       entry
 
