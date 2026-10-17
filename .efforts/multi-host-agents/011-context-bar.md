@@ -45,6 +45,16 @@ per-entry value. Bar plus percentage, red at the warn level, still holds.
       the third line fits the sidebar's width, `background` included
 - [x] The Readme describes the line where it described the bar
 
+**For the Maintainer's look:**
+- Each filled cell takes the gradient colour of its own position along the
+  bar, so below the default warn of 50 the fill reaches yellow at most. The
+  other reading of "coloured by where it reaches", the whole fill in the one
+  colour its end sits on, is a small change if preferred.
+- A heading's blank row is a braille blank (U+2800), since fzf drops a
+  trailing line of spaces. The last entry of one host now meets the next
+  host's heading with no blank row, its line doing the separating.
+- `--highlight-line` is not added; the focused entry shades as before.
+
 **Out of scope:**
 - The Clawd icon (slice 012)
 - Changing what `claude-sessions` or the status line record

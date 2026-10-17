@@ -99,7 +99,8 @@ format() {
         | join("");
       if $pct == null then "┈" * $width | paint("38;5;59")
       else
-        " \($pct)%" as $label
+        # padded to 4 columns, so bars up to 99% end in the same column
+        (" \($pct)%" | " " * (4 - length) + .) as $label
         | ($width - ($label | length)) as $cells
         | ([$pct * $cells / 100 | round, $cells] | min) as $full
         | ("┈" * ($cells - $full) | paint("38;5;59")) as $rest
@@ -115,8 +116,8 @@ format() {
     | if $r.header then
         ["", "", "", "", "", "",
          "\u001b[1m\($r.label)\u001b[0m" + (if $r.down then "  \u001b[31munreachable\u001b[0m" else "" end)
-         # a blank second line to keep the gap that --gap drew, as a braille
-         # blank (U+2800) since fzf drops a trailing line of only spaces
+         # a blank second line, so the heading stands apart from the entries,
+         # as a braille blank (U+2800) since fzf drops a trailing line of spaces
          + "\n\u2800"]
       else
         ($r.context.used_pct) as $pct
