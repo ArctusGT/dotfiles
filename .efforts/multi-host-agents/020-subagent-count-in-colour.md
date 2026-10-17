@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** An entry's `+N` running-subagent count is drawn in the sidebar's working colour, so a session with subagents at work stands out even while it is idle itself
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
