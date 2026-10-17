@@ -16,16 +16,18 @@ session on show.
 **Desired behavior:**
 Selecting a background entry, by click, Enter or its number's hotkey, opens
 that session in a tmux window on the session's own host and shows it in the
-frame's right pane. The window runs Claude Code's `attach` for that session
-id and is tagged with it. A later select of the same entry jumps to the
-tagged window, not a second copy. While the window exists, the entry is
+frame's right pane. The window runs Claude Code's `attach` for that session's
+daemon job id (looked up from `claude agents --json`; it is not always the
+session id) and is tagged with the session id. A later select of the same
+entry jumps to the tagged window, not a second copy. While the window exists, the entry is
 numbered and the cursor follows it like any session with a pane. Closing the
 window detaches; the session keeps running in its daemon and the entry goes
 back to dimmed.
 
 **Key interfaces:**
-- `claude attach <id|name>`: opens a background session in the current
-  terminal, on the Mac and on mgmt-1
+- `claude attach <job id|name>`: opens a background session in the current
+  terminal, on the Mac and on mgmt-1; `claude agents --json` maps a
+  session id to its job id
 - A window option carrying the attached session id, read by the sidebar's
   per-host collection alongside `claude-sessions`
 - The tmux session the window opens in: the one the frame's right pane shows

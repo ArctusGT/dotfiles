@@ -141,11 +141,14 @@ attach() { # $1 session id, $2 client
   pane=$(work list-panes -a -f "#{==:#{@claude_attach},$1}" -F '#{pane_id}' | head -1)
   if [[ -z $pane ]]; then
     # `claude attach` takes the daemon's job id, which need not be the session's
-    job=$(claude agents --json | jq -r --arg s "$1" 'first(.[] | select(.sessionId == $s) | .id) // empty')
+    job=$(claude agents --json | jq -r --arg s "$1" '.[] | select(.sessionId == $s) | .id // empty')
     [[ -n $job ]] || return 1
-    session=$(work display -p ${2:+-c "$2"} '#{session_name}') || return 1
-    pane=$(work new-window -d -P -F '#{pane_id}' -t "$session:" "claude attach $job") || return 1
-    work set -w -t "$pane" @claude_attach "$1"
+    # by id, which a session name with `.` or `:` would not survive as a target
+    session=$(work display -p ${2:+-c "$2"} '#{session_id}') || return 1
+    # tagged in the same call, so a select racing this one finds the window.
+    # The new window becomes current, which `set` without -t relies on
+    pane=$(work new-window -P -F '#{pane_id}' -t "$session:" "claude attach $job" \; \
+      set -w @claude_attach "$1") || return 1
   fi
   echo "$pane"
 }
