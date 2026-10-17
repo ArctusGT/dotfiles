@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** The sidebar shows each session's current name, renames included, from the record Claude Code keeps per session, rather than the status line's last record, which goes stale for any session not on screen
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -44,3 +44,19 @@ line's record stays the source of context use and cost.
 - Which session a pane shows after switching inside Claude Code
   (slice 015)
 - Renaming from the sidebar
+
+**Left for the Maintainer:**
+- Criteria 1 and 2 need a live rename: `/rename` in a session that isn't
+  on screen, and a rename of a background session from Claude Code's
+  session list, each on the Mac and on mgmt-1 (after mgmt-1 pulls). The
+  record is re-read on every refresh, and a rename shows in it (on the Mac,
+  84e750a9's record carries `formerNames: [Work sliced]` and `nameSource:
+  user`), but no rename was watched landing in the sidebar.
+- A session with a derived default name now shows that name, as Claude
+  Code's session list does, where the status line's summary title showed
+  before: 8db3d82a reads `obsidian-thislists-29`, no longer `Reddit links
+  rendering`.
+- Three reviews noted that `jq -s` drops every record for a refresh if any
+  one fails to parse (a write caught half-done, say). No torn record has
+  been seen and nobody has measured whether Claude Code writes them
+  atomically, so there is no guard.
