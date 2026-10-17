@@ -13,3 +13,8 @@ keybind = super+shift+arrow_left=csi:1;8D
 keybind = super+shift+arrow_right=csi:1;8C
 keybind = super+shift+arrow_up=csi:1;8A
 keybind = super+shift+arrow_down=csi:1;8B
+
+# TokyoNight Night, the palette the tmux bar and borders name by number
+# (colour0..colour15). The Application Support config must not set its own
+# theme, or it wins.
+theme = TokyoNight Night
