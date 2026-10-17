@@ -53,7 +53,7 @@ since only the frame sits above whatever the right pane shows.
 - [x] Typing while the float is focused does not reach the mirrored pane
 - [x] Closing the float (its border's close control, or `kill-pane`) leaves
       the source pane and the right pane untouched
-- [ ] The Readme describes opening, filling and closing the mirror float
+- [x] The Readme describes opening, filling and closing the mirror float
 
 **Out of scope:**
 - Typing into the mirrored pane through the float
