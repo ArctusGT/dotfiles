@@ -65,9 +65,10 @@ tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5
 }
 
 # one NUL-terminated fzf item per header or session: ssh host, pane, relay
-# session, id, entry number, 1 if the frame's right pane shows it, then the
-# display lines. Sessions with a pane are numbered in order across hosts, for
-# `pick`. Times are in whole minutes, so the rows change only when a session does
+# session, session id (empty only on a header, which is how `jump` tells one),
+# entry number, 1 if the frame's right pane shows it, then the display lines.
+# Sessions with a pane are numbered in order across hosts, for `pick`. Times
+# are in whole minutes, so the rows change only when a session does
 format() {
   jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
@@ -82,20 +83,20 @@ format() {
          "\u001b[1m\($r.label)\u001b[0m" + (if $r.down then "  \u001b[31munreachable\u001b[0m" else "" end)]
       else
         ($r.context.used_pct) as $pct
-        | ($r.tmux_pane != null) as $jumpable
+        | ($r.tmux_pane != null) as $numbered
         # a session with no pane (a --bg one, or a daemon) is dimmed
-        | (if $jumpable then "" else "\u001b[2m" end) as $dim
+        | (if $numbered then "" else "\u001b[2m" end) as $dim
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
-           (if $jumpable then "\($n)" else "" end),
-           (if $jumpable and $r.tmux_pane == $cur then "1" else "" end),
-           $dim + (if $jumpable then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
+           (if $numbered then "\($n)" else "" end),
+           (if $numbered and $r.tmux_pane == $cur then "1" else "" end),
+           $dim + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
            + $dim + "  \($r.name // $r.session_id[:8])\n"
            + $dim + "  \($r.state) \($now - $r.since | ago)"
            + (if $r.subagents > 0 then "  +\($r.subagents)" else "" end)
            + (if $pct == null then ""
               elif $pct >= $warn then "  \u001b[31m!ctx \($pct)%\u001b[0m"
               else "  ctx \($pct)%" end)
-           + (if $jumpable then "" else "  " + $dim + "background\u001b[0m" end)]
+           + (if $numbered then "" else "  " + $dim + "background\u001b[0m" end)]
       end
     | join("\t") + "\u0000"'
 }
