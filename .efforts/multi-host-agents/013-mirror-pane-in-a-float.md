@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Option+dragging a pane onto a floating pane makes the float mirror it, and the float stays over the frame's right pane while the Maintainer moves to other windows, sessions and hosts, so instructions in one pane stay readable while acting in another
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/009-cmd-arrows-between-panes]
 
 **Current behavior:**
@@ -46,9 +46,9 @@ since only the frame sits above whatever the right pane shows.
   frame window
 
 **Acceptance criteria:**
-- [ ] Option+dragging a Mac pane onto the float makes it mirror that pane;
+- [x] Option+dragging a Mac pane onto the float makes it mirror that pane;
       output in the source shows in the float within a second
-- [ ] Option+dragging a pane in the Mac's `mgmt-1` window onto the float
+- [x] Option+dragging a pane in the Mac's `mgmt-1` window onto the float
       mirrors that mgmt-1 pane
 - [x] Typing while the float is focused does not reach the mirrored pane
 - [x] Closing the float (its border's close control, or `kill-pane`) leaves

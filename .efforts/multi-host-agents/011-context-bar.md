@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Each sidebar entry ends in its own gap line: a full-width horizontal bar whose filled part shows context use in the tmux theme's gradient colours, with the percentage at its end, turning red at CLAUDE_CTX_WARN
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -36,7 +36,7 @@ per-entry value. Bar plus percentage, red at the warn level, still holds.
 - `CLAUDE_CTX_WARN`, unchanged
 
 **Acceptance criteria:**
-- [ ] An entry at 24% ends in a line about a quarter filled, in the
+- [x] An entry at 24% ends in a line about a quarter filled, in the
       theme's gradient colours, with `24%` at its end
 - [x] An entry at or past `CLAUDE_CTX_WARN` shows its filled part and
       number red
