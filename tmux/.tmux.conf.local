@@ -467,9 +467,11 @@ bind -n C-Left if -F '#{@ssh_tmux}' 'send-keys C-Left' previous-window
 bind -n C-Right if -F '#{@ssh_tmux}' 'send-keys C-Right' next-window
 # panes: Cmd+arrows focus the neighbour that way, Cmd+Shift+arrows swap with it
 # and keep focus on the moved pane; nothing at a window's edge, where tmux
-# would otherwise wrap. tmux reads Cmd as Alt, so ghostty/.config/ghostty/config
-# sends these as Ctrl+Alt(+Shift)+arrow instead. In an ssh-tmux window they go
-# to the remote tmux, like ctrl+left/right.
+# would otherwise wrap (the inner #{} in #{!:#{pane_at_left}} is needed:
+# #{!:pane_at_left} reads the name as text). tmux reads Cmd as Alt, so
+# ghostty/.config/ghostty/config sends these as Ctrl+Alt(+Shift)+arrow
+# instead. In an ssh-tmux window they go to the remote tmux, like
+# ctrl+left/right.
 bind -n C-M-Left  if -F '#{@ssh_tmux}' 'send-keys C-M-Left'  { if -F '#{!:#{pane_at_left}}'   'select-pane -L' }
 bind -n C-M-Right if -F '#{@ssh_tmux}' 'send-keys C-M-Right' { if -F '#{!:#{pane_at_right}}'  'select-pane -R' }
 bind -n C-M-Up    if -F '#{@ssh_tmux}' 'send-keys C-M-Up'    { if -F '#{!:#{pane_at_top}}'    'select-pane -U' }
@@ -480,8 +482,9 @@ bind -n C-M-S-Up    if -F '#{@ssh_tmux}' 'send-keys C-M-S-Up'    { if -F '#{!:#{
 bind -n C-M-S-Down  if -F '#{@ssh_tmux}' 'send-keys C-M-S-Down'  { if -F '#{!:#{pane_at_bottom}}' 'swap-pane -d -t "{down-of}"' }
 # Option+drag from one pane, released over another, swaps the two. In a mouse
 # binding `=` and the default pane are both the pane under the pointer, so the
-# drag's start is kept in @drag_src for the swap at its end. tmux fires
-# M-MouseDrag1Pane once per drag, not per move, so @drag_src holds the start
+# drag's start is kept in @drag_src for the swap at its end, which run-shell -C
+# expands. tmux fires M-MouseDrag1Pane once per drag, not per move, so
+# @drag_src holds the start.
 bind -n M-MouseDrag1Pane select-pane -t = \; set -wF @drag_src '#{pane_id}'
 bind -n M-MouseDragEnd1Pane run-shell -t = -C 'swap-pane -d -s "#{@drag_src}" -t "#{pane_id}"'
 # clicking a waiting-Claude marker (a range=user|@<window_id> in status-right)

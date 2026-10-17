@@ -127,8 +127,8 @@ host's other keys take the prefix twice (`C-Space C-Space`).
 In an `ssh-tmux` window such as `mgmt-1`, the `Cmd` keys act on the host's
 panes. They come from the `ghostty` package, which gives up Ghostty's own
 `Cmd+arrow` defaults (line start and end, jump to prompt): tmux has no `Cmd`
-modifier, so Ghostty sends them as `Ctrl+Option(+Shift)+arrow`, and those
-keys do the same.
+modifier, so Ghostty sends them as `Ctrl+Option(+Shift)+arrow`, and pressing
+those directly works too.
 
 ### Claude sessions sidebar
 
