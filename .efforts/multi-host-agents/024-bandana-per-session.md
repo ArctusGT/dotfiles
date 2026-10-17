@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar draws Clawd in Unicode octants wearing a bandana whose colours come from the session, in place of 023's per-repo hats, and the entry returns to four lines
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -53,3 +53,15 @@ the starting point.
 - A pose for waiting other than standing
 - Whether a home directory's session should go bare: it wears a bandana
   like any other until the Maintainer says otherwise
+
+## Comments
+
+For the Maintainer, from review, alongside the look in the frame:
+- Bandanas differ as a whole, but the main colour, half the bandana, comes
+  from 9 shades, so with more than 9 sessions on show mains repeat (11 on
+  show: three share blue1, two red, two teal). Guaranteeing distinct mains
+  would mean picking against the other entries, which a stable hash of the
+  id alone cannot do. Is a whole-bandana difference enough?
+- The fg shade (#c0caf5) may read close to the idle grey once dimmed on a
+  background entry.
+- A red bandana can sit beside a red context bar past `CLAUDE_CTX_WARN`.
