@@ -44,7 +44,7 @@ animations fit the sidebar's Clawd (a later slice, if it fits).
       enabled on the Mac
 - [ ] A new session on the Mac shows Clawd above the prompt, in a plain
       Ghostty tab and in a tmux pane
-- [ ] The same on mgmt-1 after `git pull`, with no step there beyond the pull
+- [ ] The same on mgmt-1 after `git pull` and the Readme's two install commands
 - [x] The Readme names the mod, where it comes from, and how to bump it
 
 **Out of scope:**
@@ -60,7 +60,6 @@ animations fit the sidebar's Clawd (a later slice, if it fits).
   the one tag, v0.29.0, predates the reviewed 0.29.5. Measured on the Mac
   by pinning to the previous upstream commit and reading the checkout's
   HEAD after `claude plugin marketplace update`.
-- "with no step there beyond the pull" does not hold: settings alone install
-  nothing (`claude plugin list` and a `claude -p` session both found none).
-  Each host runs the Readme's two commands once. Proposed: the mgmt-1
-  criterion reads "after `git pull` and the Readme's two install commands".
+- Settings alone install nothing (`claude plugin list` and a `claude -p`
+  session both found none), so the mgmt-1 criterion now includes the
+  Readme's two install commands, with the Maintainer's agreement.
