@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** An entry's `+N` running-subagent count is drawn in the sidebar's working colour, so a session with subagents at work stands out even while it is idle itself
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -29,8 +29,18 @@ The Maintainer chose colour alone over a glyph or a list of the subagents.
 - [x] On the Mac, an entry with running subagents shows `+N` in orange,
       idle, working and background entries alike
 - [x] An entry after it in the list keeps its own colours
-- [ ] The same on a mgmt-1 entry, once mgmt-1 has pulled
+- [x] The same on a mgmt-1 entry, once mgmt-1 has pulled
 
 **Out of scope:**
 - Whether the count is right; it comes from the hooks as now
 - Naming or listing the subagents
+
+## Comments
+
+2026-10-17, code-review of c1ece48 (standards and spec): no violations, no
+scope creep. Left for the Maintainer:
+- On a background entry the count is dim orange, not full strength: `paint`
+  closes only the foreground, so the entry's `\e[2m` stays on. Full strength
+  would need `\e[22m` before the count and the dim again after it.
+- `Readme.md`'s sidebar paragraph names every colour in an entry except the
+  count's; "running subagents (`+N`, in orange)" would complete it.
