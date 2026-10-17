@@ -9,6 +9,7 @@ gui:
     searchingActiveBorderColor: [yellow, bold]
     selectedLineBgColor: ["#33467c"]
     cherryPickedCommitBgColor: [magenta]
+  nerdFontsVersion: "3"
 
 # a file opened from lazygit run inside nvim opens in that nvim; run anywhere
 # else, in a new one
