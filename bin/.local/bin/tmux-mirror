@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# tmux-mirror drop PANE | show PANE [HOST]: show a pane of the usual tmux, or
-# of an ssh-tmux host's, live and read-only in a floating pane of the frame
-# (`tmux-frame`), which stays on screen whatever the frame's right pane shows.
-#   drop PANE         an Option+drag released over the frame's PANE, other
+# tmux-mirror drop PANE FLOATING | show PANE [HOST]: show a pane of the usual
+# tmux, or of an ssh-tmux host's, live and read-only in a floating pane of the
+# frame (`tmux-frame`), which stays on screen whatever its right pane shows.
+#   drop PANE FLOATING
+#                     an Option+drag released over the frame's PANE, other
 #                     than its right pane (the frame's M-MouseDragEnd1Pane
-#                     runs this): end the usual tmux's drag, and if PANE is a
-#                     float, respawn it to show the pane the drag started on,
+#                     runs this): end the usual tmux's drag, and if FLOATING
+#                     is 1, respawn PANE to show the pane the drag started on,
 #                     in the usual tmux or, from an ssh-tmux window, on its
 #                     host. Ends whatever the float was running
 #   show PANE [HOST]  draw PANE, on HOST if given, until it closes: the bottom
@@ -35,45 +36,51 @@ take_drag_src() { # $1 window, $2 ssh host
   fi
 }
 
-drop() { # $1 the frame pane the drag ended over
+drop() { # $1 the frame pane the drag ended over, $2 1 if it is floating
   local main tty window host src
-  read -r main tty < <(tmux list-panes -F '#{@frame_main} #{pane_id} #{pane_tty}' | awk '$1 == 1 {print $2, $3; exit}')
+  read -r main tty < <(tmux list-panes -f '#{@frame_main}' -F '#{pane_id} #{pane_tty}')
   [[ -n $main ]] || return 0
-  IFS=$'\x1f' read -r window host < <(work display -p -c "$tty" '#{window_id}'$'\x1f''#{@ssh_tmux}')
+  read -r window host < <(work display -p -c "$tty" '#{window_id} #{@ssh_tmux}')
   src=$(take_drag_src "$window" "$host")
   # the release went to another frame pane, so the usual tmux (and through an
   # ssh-tmux window, the host's) still waits for the drag's end and would
   # take the next click as it: send it one, over the right pane's top-left
   # cell. As raw bytes (-H), which the frame's csi-u key encoding leaves alone
   tmux send-keys -t "$main" -H 1b 5b 3c 38 3b 31 3b 31 6d # \e[<8;1;1m
-  [[ -n $src && $(tmux display -p -t "$1" '#{pane_floating_flag}') == 1 ]] || return 0
+  [[ -n $src && $2 == 1 ]] || return 0
   tmux respawn-pane -k -t "$1" "$self show $src $host"
 }
 
-# the capture of pane $1 every 0.2s, each followed by \036, or a bare \036 when
-# unchanged, so a closed reader ends it within a tick; ends when the pane does.
+# the capture of pane $1 every 0.2s, each followed by \n\036 (so even a blank
+# pane's is not empty), or a bare \036 when unchanged, so a closed reader ends
+# it within a tick; ends when the pane does.
 # POSIX sh, as it also runs on an ssh-tmux host
 capture_loop() {
   printf '%s' "PATH=\$HOME/.local/bin:\$PATH last=
     while out=\$(tmux capture-pane -p -e -t '$1' 2>/dev/null); do
-      if [ \"\$out\" = \"\$last\" ]; then printf '\036'; else printf '%s\036' \"\$out\"; last=\$out; fi
+      if [ \"\$out\" = \"\$last\" ]; then printf '\036'; else printf '%s\n\036' \"\$out\"; last=\$out; fi
       sleep 0.2
     done"
 }
 
-# frame $1 at the terminal's size: its last rows with trailing blank lines
-# dropped, each cleared to its end; autowrap is off, so a long line is cut
+# frame $1 in $2 rows: its last rows with trailing blank lines dropped, each
+# cleared to its end; autowrap is off, so a long line is cut
 draw() {
-  local rows cols lines n i out=$'\e[H'
-  read -r rows cols < <(stty size)
+  local rows=$2 lines n start out
   mapfile -t lines <<<"$1"
   n=${#lines[@]}
   while ((n > 0)) && [[ -z ${lines[n - 1]//@($'\e'\[*([0-9;:])m| )/} ]]; do n=$((n - 1)); done
-  for ((i = n > rows ? n - rows : 0; i < n; i++)); do
-    out+=${lines[i]}$'\e[0m\e[K'
-    ((i < n - 1)) && out+=$'\r\n'
-  done
-  printf '%s\e[J' "$out"
+  start=$((n > rows ? n - rows : 0))
+  printf -v out '%s\e[0m\e[K\r\n' "${lines[@]:start:n-start}"
+  printf '\e[H%s\e[J' "${out%$'\r\n'}"
+}
+
+# the frames of pane $1, on ssh host $2 if given
+frames() {
+  local loop
+  loop=$(capture_loop "$1")
+  if [[ -n $2 ]]; then ssh "${ssh_opts[@]}" "$2" "$loop"
+  else env -u TMUX -u TMUX_PANE sh -c "$loop"; fi
 }
 
 show() { # $1 pane, $2 ssh host
@@ -85,12 +92,12 @@ show() { # $1 pane, $2 ssh host
     [[ -z $frame && $size == "$last_size" ]] && continue
     [[ -n $frame ]] && shown=$frame
     last_size=$size
-    draw "$shown"
-  done 3< <(if [[ -n $2 ]]; then ssh "${ssh_opts[@]}" "$2" "$(capture_loop "$1")"; else env -u TMUX -u TMUX_PANE sh -c "$(capture_loop "$1")"; fi)
+    draw "$shown" "${size% *}"
+  done 3< <(frames "$1" "$2")
 }
 
 case $1 in
-  drop) drop "$2" ;;
+  drop) drop "$2" "$3" ;;
   show) show "$2" "$3" ;;
   *) "$self" --help >&2; exit 2 ;;
 esac
