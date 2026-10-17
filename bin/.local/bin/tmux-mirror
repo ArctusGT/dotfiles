@@ -113,13 +113,14 @@ show() { # $1 pane, $2 ssh host
 }
 
 # one wheel tick, $1 up or down, over pane $2 on ssh host $3 if given, as
-# tmux's default bindings take it: in copy-mode, scroll 5 lines, leaving it at
-# the bottom; to a program that takes the mouse, a wheel event at the pane's
-# centre, encoded as tmux would; otherwise up enters copy-mode, unless the
-# pane is on its alternate screen. POSIX sh, as for capture_loop
+# tmux's default bindings take it: in copy-mode, scroll 5 lines; to a program
+# that takes the mouse, a wheel event at the pane's centre, encoded as tmux
+# would; otherwise up, unless the pane is on its alternate screen, enters
+# copy-mode -e, which scrolling back to the bottom leaves. POSIX sh, as for
+# capture_loop
 wheel() {
   on_host "dir=$1 pane=$2"'
-    read -r in_mode mouse sgr alt x y <<EOF
+    read -r in_mode takes_mouse sgr alt_screen x y <<EOF
 $(tmux display -p -t "$pane" "#{pane_in_mode} #{mouse_any_flag} #{mouse_sgr_flag} #{alternate_on} #{e|+:#{e|/:#{pane_width},2},1} #{e|+:#{e|/:#{pane_height},2},1}")
 EOF
     send_wheel() {
@@ -131,8 +132,8 @@ EOF
       fi
     }
     if [ "$in_mode" = 1 ]; then tmux send-keys -t "$pane" -X -N 5 "scroll-$dir"
-    elif [ "$mouse" = 1 ]; then send_wheel
-    elif [ "$dir" = up ] && [ "$alt" != 1 ]; then tmux copy-mode -e -t "$pane"
+    elif [ "$takes_mouse" = 1 ]; then send_wheel
+    elif [ "$dir" = up ] && [ "$alt_screen" != 1 ]; then tmux copy-mode -e -t "$pane"
     fi' "$3" </dev/null
 }
 
