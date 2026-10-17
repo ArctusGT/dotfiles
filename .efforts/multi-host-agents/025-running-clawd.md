@@ -32,13 +32,13 @@ cursor at that rate, with `prototype-fzf-redraw.py` on the branch
   median and fzf about 4% CPU at 8 fps (prototype, throwaway tmux server)
 
 **Acceptance criteria:**
-- [ ] A working session's Clawd runs through four distinct frames at about
+- [x] A working session's Clawd runs through four distinct frames at about
       8 fps; the others stay still
 - [x] Every run frame keeps each cell to two colours at most, by the count
       script from 024
-- [ ] With no session working, `reload-sync` posts no more often than once
+- [x] With no session working, `reload-sync` posts no more often than once
       a second, measured by counting them for a minute
-- [ ] The CPU the sidebar takes while one session works, measured and
+- [x] The CPU the sidebar takes while one session works, measured and
       stated in the commit
 - [ ] The Maintainer sees no flicker and the cursor stays put, in the frame
 

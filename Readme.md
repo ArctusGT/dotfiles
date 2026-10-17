@@ -143,9 +143,9 @@ pane closes the frame.
 The sidebar lists every Claude session on the Mac and on each host a sesh
 entry reaches through `ssh-tmux`, under one heading per host. Each entry shows
 Clawd, Claude Code's mascot, beside its number, repo, name, then state, time in
-that state and running subagents (`+N`). Clawd is orange while the session
-works, yellow while it waits on you, and grey while it is idle. He wears a
-bandana in the session's own colours, the same on every refresh. The entry
+that state and running subagents (`+N`). Clawd is orange and runs while the
+session works, yellow while it waits on you, and grey while it is idle. He
+wears a bandana in the session's own colours, the same on every refresh. The entry
 ends in a line across the sidebar showing its context use: filled up to the
 share used, green over its first quarter, then yellow, orange and red, with the
 percentage at its end, and all grey before the session reports any. At or past

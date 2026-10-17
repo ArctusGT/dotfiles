@@ -3,7 +3,8 @@
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
 # A background loop rebuilds the list into a cache every second, so fzf never
-# waits on a host. `tmux-frame` runs it as the frame's left pane: a jump moves
+# waits on a host, and redraws it 8 times a second while a session works, so
+# its Clawd runs. `tmux-frame` runs it as the frame's left pane: a jump moves
 # the frame's right pane, and fzf's cursor follows the session on show there
 # however it changed. Run elsewhere, a jump moves the usual tmux's most recent
 # client.
@@ -91,7 +92,7 @@ line_width() {
 # are in whole minutes, so the rows change only when a session does, or with
 # the frame while a session works and its Clawd runs
 format() { # $1 animation frame, counting from 0 (default 0)
-  jq -srj --argjson frame "${1:-0}" --argjson now "$(date +%s)" --argjson warn "$warn" --argjson width "$(line_width)" '
+  jq -srj --argjson frame "${1:-0}" --argjson now "$(printf '%(%s)T' -1)" --argjson warn "$warn" --argjson width "$(line_width)" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
     # TokyoNight Night as SGR foregrounds: the terminal palette where it has
@@ -462,31 +463,83 @@ position() {
 # run fzf actions in the running sidebar
 fzf_do() { curl -sf --unix-socket "$cache/fzf.sock" -X POST http://localhost -d "$1"; }
 
-# rebuild the cache: the tagged lines `pick` reads, and the rows fzf shows,
-# each replaced whole so a reader never sees half of one
-refresh() {
-  collect >"$cache/tagged.new" && format <"$cache/tagged.new" >"$cache/rows.new" &&
-    mv "$cache/tagged.new" "$cache/tagged" && mv "$cache/rows.new" "$cache/rows"
+# the tagged lines `pick` reads, collected from every host and replaced whole,
+# so a reader never sees half of them
+gather() { collect >"$cache/tagged.new" && mv "$cache/tagged.new" "$cache/tagged"; }
+
+# the rows fzf shows, formatted from the tagged lines for animation frame $1
+# and replaced whole, as `step` and `position` read them too
+draw() { format "$1" <"$cache/tagged" >"$cache/rows.new" && mv "$cache/rows.new" "$cache/rows"; }
+
+refresh() { gather && draw 0; }
+
+# gather every second, or as soon as a jump asks, writing a line to the fifo
+# $cache/gathered after each gather, which wakes `serve`
+gathering() {
+  while :; do
+    gather && echo >"$cache/gathered"
+    for _ in 1 2 3 4 5; do [[ -e $cache/kick ]] && break; sleep 0.2; done
+    rm -f "$cache/kick"
+  done
 }
 
-# refresh every second, or as soon as a jump asks. fzf reloads only when the
+# redraw after each gather, and at every tick, 8 a second, while a session
+# works, so its Clawd runs; with none working it sleeps until the next gather,
+# so the rows change no more than once a second. fzf reloads only when the
 # rows changed, and its cursor moves only when the right pane's session did,
 # so it is not taken from an entry being browsed to
 serve() {
-  local sum last_sum="" shown last_shown=""
+  local frame=0 working=false fresh check_shown=false sum last_sum="" shown last_shown=""
+  # the next tick, in microseconds, kept to a schedule so a slow draw does
+  # not slow the frame rate
+  local tick=125000 next delay gathered
+  # read and write, so the fifo always has a reader and a writer: `read`
+  # then waits for a line rather than seeing end of file, and the waits are
+  # read timeouts, with no sleep to fork
+  exec {gathered}<>"$cache/gathered"
   while :; do
-    refresh
-    # without field 6, the session on show, which moves the cursor, not the rows
-    sum=$(perl -0pe 's/^((?:[^\t]*\t){5})[^\t]*/$1/' "$cache/rows" | cksum)
-    shown=$(position 6 1)
-    if [[ $sum != "$last_sum" ]]; then
-      fzf_do "reload-sync(cat '$cache/rows')" && last_sum=$sum
+    fresh=false
+    if [[ $working != true ]]; then
+      read -r -u "$gathered" && fresh=true
+      next=$((${EPOCHREALTIME/[.,]/} + tick))
+    else
+      delay=$((next - ${EPOCHREALTIME/[.,]/}))
+      if ((delay > 0)); then
+        printf -v delay '0.%06d' "$delay"
+        read -r -t "$delay" -u "$gathered" && fresh=true
+      fi
+      if [[ $fresh == false ]]; then
+        next=$((next + tick))
+        # behind: drop the missed ticks
+        ((next > ${EPOCHREALTIME/[.,]/})) || next=$((${EPOCHREALTIME/[.,]/} + tick))
+      fi
     fi
-    if [[ -n $shown && $shown != "$last_shown" ]]; then
-      fzf_do "pos($shown)" && last_shown=$shown
+    if [[ $fresh == true ]]; then
+      working=$(jq -s 'any(.[]; .state == "working")' "$cache/tagged")
+      check_shown=true
+      # while one works, the next tick draws what was gathered, so the
+      # frames stay evenly spaced
+      [[ $working == true ]] && continue
     fi
-    for _ in 1 2 3 4 5; do [[ -e $cache/kick ]] && break; sleep 0.2; done
-    rm -f "$cache/kick"
+    frame=$((frame + 1))
+    draw "$frame"
+    # a running Clawd changes the rows every frame; with none, a gather may
+    # leave them as they were. The sum is without field 6, the session on
+    # show, which moves the cursor, not the rows
+    if [[ $working == true ]]; then
+      fzf_do "reload-sync(cat '$cache/rows')"
+    else
+      sum=$(perl -0pe 's/^((?:[^\t]*\t){5})[^\t]*/$1/' "$cache/rows" | cksum)
+      [[ $sum != "$last_sum" ]] && fzf_do "reload-sync(cat '$cache/rows')" && last_sum=$sum
+    fi
+    # the session on show changes only with a gather
+    if [[ $check_shown == true ]]; then
+      check_shown=false
+      shown=$(position 6 1)
+      if [[ -n $shown && $shown != "$last_shown" ]]; then
+        fzf_do "pos($shown)" && last_shown=$shown
+      fi
+    fi
   done
 }
 
@@ -512,10 +565,13 @@ case $1 in
   jump) jump "$2" "$3" "$4" "$5" ;;
   attach) attach "$2" ;;
   "")
-    mkdir -p "$cache" && refresh
+    mkdir -p "$cache" && { [[ -p $cache/gathered ]] || mkfifo "$cache/gathered"; } && refresh
     # errors to a log: written to the pane, they stay over fzf until it redraws
+    gathering 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
+    loops=$!
     serve 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
-    trap 'kill $! 2>/dev/null; rm -rf "$cache"' EXIT
+    loops+=" $!"
+    trap 'kill $loops 2>/dev/null; rm -rf "$cache"' EXIT
     # no --track: it holds back cursor moves while it finds the item again
     # after each reload, and the list's order is stable without it. Esc and
     # ctrl-c clear the query rather than closing the sidebar
