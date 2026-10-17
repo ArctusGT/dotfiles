@@ -41,7 +41,7 @@ the terminal palette as the source over hex in every tool.
       palette with the theme set only in the `ghostty` package
 - [x] The usual tmux's bar, window list and pane borders show TokyoNight
       colours, with no oh-my-tmux default yellow or pink left
-- [ ] The frame's borders match the usual tmux's
+- [x] The frame's borders match the usual tmux's
 - [ ] mgmt-1's bar, seen through the Mac's `mgmt-1` window, matches the
       Mac's after a pull
 - [x] Every hex value left in the tmux configs names the TokyoNight colour it
