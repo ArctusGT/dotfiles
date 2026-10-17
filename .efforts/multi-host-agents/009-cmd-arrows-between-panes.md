@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Cmd+arrows move focus between the panes of a tmux window, and Cmd+Shift+arrows or an Option+drag move a pane, omarchy's Super bindings, on the Mac and through to mgmt-1's tmux
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -44,15 +44,15 @@ Cmd over another modifier to match omarchy's Super habits.
   bindings test to forward a key to the host
 
 **Acceptance criteria:**
-- [ ] In a Mac window split four ways, Cmd+arrows reach each pane from its
+- [x] In a Mac window split four ways, Cmd+arrows reach each pane from its
       neighbour, in the frame's right pane and in a plain Ghostty tmux
-- [ ] Cmd+Shift+arrows swap the focused pane with its neighbour in that
+- [x] Cmd+Shift+arrows swap the focused pane with its neighbour in that
       direction, and focus stays on the moved pane
-- [ ] In the Mac's `mgmt-1` window, the same keys move between and swap
+- [x] In the Mac's `mgmt-1` window, the same keys move between and swap
       mgmt-1's panes, and the Mac's window is unchanged
-- [ ] Option+dragging from one pane and releasing over another in the
+- [x] Option+dragging from one pane and releasing over another in the
       same Mac window swaps them; a plain drag still selects text
-- [ ] Cmd+arrows at a window's edge leave focus where it was
+- [x] Cmd+arrows at a window's edge leave focus where it was
 - [x] The Readme's key table lists the new keys and says Ghostty's Cmd+arrow
       defaults are given up
 

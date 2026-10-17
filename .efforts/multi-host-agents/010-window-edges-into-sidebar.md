@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Cmd+Left from a window's leftmost pane focuses the sidebar, and Cmd+Up/Down past a window's top or bottom pane move to the sidebar's previous or next entry, so Cmd+arrows travel across every Claude session on every host
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/009-cmd-arrows-between-panes]
 
 **Current behavior:**
