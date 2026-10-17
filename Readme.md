@@ -191,9 +191,9 @@ they are about.
 1. `Ctrl+drag` over the right pane opens a float (tmux's own binding); drag
    its border to move it, and the corner to resize it.
 2. `Option+drag` a pane, on the Mac or in the `mgmt-1` window, and release it
-   over the float. The float now shows that pane, cut to the float's size,
-   showing the bottom of the pane. Whatever the float was running ends. Drop
-   another pane on it to switch.
+   over the float. The float now shows the bottom of that pane, cut to the
+   float's size. Whatever the float was running ends. Drop another pane on
+   it to switch.
 3. Keys typed in the float go nowhere. Close it with its border's close
    control or `kill-pane`; the mirrored pane carries on. The float also
    closes when the mirrored pane does.

@@ -29,7 +29,8 @@ take_drag_src() { # $1 window, $2 ssh host
   if [[ -z $2 ]]; then
     work display -p -t "$1" '#{@drag_src}' \; set -wu -t "$1" @drag_src
   else
-    # ~/.local/bin first: a host's system tmux may be another version
+    # ~/.local/bin first: a host's system tmux may be another version. The
+    # relay client is the one whose terminal is a tmux (termname tmux*)
     ssh "${ssh_opts[@]}" "$2" 'PATH=$HOME/.local/bin:$PATH
       w=$(tmux list-clients -f "#{m:tmux*,#{client_termname}}" -F "#{window_id}" | head -1)
       [ -n "$w" ] && tmux display -p -t "$w" "#{@drag_src}" \; set -wu -t "$w" @drag_src' </dev/null 2>/dev/null
@@ -37,16 +38,17 @@ take_drag_src() { # $1 window, $2 ssh host
 }
 
 drop() { # $1 the frame pane the drag ended over, $2 1 if it is floating
-  local main tty window host src
-  read -r main tty < <(tmux list-panes -f '#{@frame_main}' -F '#{pane_id} #{pane_tty}')
-  [[ -n $main ]] || return 0
-  read -r window host < <(work display -p -c "$tty" '#{window_id} #{@ssh_tmux}')
+  local right right_tty window host src
+  read -r right right_tty < <(tmux list-panes -f '#{@frame_main}' -F '#{pane_id} #{pane_tty}')
+  [[ -n $right ]] || return 0
+  # the usual tmux's client in the right pane, and the window it shows
+  read -r window host < <(work display -p -c "$right_tty" '#{window_id} #{@ssh_tmux}')
   src=$(take_drag_src "$window" "$host")
   # the release went to another frame pane, so the usual tmux (and through an
   # ssh-tmux window, the host's) still waits for the drag's end and would
   # take the next click as it: send it one, over the right pane's top-left
   # cell. As raw bytes (-H), which the frame's csi-u key encoding leaves alone
-  tmux send-keys -t "$main" -H 1b 5b 3c 38 3b 31 3b 31 6d # \e[<8;1;1m
+  tmux send-keys -t "$right" -H 1b 5b 3c 38 3b 31 3b 31 6d # \e[<8;1;1m
   [[ -n $src && $2 == 1 ]] || return 0
   tmux respawn-pane -k -t "$1" "$self show $src $host"
 }
@@ -63,8 +65,9 @@ capture_loop() {
     done"
 }
 
-# frame $1 in $2 rows: its last rows with trailing blank lines dropped, each
-# cleared to its end; autowrap is off, so a long line is cut
+# frame $1 in $2 rows: its last rows, after dropping trailing lines of only
+# spaces and colour codes, each cleared to its end; autowrap is off, so a long
+# line is cut
 draw() {
   local rows=$2 lines n start out
   mapfile -t lines <<<"$1"

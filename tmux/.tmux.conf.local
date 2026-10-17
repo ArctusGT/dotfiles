@@ -487,9 +487,10 @@ bind -n C-M-S-Down  if -F '#{@ssh_tmux}' 'send-keys C-M-S-Down'  { if -F '#{!:#{
 # binding `=` and the default pane are both the pane under the pointer, so the
 # drag's start is kept in @drag_src for the swap at its end, which run-shell -C
 # expands. tmux fires M-MouseDrag1Pane once per drag, not per move, so
-# @drag_src holds the start. A drag that ends over the frame's mirror float
-# takes @drag_src (`tmux-mirror drop`), so its end swaps nothing. In an
-# ssh-tmux window the drag goes to the remote tmux, which keeps its own.
+# @drag_src holds the start. A drag that ends over a frame pane other than
+# its right one (the sidebar or a float) has @drag_src taken by `tmux-mirror
+# drop`, so the release it sends swaps nothing. In an ssh-tmux window the
+# drag goes to the remote tmux, which keeps its own.
 bind -n M-MouseDrag1Pane if -F '#{@ssh_tmux}' 'send-keys -M' { select-pane -t = ; set -wF @drag_src '#{pane_id}' }
 bind -n M-MouseDragEnd1Pane if -F '#{@ssh_tmux}' 'send-keys -M' {
   if -F '#{@drag_src}' { run-shell -t = -C 'swap-pane -d -s "#{@drag_src}" -t "#{pane_id}"' ; set -wu @drag_src }
