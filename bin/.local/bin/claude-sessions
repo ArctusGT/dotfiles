@@ -6,17 +6,20 @@
 # `context` (the status line's last record, or null). Removes the files of a
 # session whose process is gone, which is how a killed session is cleared.
 # A background session open in a pane `claude-sidebar` tagged @claude_attach,
-# on the default tmux server, gets that pane as `tmux_pane`.
+# on the default tmux server, gets that pane as `tmux_pane`. A recorded pane
+# the default server no longer has is dropped to null.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 dir=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sessions
 [[ -d $dir ]] || exit 0
 shopt -s nullglob
 
-# {session id: pane} of those panes; the default server even when run from
-# inside the sidebar's frame
-attached=$(env -u TMUX -u TMUX_PANE tmux list-panes -a -f '#{@claude_attach}' \
-  -F '#{@claude_attach} #{pane_id}' 2>/dev/null |
-  jq -Rn '[inputs | split(" ") | {(.[0]): .[1]}] | add // {}')
+# {pane: session id or ""} for every pane, the session id where the pane is
+# tagged @claude_attach; the default server even when run from inside the
+# sidebar's frame
+panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
+  -F '#{pane_id} #{@claude_attach}' 2>/dev/null |
+  jq -Rn '[inputs | split(" ") | {(.[0]): (.[1] // "")}] | add // {}')
+attached=$(jq -c 'to_entries | map(select(.value != "") | {(.value): .key}) | add // {}' <<<"$panes")
 
 for state_file in "$dir"/*.json; do
   [[ $state_file == *.context.json ]] && continue
@@ -29,7 +32,8 @@ for state_file in "$dir"/*.json; do
   agents=("$dir/$sid.agents"/*)
   context=null
   [[ -f $dir/$sid.context.json ]] && context=$(<"$dir/$sid.context.json")
-  jq -c --argjson n "${#agents[@]}" --argjson ctx "$context" --argjson attached "$attached" \
+  jq -c --argjson n "${#agents[@]}" --argjson ctx "$context" \
+    --argjson attached "$attached" --argjson panes "$panes" \
     '. + {name: $ctx.name?, subagents: $n, context: $ctx,
-          tmux_pane: (.tmux_pane // $attached[.session_id])}' "$state_file"
+          tmux_pane: ((.tmux_pane | select(. != null and $panes[.] != null)) // $attached[.session_id])}' "$state_file"
 done
