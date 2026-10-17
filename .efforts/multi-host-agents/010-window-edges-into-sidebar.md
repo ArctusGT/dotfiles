@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Cmd+Left from a window's leftmost pane focuses the sidebar, and Cmd+Up/Down past a window's top or bottom pane move to the sidebar's previous or next entry, so Cmd+arrows travel across every Claude session on every host
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** [multi-host-agents/009-cmd-arrows-between-panes]
 
 **Current behavior:**
@@ -55,3 +55,27 @@ vertical edges, and for Cmd+Left to enter the sidebar.
 - Cmd+Right from a window's rightmost pane (nothing to its right)
 - Unnumbered (background) entries: crossing skips them, as `M-N` does
 - Changing `M-s`, `M-N`, click or Enter
+
+## Comments
+
+- Every criterion was measured by sending the keys through the frame's client
+  with `send-keys -K`, not by pressing Cmd. Real presses are the Maintainer's
+  to confirm, on the Mac and through the `mgmt-1` window.
+- mgmt-1 needs a `git pull` before its own tmux has the new bindings and
+  `claude-sidebar edge` (there, at its own edges, it finds no frame and does
+  nothing).
+- For the Maintainer, beyond this slice: the vertical edges count from the
+  pane at the edge, so from a shell split below a Claude pane Cmd+Down does
+  nothing. Counting from the window's entry instead would need a rule for a
+  window holding two.
+- For the Maintainer, beyond this slice: in an ssh-tmux window outside the
+  frame, Cmd+Left/Up/Down now go to the host through a background
+  `claude-sidebar edge` rather than straight from the binding, so presses
+  faster than a fork could arrive out of order. Testing the client's
+  `tmux*` termname inline would keep plain Ghostty on the old path, at the
+  cost of a third branch in three bindings.
+- For the Maintainer: inside the frame, each Cmd+Left/Up/Down in the `mgmt-1`
+  window waits on an ssh round trip, and a crossing into a mgmt-1 entry
+  switches mgmt-1's client in the background, so a held key there can read
+  mgmt-1's pane before the switch lands and repeat an entry. A held key in a
+  Mac window walks the list (measured, two presses 150ms apart).
