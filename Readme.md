@@ -125,10 +125,10 @@ host's other keys take the prefix twice (`C-Space C-Space`).
 | `Option+drag` from one pane to another | swap the two, in place of tmux's own move of a floating pane |
 
 In an `ssh-tmux` window such as `mgmt-1`, the `Cmd` keys and `Option+drag`
-act on the host's panes. They come from the `ghostty` package, which gives up Ghostty's own
-`Cmd+arrow` defaults (line start and end, jump to prompt): tmux has no `Cmd`
-modifier, so Ghostty sends them as `Ctrl+Option(+Shift)+arrow`, and pressing
-those directly works too.
+act on the host's panes. The `Cmd` keys come from the `ghostty` package,
+which gives up Ghostty's own `Cmd+arrow` defaults (line start and end, jump
+to prompt): tmux has no `Cmd` modifier, so Ghostty sends them as
+`Ctrl+Option(+Shift)+arrow`, and pressing those directly works too.
 
 ### Claude sessions sidebar
 
@@ -192,8 +192,8 @@ they are about.
    its border to move it, and the corner to resize it.
 2. `Option+drag` a pane, on the Mac or in the `mgmt-1` window, and release it
    over the float. The float now shows that pane, cut to the float's size,
-   bottom lines first. Whatever the float was running ends. Drop another pane
-   on it to switch.
+   showing the bottom of the pane. Whatever the float was running ends. Drop
+   another pane on it to switch.
 3. Keys typed in the float go nowhere. Close it with its border's close
    control or `kill-pane`; the mirrored pane carries on. The float also
    closes when the mirrored pane does.
