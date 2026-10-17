@@ -205,9 +205,23 @@ collect() {
   rm -rf "$tmp"
 }
 
+# the tmux session for directory $1: named for the main repo holding it, the
+# parent of its common git directory, so a subdirectory and every worktree of
+# a repo share one; outside a repo, for $1 itself. Either way the name sesh
+# gives a repo's root, so on the Mac the repo's sesh session: the basename,
+# with `.` and `:`, which a tmux target cannot hold, turned to `_`
+repo_session_name() { # $1 directory
+  local dir common
+  dir=$1
+  common=$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) &&
+    dir=$(dirname "$common")
+  dir=$(basename "$dir")
+  echo "${dir//[.:]/_}"
+}
+
 # the pane showing background session $1 on this host. If none does, opens one
-# in a new window of the tmux session named for the session's directory,
-# creating that tmux session detached if absent
+# in a new window of the tmux session named for the session's repo, creating
+# that tmux session detached if absent
 attach() { # $1 session id
   local row pane cwd job tmux_session open
   # claude-sessions now, not the cached rows, so a second select before the
@@ -221,11 +235,7 @@ attach() { # $1 session id
     # `claude attach` takes the daemon's job id, which need not be the session's
     job=$(claude agents --json | jq -r --arg s "$1" '.[] | select(.sessionId == $s) | .id // empty')
     [[ -n $job ]] || return 1
-    # the name sesh gives a directory it has no entry for, so on the Mac the
-    # repo's sesh session: its basename, with `.` and `:`, which a tmux target
-    # cannot hold, turned to `_`
-    tmux_session=$(basename "$cwd")
-    tmux_session=${tmux_session//[.:]/_}
+    tmux_session=$(repo_session_name "$cwd")
     # tagged in the same call, so a select racing this one finds the window.
     # The new window, or session, becomes current, which `set` without -t
     # relies on. The pane, not the window, so a split beside it does not share
