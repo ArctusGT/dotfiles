@@ -33,9 +33,9 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
 - TokyoNight Night's palette, as Ghostty's bundled theme file states it
 
 **Acceptance criteria:**
-- [ ] Every colour `claude-sidebar` writes is a terminal palette number or a
+- [x] Every colour `claude-sidebar` writes is a terminal palette number or a
       hex value naming the TokyoNight colour it stands for
-- [ ] The context line runs green to red in TokyoNight's colours, and turns
+- [x] The context line runs green to red in TokyoNight's colours, and turns
       the warn red at `CLAUDE_CTX_WARN`
 - [ ] The sidebar's focused entry, pointer and match highlight use TokyoNight
       accents, and `sesh-pick` (`prefix f`) shows the same

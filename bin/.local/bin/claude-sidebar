@@ -93,41 +93,49 @@ format() {
   jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" --argjson width "$(line_width)" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
+    # TokyoNight Night, as the terminal palette gives it (the SGR for palette
+    # N is 30+N, or 90+N-8 for 8..15), and as hex the shades the 16 lack
+    def red: 31;
+    def green: 32;
+    def yellow: 33;
+    def blue: 34;
+    def grey: 90; # palette 8
+    def orange: "38;2;255;158;100"; # #ff9e64
+    def dark5: "38;2;115;122;162"; # #737aa2, a grey still seen when dimmed
     # context use as a line across the entry, $width columns with the
     # percentage label at its end: the used share a heavy rule, each cell
-    # coloured by how far along the bar it sits on the gradient palette of the
-    # tmux theme, copied from tmux/.tmux.conf rather than read from tmux,
-    # reversed to run green to red as a full context is the bad end. The rest
-    # a light dashed rule in grey (59). All red at $warn. Colours end at the
-    # default foreground (39), not a reset, so a background entry stays
-    # dimmed. No record ($pct null): the whole line grey, with no label
+    # coloured by how far along the bar it sits, green to red as a full
+    # context is the bad end. The rest a light dashed rule in grey. All red at
+    # $warn. Colours end at the default foreground (39), not a reset, so a
+    # background entry stays dimmed. No record ($pct null): the whole line
+    # grey, with no label
     def ctxline($pct):
       def paint($sgr): "\u001b[\($sgr)m" + .;
       # the first . cells of a bar $cells long, each in its palette colour
       def gradient($cells):
-        [46, 82, 118, 154, 190, 226, 220, 214, 208, 202, 196] as $palette
-        | [range(.) as $i | "━" | paint("38;5;\($palette[$i * ($palette | length) / $cells | floor])")]
+        [green, yellow, orange, red] as $palette
+        | [range(.) as $i | "━" | paint($palette[$i * ($palette | length) / $cells | floor])]
         | join("");
-      if $pct == null then "┈" * $width | paint("38;5;59")
+      if $pct == null then "┈" * $width | paint(grey)
       else
         # padded to 4 columns, so bars up to 99% end in the same column
         (" \($pct)%" | " " * (4 - length) + .) as $label
         | ($width - ($label | length)) as $cells
         | ([$pct * $cells / 100 | round, $cells] | min) as $full
-        | ("┈" * ($cells - $full) | paint("38;5;59")) as $rest
-        | if $pct >= $warn then ("━" * $full | paint(31)) + $rest + ($label | paint(31))
+        | ("┈" * ($cells - $full) | paint(grey)) as $rest
+        | if $pct >= $warn then ("━" * $full | paint(red)) + $rest + ($label | paint(red))
           else ($full | gradient($cells)) + $rest + ($label | paint(39))
           end
       end + "\u001b[39m";
     # Clawd as Claude Code 2.1.292 draws him standing in its banner, open eyes
     # and arms down: his three rows, each padded to his 9 columns, in the
-    # 256-colour for $state: working in his own orange, waiting yellow, idle
-    # grey, the only states claude-session-state writes. Each ends at the
-    # default foreground (39), as ctxline does
+    # colour for $state: working orange, waiting yellow, idle grey, the only
+    # states claude-session-state writes. Each ends at the default foreground
+    # (39), as ctxline does
     def clawd($state):
-      {working: 173, waiting: 220, idle: 245}[$state] as $colour
+      {working: orange, waiting: yellow, idle: dark5}[$state] as $colour
       | [" ▐▛███▛█ ", "▝▜██████▀", " ▝▝   ▝▝ "]
-      | map("\u001b[38;5;\($colour)m" + . + "\u001b[39m");
+      | map("\u001b[\($colour)m" + . + "\u001b[39m");
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
       elif $r.tmux_pane != null then .n += 1 else . end;
@@ -135,7 +143,7 @@ format() {
     | .[0] as $r | .[1] as $n | .[2] as $cur
     | if $r.header then
         ["", "", "", "", "", "",
-         "\u001b[1m\($r.label)\u001b[0m" + (if $r.down then "  \u001b[31munreachable\u001b[0m" else "" end)
+         "\u001b[1;\(blue)m\($r.label)\u001b[0m" + (if $r.down then "  \u001b[\(red)munreachable\u001b[0m" else "" end)
          # a blank second line, so the heading stands apart from the entries,
          # as a braille blank (U+2800) since fzf drops a trailing line of spaces
          + "\n\u2800"]
