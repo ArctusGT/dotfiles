@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** nvim's tokyonight uses the Night style, lazygit gets a TokyoNight theme in a new stow package, and Claude Code uses its terminal-palette theme, so all three match Ghostty
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -41,9 +41,29 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
       and the Readme lists its package with the others
 - [ ] Claude Code's prompt, borders and diffs take the terminal's palette
       after the settings change
-- [ ] No other tool's config is changed
+- [x] No other tool's config is changed
 
 **Out of scope:**
 - tmux (slice 001), the sidebar and fzf (slice 002)
 - nvim plugins other than the colourscheme
 - Claude Code's statusline content
+
+**For the Maintainer's look:**
+- Mac, measured: nvim's `Normal` background reads `#1a1b26` headless
+  (`#222436`, moon, before); a tmux capture of lazygit shows ANSI blue on
+  the active border, `#414868` on the others and `#33467c` behind the
+  selected line. Both still want an eye in Ghostty, as does Claude Code
+  under `dark-ansi`.
+- mgmt-1 has not pulled these commits. There `~/.config/lazygit` is a stow
+  fold into `nvim/.config/lazygit` (gitignored, holding an empty
+  `config.yml`), so `stow lazygit` conflicts until that directory goes and
+  `nvim` is restowed.
+
+**Beyond this slice:**
+- The `claude` package does not reach mgmt-1: its `~/.claude/settings.json`
+  is a real file that has drifted from the package (it adds `model`,
+  `effortLevel`, `enabledPlugins`; it lacks the `claude-git-guard` hook and
+  `awaySummaryEnabled`). Claude Code there stays on `dark` until the two are
+  reconciled and the package stowed.
+- `Readme.md` steps 3 to 5 (`stow -n`, `-D`, `-R`) name only
+  `zsh tmux nvim bin`; they already left out `sesh` and `claude`.
