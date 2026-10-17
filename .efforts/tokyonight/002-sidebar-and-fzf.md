@@ -46,3 +46,12 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
 - tmux's bar and borders (slice 001)
 - nvim, lazygit and Claude Code (slice 003)
 - Changing what the sidebar shows or its layout
+
+**For the Maintainer:**
+- The gradient spans the whole bar, as the old one did, so below the
+  default `CLAUDE_CTX_WARN` of 50 a line shows only green and yellow; orange
+  and red show only with the warn level above 75. Spreading it up to `$warn`
+  instead would change what a colour means, so it waits on a yes.
+- Host headings are bold blue (palette 4), where they were bold default
+  foreground; idle Clawd is TokyoNight's dark5 (#737aa2) rather than
+  palette 8, which reads too dark under a background entry's dim.
