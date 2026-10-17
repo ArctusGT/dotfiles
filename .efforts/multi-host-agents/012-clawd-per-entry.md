@@ -43,9 +43,20 @@ own hats, and a three-line Clawd per entry over a one-character glyph.
 - [ ] With `tengu_birthday_hat` set true in a host's `~/.claude.json` (by
       hand, for the test), that host's Clawds wear the hat and the other
       host's do not
-- [ ] With the flag false or absent, no hat
+- [x] With the flag false or absent, no hat
 - [x] Entry text is cut no shorter than before the slice
 - [ ] The Readme describes the icon, its colours and the hat
+
+**Waiting on the hat's form:**
+- Neither installed Claude Code holds the hat: no `tengu_birthday_hat`,
+  `birthday_hat` or hat drawing in the Mac's 2.1.292 binary, mgmt-1's
+  2.1.302, or the desktop app's `app.asar`. The flag sits in
+  `~/.claude.json` at `.cachedGrowthBookFeatures.tengu_birthday_hat`, but no
+  shipped code reads it yet, so there is no hat to copy
+- Each host's flag is collected with its sessions and carried as `hat` on
+  every session row; `format` does not draw it. The hat criterion and the
+  Readme's hat sentence wait on a Claude Code release that draws it. Dropping
+  the plumbing until then is the other choice
 
 **Out of scope:**
 - The context bar (slice 011)
