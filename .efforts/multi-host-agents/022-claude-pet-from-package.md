@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The third-party `clawd-pet` mod (github.com/yuyongyan29-dev/claude-pet) is installed through the `claude` package's settings, so Clawd walks above the prompt in every Claude Code session on the Mac and mgmt-1
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -39,15 +39,28 @@ animations fit the sidebar's Clawd (a later slice, if it fits).
 - The Readme's `claude` package section
 
 **Acceptance criteria:**
-- [ ] The package's settings declare the marketplace, pinned if supported,
+- [x] The package's settings declare the marketplace, pinned if supported,
       and enable the plugin; `claude plugin validate` or `/plugin` lists it
       enabled on the Mac
 - [ ] A new session on the Mac shows Clawd above the prompt, in a plain
       Ghostty tab and in a tmux pane
 - [ ] The same on mgmt-1 after `git pull`, with no step there beyond the pull
-- [ ] The Readme names the mod, where it comes from, and how to bump it
+- [x] The Readme names the mod, where it comes from, and how to bump it
 
 **Out of scope:**
 - Bringing its animations or hats into `claude-sidebar`
 - Its own settings (`/pet size`, hats, sound), which live in its store per
   host
+
+## Comments
+
+2026-10-17, for the Maintainer:
+- Not pinned. Claude Code drops a commit from the source's `sha` or `ref`
+  and stays on `main`, and `repo#<commit>` fails in `git clone --branch`;
+  the one tag, v0.29.0, predates the reviewed 0.29.5. Measured on the Mac
+  by pinning to the previous upstream commit and reading the checkout's
+  HEAD after `claude plugin marketplace update`.
+- "with no step there beyond the pull" does not hold: settings alone install
+  nothing (`claude plugin list` and a `claude -p` session both found none).
+  Each host runs the Readme's two commands once. Proposed: the mgmt-1
+  criterion reads "after `git pull` and the Readme's two install commands".
