@@ -403,6 +403,14 @@ bind C-Space send-prefix
 # it got emacs keys, where a mouse drag selects but never copies. Pin vi.
 set -g mode-keys vi
 
+# The theme turns extended-keys on only when TERM_PROGRAM names a terminal it
+# knows, so a server started inside the frame (TERM_PROGRAM=tmux) came up
+# without them and Shift+Enter reached Claude Code as a plain Enter. The frame
+# passes extended keys on (.tmux-frame.conf), so take them from it too.
+%if #{==:#{TERM_PROGRAM},tmux}
+set -s extended-keys always
+%endif
+
 # tmux 3.8 defaults popups and menus to a grey theme: match the dark theme
 # instead (-q: an older tmux may not know every option)
 set -gq popup-style "fg=default,bg=default"
