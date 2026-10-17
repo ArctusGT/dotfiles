@@ -145,11 +145,10 @@ its number, repo, name, then state, time in that state and running subagents
 in the tmux battery bar's colours up to the share used, with the percentage at
 its end, and all grey before the session reports any. At or past
 `CLAUDE_CTX_WARN` percent (default 50) the filled part and percentage turn
-red, the cue to hand off and clear. A host that does not
-answer shows `unreachable` under its heading. The list comes from
-`claude-sessions` on each host, rebuilt every second, and at once when a
-tmux client changes session or window, over one shared ssh connection per
-host.
+red, the cue to hand off and clear. A host that does not answer shows
+`unreachable` under its heading. The list comes from `claude-sessions` on each
+host, rebuilt every second, and at once when a tmux client changes session or
+window, over one shared ssh connection per host.
 
 | key | does |
 |---|---|

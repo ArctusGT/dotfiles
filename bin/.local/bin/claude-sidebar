@@ -94,12 +94,13 @@ format() {
       else
         ($width - (" \($pct)%" | length)) as $len
         | ([$pct * $len / 100 | round, $len] | min) as $full
-        | (if $pct >= $warn then "\u001b[31m" + "━" * $full
-           else [range($full) as $i
-                 | [46, 82, 118, 154, 190, 226, 220, 214, 208, 202, 196][$i * 11 / $len | floor]
-                 | "\u001b[38;5;\(.)m━"] | join("") end)
+        | [46, 82, 118, 154, 190, 226, 220, 214, 208, 202, 196] as $gradient
+        | (if $pct >= $warn then "\u001b[31m" else null end) as $red
+        | ([range($full) as $i
+            | ($red // "\u001b[38;5;\($gradient[$i * ($gradient | length) / $len | floor])m") + "━"]
+           | join(""))
           + "\u001b[38;5;59m" + "┈" * ($len - $full)
-          + (if $pct >= $warn then "\u001b[31m" else "\u001b[39m" end) + " \($pct)%\u001b[39m"
+          + ($red // "\u001b[39m") + " \($pct)%\u001b[39m"
       end;
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
