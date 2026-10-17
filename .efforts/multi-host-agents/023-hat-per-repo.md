@@ -12,16 +12,18 @@ the context bar. Sessions of one repo are told apart only by reading the
 folder name.
 
 **Desired behavior:**
-- A one-line hat sits above Clawd's head: two pixel rows of the same
-  quarter-block grid, 18 pixels wide, each cell keeping to two colours
+- A hat sits on Clawd: four pixel rows of the same quarter-block grid, 18
+  pixels wide, the last covering the head-top row and at least as wide as
+  the head, so it reads as worn rather than floating
 - The hat comes from the last component of the session's cwd, which is
   its repo: one Claude session runs per repo, from its root, so the same
   repo on the Mac and on mgmt-1 wears one hat. A home directory wears none,
   the plain Clawd
 - A stable hash of that name picks the shape and the colour. Hat colours
   avoid the state colours (orange, yellow, the idle grey) and red
-- The entry grows to five lines: the number and repo name move up beside the
-  hat, and the context bar stays last
+- The entry grows to five lines: the hat line, then the number and repo
+  name, session name and state beside the head and body, then the context
+  bar
 - A background entry's hat is dimmed with the rest of it
 - The shapes are drawn for this repo; none are copied from agents-deck, which
   carries no licence and whose idea (a hash of the folder picks the hat) this
