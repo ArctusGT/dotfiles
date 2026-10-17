@@ -85,43 +85,26 @@ tmux_conf_24b_colour=true
 #   - tmux_conf_theme_synchronized
 tmux_conf_theme=enabled
 
-# default theme
-tmux_conf_theme_colour_1="#080808"    # dark gray
-tmux_conf_theme_colour_2="#303030"    # gray
-tmux_conf_theme_colour_3="#8a8a8a"    # light gray
-tmux_conf_theme_colour_4="#00afff"    # light blue
-tmux_conf_theme_colour_5="#ffff00"    # yellow
-tmux_conf_theme_colour_6="#080808"    # dark gray
-tmux_conf_theme_colour_7="#e4e4e4"    # white
-tmux_conf_theme_colour_8="#080808"    # dark gray
-tmux_conf_theme_colour_9="#ffff00"    # yellow
-tmux_conf_theme_colour_10="#ff00af"   # pink
-tmux_conf_theme_colour_11="#5fff00"   # green
-tmux_conf_theme_colour_12="#8a8a8a"   # light gray
-tmux_conf_theme_colour_13="#e4e4e4"   # white
-tmux_conf_theme_colour_14="#080808"   # dark gray
-tmux_conf_theme_colour_15="#080808"   # dark gray
-tmux_conf_theme_colour_16="#d70000"   # red
-tmux_conf_theme_colour_17="#e4e4e4"   # white
-
-# default theme (ansi)
-#tmux_conf_theme_colour_1="colour0"
-#tmux_conf_theme_colour_2="colour8"
-#tmux_conf_theme_colour_3="colour8"
-#tmux_conf_theme_colour_4="colour14"
-#tmux_conf_theme_colour_5="colour11"
-#tmux_conf_theme_colour_6="colour0"
-#tmux_conf_theme_colour_7="colour15"
-#tmux_conf_theme_colour_8="colour0"
-#tmux_conf_theme_colour_9="colour11"
-#tmux_conf_theme_colour_10="colour13"
-#tmux_conf_theme_colour_11="colour10"
-#tmux_conf_theme_colour_12="colour8"
-#tmux_conf_theme_colour_13="colour15"
-#tmux_conf_theme_colour_14="colour0"
-#tmux_conf_theme_colour_15="colour0"
-#tmux_conf_theme_colour_16="colour1"
-#tmux_conf_theme_colour_17="colour15"
+# TokyoNight Night, named by terminal palette number so the bar follows
+# Ghostty's theme (ghostty/.config/ghostty/config), here and on any host
+# viewed through it
+tmux_conf_theme_colour_1="colour0"     # black, the bar
+tmux_conf_theme_colour_2="colour8"     # terminal_black
+tmux_conf_theme_colour_3="colour7"     # fg_dark
+tmux_conf_theme_colour_4="colour4"     # blue
+tmux_conf_theme_colour_5="colour3"     # yellow
+tmux_conf_theme_colour_6="colour0"     # black
+tmux_conf_theme_colour_7="colour0"     # black
+tmux_conf_theme_colour_8="colour0"     # black
+tmux_conf_theme_colour_9="colour3"     # yellow
+tmux_conf_theme_colour_10="colour5"    # magenta
+tmux_conf_theme_colour_11="colour2"    # green
+tmux_conf_theme_colour_12="colour7"    # fg_dark
+tmux_conf_theme_colour_13="colour0"    # black
+tmux_conf_theme_colour_14="colour0"    # black
+tmux_conf_theme_colour_15="colour0"    # black
+tmux_conf_theme_colour_16="colour1"    # red
+tmux_conf_theme_colour_17="colour15"   # fg
 
 # window style
 tmux_conf_theme_window_fg="default"
@@ -276,7 +259,7 @@ tmux_conf_theme_right_separator_sub="|"
 #     - #{username_ssh}
 tmux_conf_theme_status_left=" ❐ #S | ↑#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} "
 #tmux_conf_theme_status_left=" ❐ #S | ↑#{?uptime_y, #{uptime_y}y,}#{?uptime_d, #{uptime_d}d,}#{?uptime_h, #{uptime_h}h,}#{?uptime_m, #{uptime_m}m,} | #{pretty_pane_current_path} "
-tmux_conf_theme_status_right=" #{S:#{W:#{?@claude_wait,#[range=user|#{window_id}#,fg=#ffff00#,bold]● #S:#I #[norange default],}}}#{prefix}#{mouse}#{pairing}#{synchronized}#{?battery_status, #{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} "
+tmux_conf_theme_status_right=" #{S:#{W:#{?@claude_wait,#[range=user|#{window_id}#,fg=colour3#,bold]● #S:#I #[norange default],}}}#{prefix}#{mouse}#{pairing}#{synchronized}#{?battery_status, #{battery_status},}#{?battery_bar, #{battery_bar},}#{?battery_percentage, #{battery_percentage},} , %R , %d %b | #{username}#{root} | #{hostname} "
 
 # status left style
 tmux_conf_theme_status_left_fg="$tmux_conf_theme_colour_6,$tmux_conf_theme_colour_7,$tmux_conf_theme_colour_8"
@@ -334,18 +317,14 @@ tmux_conf_battery_bar_length="auto"
 #   - heat
 #   - "colour_full_fg,colour_empty_fg,colour_bg"
 #   - gradient(colour_fg_1,colour_fg_2,...,colour_fg_n)
-tmux_conf_battery_bar_palette="gradient"
-#tmux_conf_battery_bar_palette="#d70000,#e4e4e4,#000000"   # red, white, black
-#tmux_conf_battery_bar_palette="gradient(#00afff,#47a2ff,#7c91ff,#ac7afb,#d65be2,#e163df,#eb6cdd,#f475db,#ec9ff1,#eac3fe,#efe2ff,#ffffff)"
+tmux_conf_battery_bar_palette="gradient(colour1,colour3,colour2)"   # red, yellow, green
 
 # battery hbar palette, possible values are:
 #   - gradient (default)
 #   - heat
 #   - "colour_low,colour_half,colour_full"
 #   - gradient(colour_fg_1,colour_fg_2,...,colour_fg_n)
-tmux_conf_battery_hbar_palette="gradient"
-#tmux_conf_battery_hbar_palette="#d70000,#ff5f00,#5fff00"  # red, orange, green
-#tmux_conf_battery_hbar_palette="gradient(#00afff,#47a2ff,#7c91ff,#ac7afb,#d65be2,#e163df,#eb6cdd,#f475db,#ec9ff1,#eac3fe,#efe2ff,#ffffff)"
+tmux_conf_battery_hbar_palette="gradient(colour1,colour3,colour2)"   # red, yellow, green
 
 # battery hbar symbols
 tmux_conf_battery_hbar_symbols="▏ ▎ ▍ ▌ ▋ ▊ ▉ █"
@@ -356,9 +335,7 @@ tmux_conf_battery_hbar_symbols="▏ ▎ ▍ ▌ ▋ ▊ ▉ █"
 #   - heat
 #   - "colour_low,colour_half,colour_full"
 #   - gradient(colour_fg_1,colour_fg_2,...,colour_fg_n)
-tmux_conf_battery_vbar_palette="gradient"
-#tmux_conf_battery_vbar_palette="#d70000,#ff5f00,#5fff00"  # red, orange, green
-#tmux_conf_battery_vbar_palette="gradient(#00afff,#47a2ff,#7c91ff,#ac7afb,#d65be2,#e163df,#eb6cdd,#f475db,#ec9ff1,#eac3fe,#efe2ff,#ffffff)"
+tmux_conf_battery_vbar_palette="gradient(colour1,colour3,colour2)"   # red, yellow, green
 
 # battery vbar symbols
 tmux_conf_battery_vbar_symbols="▁ ▂ ▃ ▄ ▅ ▆ ▇ █"
@@ -429,9 +406,9 @@ set -g mode-keys vi
 # tmux 3.8 defaults popups and menus to a grey theme: match the dark theme
 # instead (-q: an older tmux may not know every option)
 set -gq popup-style "fg=default,bg=default"
-set -gq popup-border-style "fg=#00afff"
-set -gq menu-style "fg=#e4e4e4,bg=#080808"
-set -gq menu-border-style "fg=#00afff"
+set -gq popup-border-style "fg=colour4"
+set -gq menu-style "fg=colour15,bg=colour0"
+set -gq menu-border-style "fg=colour4"
 
 # EL10's tmux-3.3a git snapshot (reports "next-3.4", e.g. mgmt-1) aborts on
 # any capture-pane, so drop the theme bindings that run one (F = fpp,

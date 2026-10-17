@@ -39,12 +39,12 @@ the terminal palette as the source over hex in every tool.
 **Acceptance criteria:**
 - [ ] `ghostty +show-config` reports TokyoNight Night's background and
       palette with the theme set only in the `ghostty` package
-- [ ] The usual tmux's bar, window list and pane borders show TokyoNight
+- [x] The usual tmux's bar, window list and pane borders show TokyoNight
       colours, with no oh-my-tmux default yellow or pink left
 - [ ] The frame's borders match the usual tmux's
 - [ ] mgmt-1's bar, seen through the Mac's `mgmt-1` window, matches the
       Mac's after a pull
-- [ ] Every hex value left in the tmux configs names the TokyoNight colour it
+- [x] Every hex value left in the tmux configs names the TokyoNight colour it
       stands for
 
 **Out of scope:**
