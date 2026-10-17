@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** mgmt-1's user-level Claude Code settings become the stowed `claude` package, so Claude Code there runs as it does on the Mac: the same theme, hooks and defaults
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -34,11 +34,11 @@ kit; mgmt-1's extra keys are a holdover.
 - `~/.claude/settings.local.json` exists on neither host; it stays absent
 
 **Acceptance criteria:**
-- [ ] On mgmt-1, `~/.claude/settings.json` is a symlink into the `claude`
+- [x] On mgmt-1, `~/.claude/settings.json` is a symlink into the `claude`
       package
-- [ ] A new Claude Code session on mgmt-1 draws in `dark-ansi` and runs
+- [x] A new Claude Code session on mgmt-1 draws in `dark-ansi` and runs
       Claude Code's default model and effort
-- [ ] On mgmt-1, Claude Code is denied a `git stash` by `claude-git-guard`
+- [x] On mgmt-1, Claude Code is denied a `git stash` by `claude-git-guard`
 
 **Out of scope:**
 - Which model a subagent runs; that comes from each agent's definition in
