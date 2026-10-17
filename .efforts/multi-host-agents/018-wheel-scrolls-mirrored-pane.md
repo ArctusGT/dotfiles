@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The mouse wheel over a frame float showing `tmux-mirror show` scrolls the pane it mirrors exactly as the wheel over that pane would, and the float shows the result
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -48,3 +48,14 @@ over ignoring the wheel on a mirror float.
 **Out of scope:**
 - Keys, clicks or selection in a mirror float; it stays read-only otherwise
 - Scrolling a float's own history
+
+## Comments
+
+Left for the Maintainer, beyond this slice:
+- The wheel event goes to the mirrored pane's centre, not the cell under
+  the pointer: the float shows the pane's bottom cut and trimmed, so no
+  cell maps back exactly. A split nvim scrolls the window at the centre.
+- `take_drag_src` still runs its own ssh with its own `~/.local/bin` PATH
+  line, rather than through `on_host`, which now carries that line.
+- A floating mirror dropped before this change has no `@mirror`; drop the
+  pane on it again for the wheel to reach the mirrored pane.
