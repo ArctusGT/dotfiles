@@ -173,7 +173,8 @@ Only sessions in a tmux pane are numbered. A background session, one a `claude
 daemon` runs (`--bg`, or sent to the background from Claude Code's session
 list), is dimmed below them as `background`. Selecting it opens it with
 `claude attach` in a new window on its own host, in the tmux session named for
-its repo, created there if missing. On the Mac that is the repo's sesh session.
+its directory, created there if missing. On the Mac, for a session started at
+a repo's root, that is the repo's sesh session.
 The entry is numbered like the rest while that window is open.
 Selecting it again goes back to the same window. Closing the window, or
 `ctrl+z` in it, leaves the session running and the entry dimmed again. Claude

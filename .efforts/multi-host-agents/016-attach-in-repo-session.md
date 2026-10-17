@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Selecting a background entry opens its `claude attach` window in a tmux session named for the session's repo, created if absent, on the session's own host, so mgmt-1's layout matches the Mac's one-session-per-repo and the window list says which repo is on screen
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -46,7 +46,7 @@ wherever it is.
       Mac's `mgmt-1` window shows it
 - [x] Two background sessions in different repos end in different tmux
       sessions; two in the same repo share one
-- [x] A reselect still reaches the existing window rather than opening a
+- [ ] A reselect still reaches the existing window rather than opening a
       second
 - [x] The Readme's paragraph on background entries says where they open
 
@@ -54,3 +54,28 @@ wherever it is.
 - Moving windows already open into their repo's session
 - Interactive sessions started by hand
 - A pane switching conversations inside Claude Code (slice 015)
+
+**Left for the Maintainer:**
+- "Named for its repo" is read as the last component of the cwd, as the
+  description words it. A job started in a subdirectory (`slurm-infra/roles`)
+  lands in `roles`, and one in a worktree (`<repo>/.claude/worktrees/<name>`)
+  in a session of the worktree's name, one per job. The main repo's name is
+  `basename "$(dirname "$(git -C "$cwd" rev-parse --path-format=absolute
+  --git-common-dir)")"`. Should a session be named for that instead?
+- A reselect reuses the window only while claude-sessions still maps its pane
+  to the session, which slice 015's title rule can undo. On the Mac,
+  `claude attach 110909d8` titles its pane `Resume session after restart`,
+  the name of live session a7cc9715, so the pane maps to a7cc9715 and a
+  second select of 110909d8 opens another window (`tmux list-panes -a -F
+  '#{pane_id} #{@claude_attach} #{pane_title}'` showed two tagged panes for
+  110909d8, both so titled). The first reuse test passed before the title was
+  set. This is the case 015 left unguarded, now seen; the attach path itself
+  is unchanged.
+- Criterion 2 needs mgmt-1 to pull, then a click on a mgmt-1 background entry
+  in the sidebar, watching the Mac's `mgmt-1` window. The piped run of this
+  copy's `attach` there created `slurm-infra` and `iot-infra` as expected, but
+  the relay client's switch was not watched.
+- `attach` no longer takes CLIENT, which Key interfaces still lists: with
+  the tmux session chosen from the cwd nothing read it, and `jump` stops
+  passing it on both sides. mgmt-1 running the old copy ignores the
+  missing argument until it pulls.
