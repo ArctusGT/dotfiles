@@ -29,12 +29,12 @@ panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
            title: (.[3:] | join("\t") | sub("^[✳◐◑] "; ""))}]')
 [[ -n $panes ]] || panes='[]'
 
-# {session id: {name, spare, kind}} from Claude Code's own records
+# {session id: {name, spare, kind, jobId}} from Claude Code's own records
 # (~/.claude/sessions/<pid>.json); keyed by id, since their pid need not be
 # the one the hooks record. With no records the glob vanishes under nullglob,
 # so `cat` gets /dev/null as stdin rather than waiting on the caller's
 records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
-  jq -sc 'map({(.sessionId): {name, spare, kind}}) | add // {}' 2>/dev/null)
+  jq -sc 'map({(.sessionId): {name, spare, kind, jobId}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
 
 for state_file in "$dir"/*.json; do
@@ -60,11 +60,24 @@ done | jq -sc --argjson panes "$panes" --argjson records "$records" '
       | select(length == 1) | .[0];
   # {pane: session id} of the panes the hooks recorded a session in
   ($sessions | map(select(.tmux_pane) | {key: .tmux_pane, value: .session_id}) | from_entries) as $recorded
-  # {pane: the session it shows}: the one its title names, for a Claude pane,
-  # else the one tagged on it, else the one the hooks recorded in it. The tag
-  # before the record, since a `claude attach` client runs its own hooks and
-  # records its interactive session in the tagged pane too
-  | ($panes | map({key: .id, value: ((select(.runs_claude) | titled) // (.tag | select(. != "")) // $recorded[.id])})
+  # the names a session goes by, less the default Claude Code gives a
+  # background job (its job id), which is no name at all
+  | def names($s): [$sessions[] | select(.session_id == $s) | .name, .context.name?]
+      | map(select(. != null and . != $records[$s].jobId));
+  # {pane: the session it shows}. A tagged pane shows its tag, unless that
+  # session has a name and the title of the pane names another one: an attach
+  # client titles its pane with the title of the conversation, which a resumed
+  # job shares with the session it came from, so for a job with no name of
+  # its own the title cannot tell the two apart. An untagged Claude pane
+  # shows the session its title names, else the one the hooks recorded in
+  # it. The tag before the record, since a `claude attach` client runs its
+  # own hooks and records its interactive session in the tagged pane too
+  ($panes | map(.title as $title | {key: .id, value: (
+      if .tag != "" then
+        (names(.tag) as $own
+         | if ($own | length) > 0 and ($own | index($title) | not)
+           then ((select(.runs_claude) | titled) // .tag) else .tag end)
+      else (select(.runs_claude) | titled) // $recorded[.id] end)})
      | from_entries) as $shows
   | $sessions[]
   | .session_id as $s

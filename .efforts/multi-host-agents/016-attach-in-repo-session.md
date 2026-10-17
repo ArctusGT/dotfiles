@@ -46,7 +46,7 @@ wherever it is.
       Mac's `mgmt-1` window shows it
 - [x] Two background sessions in different repos end in different tmux
       sessions; two in the same repo share one
-- [ ] A reselect still reaches the existing window rather than opening a
+- [x] A reselect still reaches the existing window rather than opening a
       second
 - [x] The Readme's paragraph on background entries says where they open
 
@@ -62,15 +62,6 @@ wherever it is.
   in a session of the worktree's name, one per job. The main repo's name is
   `basename "$(dirname "$(git -C "$cwd" rev-parse --path-format=absolute
   --git-common-dir)")"`. Should a session be named for that instead?
-- A reselect reuses the window only while claude-sessions still maps its pane
-  to the session, which slice 015's title rule can undo. On the Mac,
-  `claude attach 110909d8` titles its pane `Resume session after restart`,
-  the name of live session a7cc9715, so the pane maps to a7cc9715 and a
-  second select of 110909d8 opens another window (`tmux list-panes -a -F
-  '#{pane_id} #{@claude_attach} #{pane_title}'` showed two tagged panes for
-  110909d8, both so titled). The first reuse test passed before the title was
-  set. This is the case 015 left unguarded, now seen; the attach path itself
-  is unchanged.
 - Criterion 2 needs mgmt-1 to pull, then a click on a mgmt-1 background entry
   in the sidebar, watching the Mac's `mgmt-1` window. The piped run of this
   copy's `attach` there created `slurm-infra` and `iot-infra` as expected, but
