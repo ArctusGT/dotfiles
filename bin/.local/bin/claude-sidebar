@@ -42,6 +42,9 @@ sesh_config=${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ServerAliveInterval=2
   -o ServerAliveCountMax=2 -o ControlPath=/tmp/claude-sidebar-%C)
 cache=${TMPDIR:-/tmp}/claude-sidebar
+# a host's one client from the Mac, which runs inside the Mac's tmux (tmux*
+# term), as a command run on the host; add -F
+relay_client="tmux list-clients -f '#{m:tmux*,#{client_termname}}'"
 # prints Claude Code's cached birthday-hat flag on the host it runs on: true,
 # or false when it is false, absent, or has no ~/.claude.json
 read_hat_flag='jq '\''.cachedGrowthBookFeatures.tengu_birthday_hat == true'\'' ~/.claude.json 2>/dev/null || echo false'
@@ -178,7 +181,7 @@ collect() {
       # the sessions, \036, the pane the Mac's client there is on, \036 and
       # the host's hat flag
       if out=$(ssh "${ssh_opts[@]}" -o ControlMaster=auto -o ControlPersist=60 "$host" \
-        "claude-sessions; printf '\036'; tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{pane_id}' | head -1; printf '\036'; $read_hat_flag" \
+        "claude-sessions; printf '\036'; $relay_client -F '#{pane_id}' | head -1; printf '\036'; $read_hat_flag" \
         2>/dev/null); then
         local after_sessions=${out#*$'\036'} remote_shown=""
         [[ $relay_host == "$host" ]] && remote_shown=${after_sessions%%$'\036'*}
@@ -231,11 +234,10 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
     window=$(work list-windows -a -F '#{window_id} #{@ssh_tmux}' | awk -v h="$host" '$2 == h {print $1; exit}')
     [[ -n $window ]] || { tmux display-message "open $relay first (prefix f)"; return; }
     work switch-client "${client[@]}" -t "$window" \; select-window -t "$window"
-    # the host's one client from the Mac runs inside the Mac's tmux (tmux*
-    # term). In the background, so a slow link does not hold up the caller,
-    # which for a click is fzf itself
+    # the host's client from the Mac moves, in the background, so a slow link
+    # does not hold up the caller, which for a click is fzf itself
     ssh "${ssh_opts[@]}" "$host" "
-      client=\$(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_name}' | head -1)
+      client=\$($relay_client -F '#{client_name}' | head -1)
       [ -n \"\$client\" ] || exit
       pane='$pane'
       [ -n \"\$pane\" ] || pane=\$(claude-sidebar attach '$id' \"\$client\") || exit
@@ -264,26 +266,33 @@ edge() { # $1 left|up|down, $2 client tty, $3 pane, $4 ssh host
     export TMUX=$socket,0,0 && main=$(frame_main)
   local in_frame=""
   [[ -n $main && ${main#* } == "$tty" ]] && in_frame=1
-  # the host's one client from the Mac, as `jump` finds it. Outside the frame,
-  # or with no answer, the key goes on as it did before there was an edge
-  if [[ -n $host && ( -z $in_frame || $(ssh "${ssh_opts[@]}" "$host" \
-    "tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{$at}' | head -1" 2>/dev/null) != 1 ) ]]; then
-    work send-keys -t "$pane" "$key"
-    return
+  if [[ -n $host ]]; then
+    local at_edge=""
+    [[ -n $in_frame ]] && at_edge=$(ssh "${ssh_opts[@]}" "$host" "$relay_client -F '#{$at}' | head -1" 2>/dev/null)
+    # the host's pane can still move that way, or there is no sidebar to
+    # cross into, or no answer: the key is the host's
+    [[ $at_edge == 1 ]] || { work send-keys -t "$pane" "$key"; return; }
   fi
   [[ -n $in_frame ]] || return 0
   case $side in
-    left) tmux select-pane -t "$(tmux list-panes -s -F '#{@claude_sidebar} #{pane_id}' | awk '$1 == 1 {print $2; exit}')" ;;
+    left) tmux select-pane -t '{left}' ;; # the sidebar, as the frame's M-s finds it
     up) step -1 ;;
     down) step 1 ;;
   esac
 }
 
 # pick the entry $1 numbers away from the one the right pane shows; nothing
-# past either end, or when it shows none
+# past either end, or when it shows none. The rows lag a jump by up to a
+# second or two (a remote one switches in the background), so for that long
+# the entry last picked counts as the one on show, or a held key would pick
+# the same entry over and over
 step() {
   local shown
-  shown=$(perl -0ne 'chomp; @f = split /\t/, $_, -1; if ($f[5] eq "1") { print $f[4]; exit }' "$cache/rows" 2>/dev/null)
+  if [[ -n $(perl -e 'print 1 if -M $ARGV[0] < 2 / 86400' "$cache/picked" 2>/dev/null) ]]; then
+    shown=$(<"$cache/picked")
+  else
+    shown=$(perl -0ne 'chomp; @f = split /\t/, $_, -1; if ($f[5] eq "1") { print $f[4]; exit }' "$cache/rows" 2>/dev/null)
+  fi
   [[ -n $shown ]] && (( shown + $1 >= 1 )) && pick $((shown + $1))
   return 0
 }
@@ -335,6 +344,7 @@ pick() { # $1 entry number, counted as `format` numbers them
     | [.host, .tmux_pane, .relay, .session_id] | join("\u001f")' "$tagged")
   [[ -n $pane ]] || return 0
   jump "$host" "$pane" "$relay" "$id"
+  [[ -d $cache ]] && echo "$1" >"$cache/picked"
   [[ -S $cache/fzf.sock ]] && fzf_do "pos($(position 5 "$1"))"
 }
 
