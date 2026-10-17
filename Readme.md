@@ -140,10 +140,12 @@ pane closes the frame.
 
 The sidebar lists every Claude session on the Mac and on each host a sesh
 entry reaches through `ssh-tmux`, under one heading per host. Each entry shows
-its number, repo, name, then state, time in that state, running subagents
-(`+N`) and context use, as a bar in the tmux battery bar's style and a
-percentage. At or past `CLAUDE_CTX_WARN` percent (default 50) the bar and
-percentage turn red, the cue to hand off and clear. A host that does not
+its number, repo, name, then state, time in that state and running subagents
+(`+N`), and ends in a line across the sidebar showing its context use: filled
+in the tmux battery bar's colours up to the share used, with the percentage at
+its end, and all grey before the session reports any. At or past
+`CLAUDE_CTX_WARN` percent (default 50) the filled part and percentage turn
+red, the cue to hand off and clear. A host that does not
 answer shows `unreachable` under its heading. The list comes from
 `claude-sessions` on each host, rebuilt every second, and at once when a
 tmux client changes session or window, over one shared ssh connection per

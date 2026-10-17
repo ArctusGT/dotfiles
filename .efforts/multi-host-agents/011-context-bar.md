@@ -43,7 +43,7 @@ per-entry value. Bar plus percentage, red at the warn level, still holds.
 - [x] An entry with no context record ends in an all-grey line
 - [x] Entries stay visibly separated, with no blank row between them, and
       the third line fits the sidebar's width, `background` included
-- [ ] The Readme describes the line where it described the bar
+- [x] The Readme describes the line where it described the bar
 
 **Out of scope:**
 - The Clawd icon (slice 012)
