@@ -48,5 +48,7 @@ back to dimmed.
 **Out of scope:**
 - Tracking which conversation a Claude window shows after switching inside
   Claude Code's own session list; nothing reports that change
+  (this includes `←` in an attached window, which goes to the agent view:
+  a session opened from there shows under the window's first tag)
 - Starting, stopping or messaging sessions
 - Desktop app sessions, which the sidebar leaves out
