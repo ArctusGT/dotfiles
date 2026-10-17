@@ -42,7 +42,7 @@ The Maintainer chose the main repo's name over the cwd's last component.
       tmux session named for that repo, created if absent
 - [x] A background session whose `cwd` is outside any git repo opens in a
       session named for the cwd's last component
-- [ ] The Readme's paragraph on background entries says the session is
+- [x] The Readme's paragraph on background entries says the session is
       named for the repo
 
 **Out of scope:**
