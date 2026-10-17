@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-sidebar [rows|pick N|kick|jump|attach]: list every Claude session on this host and
+# claude-sidebar [rows|pick N|kick|edge|jump|attach]: list every Claude session on this host and
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
 # A background loop rebuilds the list into a cache every second, so fzf never
@@ -253,11 +253,11 @@ kick() { [[ -d $cache ]] && touch "$cache/kick"; return 0; }
 # the usual tmux's Cmd+Left/Up/Down bindings call this at a window's edge, and
 # always in an ssh-tmux window, whose edges are the host's
 edge() { # $1 left|up|down, $2 client tty, $3 pane, $4 ssh host
-  local side=$1 tty=$2 pane=$3 host=$4 key at
+  local side=$1 tty=$2 pane=$3 host=$4 key pane_at
   case $side in
-    left) key=C-M-Left at=pane_at_left ;;
-    up) key=C-M-Up at=pane_at_top ;;
-    down) key=C-M-Down at=pane_at_bottom ;;
+    left) key=C-M-Left pane_at=pane_at_left ;;
+    up) key=C-M-Up pane_at=pane_at_top ;;
+    down) key=C-M-Down pane_at=pane_at_bottom ;;
     *) return 2 ;;
   esac
   # no sidebar to cross into: the host's key is still the host's
@@ -266,17 +266,17 @@ edge() { # $1 left|up|down, $2 client tty, $3 pane, $4 ssh host
     return 0
   fi
   # the pane at the edge; in an ssh-tmux window, the host's active one
-  local here=$pane
+  local edge_pane=$pane
   if [[ -n $host ]]; then
     local at_edge
-    read -r at_edge here < <(ssh "${ssh_opts[@]}" "$host" "$relay_client -F '#{$at} #{pane_id}' | head -1" 2>/dev/null)
+    read -r at_edge edge_pane < <(ssh "${ssh_opts[@]}" "$host" "$relay_client -F '#{$pane_at} #{pane_id}' | head -1" 2>/dev/null)
     # the host's pane can still move that way, or the host did not answer
     [[ $at_edge == 1 ]] || { work send-keys -t "$pane" "$key"; return 0; }
   fi
   case $side in
     left) tmux select-pane -t '{left}' ;; # the sidebar, as the frame's M-s finds it
-    up) step "$host" "$here" -1 ;;
-    down) step "$host" "$here" 1 ;;
+    up) step "$host" "$edge_pane" -1 ;;
+    down) step "$host" "$edge_pane" 1 ;;
   esac
 }
 
@@ -293,14 +293,14 @@ from_frame() {
 
 # pick the entry $3 numbers away from pane $2 on ssh host $1 (empty for this
 # one); nothing past either end, or when the pane is no numbered entry. The
-# pane, not the rows' entry on show, which lags a jump by up to a refresh, so
-# a held key walks the list
+# pane, not the rows' entry on show, which lags any change by up to a refresh,
+# so a held key walks the list
 step() {
-  local here
-  here=$(perl -0ne 'BEGIN { ($h, $p) = splice @ARGV, 0, 2 }
+  local entry
+  entry=$(perl -0ne 'BEGIN { ($h, $p) = splice @ARGV, 0, 2 }
     chomp; @f = split /\t/, $_, -1;
     if ($f[0] eq $h && $f[1] eq $p && $f[4] ne "") { print $f[4]; exit }' "$1" "$2" "$cache/rows")
-  [[ -n $here ]] && pick $((here + $3))
+  [[ -n $entry ]] && pick $((entry + $3))
   return 0
 }
 
