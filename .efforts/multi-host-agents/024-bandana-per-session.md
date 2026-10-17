@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar draws Clawd in Unicode octants wearing a bandana whose colours come from the session, in place of 023's per-repo hats, and the entry returns to four lines
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -45,7 +45,7 @@ the starting point.
 - [x] Entries are four lines; clicks, M-1..9 and Cmd+Up/Down at an edge land
       on the right entry
 - [x] A background entry's Clawd and bandana are dim
-- [ ] The Maintainer judges it by eye in the frame, on a Mac and a mgmt-1
+- [x] The Maintainer judges it by eye in the frame, on a Mac and a mgmt-1
       entry
 
 **Out of scope:**
@@ -65,3 +65,6 @@ For the Maintainer, from review, alongside the look in the frame:
 - The fg shade (#c0caf5) may read close to the idle grey once dimmed on a
   background entry.
 - A red bandana can sit beside a red context bar past `CLAUDE_CTX_WARN`.
+- 2026-10-18, the Maintainer: a whole-bandana difference is enough; repeated
+  main colours stay. The fg shade and the red-beside-red-bar points were
+  not raised again and stay as they are.
