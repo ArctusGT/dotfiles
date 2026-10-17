@@ -73,9 +73,10 @@ format() {
   jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
-    # context use as the tmux theme draws its battery bar (◼/◻, 4 cells), the
-    # filled cells along its gradient palette turned around, green to red, as
-    # context running out is the bad end. All red at $warn.
+    # context use drawn as the tmux theme draws its battery bar: ◼/◻ in 4
+    # cells, the length it picks for a narrow client. Filled cells run its
+    # gradient palette reversed, green to red, as a full context is the bad
+    # end. All red at $warn.
     # Colours end at the default foreground (39), not a reset, so a background
     # entry stays dimmed
     def ctxbar:
