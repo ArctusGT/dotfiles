@@ -136,8 +136,9 @@ format() {
     # eyes and arms down, redrawn 16 pixels wide and 12 tall under a
     # bandana in place of his head-top row: B body, m the bandana, 1 2 3 its
     # stripes, the ribbon at the right in stripe 3. Drawn in octants, cells 2
-    # pixels wide and 4 tall from rows 0, 4 and 8, each drawn in one colour
-    # on the background, so the frame keeps every cell to one colour
+    # pixels wide and 4 tall from rows 0, 4 and 8, each drawn in the colour
+    # of its first lit pixel on the background, so the frame keeps every cell
+    # to one colour; a second would show in the first, not drop out
     def stand: [
       "..............3.",
       "..............3.",
@@ -196,14 +197,13 @@ format() {
       (bandana($id) as [$main, $s1, $s2, $s3]
         | {B: {working: orange, waiting: yellow, idle: dark5}[$state],
            m: $main, "1": $s1, "2": $s2, "3": $s3}) as $colour
-      | (stand | map(explode | map([.] | implode | $colour[.]))) as $px
+      | (stand | map(split("") | map($colour[.]))) as $px
       | [range(3) as $line
           | [range(8) as $i
               | [range(4) as $y | range(2) as $x | $px[4 * $line + $y][2 * $i + $x]] as $cell
-              | ($cell | map(select(. != null)) | first) as $c
-              | if $c == null then " "
-                else ([range(8) | select($cell[.] == $c) | pow(2; .)] | add) as $bits
-                | octants[$bits:$bits + 1] | paint($c) end]
+              | ([range(8) | select($cell[.] != null) | pow(2; .)] | add // 0) as $bits
+              | octants[$bits:$bits + 1]
+              | if $bits == 0 then . else paint($cell | map(values) | first) end]
           | join("")];
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
