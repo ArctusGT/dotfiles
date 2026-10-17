@@ -123,6 +123,7 @@ host's other keys take the prefix twice (`C-Space C-Space`).
 | `Cmd+arrow` | focus the pane that way; at the window's right edge nothing, at its other edges see the sidebar's keys below |
 | `Cmd+Shift+arrow` | swap with the pane that way, focus staying on the moved pane |
 | `Option+drag` from one pane to another | swap the two, in place of tmux's own move of a floating pane |
+| `Option+right-click` | tmux's pane menu for the pane under it, even over nvim or another program that takes the mouse |
 
 In an `ssh-tmux` window such as `mgmt-1`, the `Cmd` keys and `Option+drag`
 act on the host's panes. The `Cmd` keys come from the `ghostty` package,
