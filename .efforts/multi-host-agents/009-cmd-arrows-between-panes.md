@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Cmd+arrows move focus between the panes of a tmux window, and Cmd+Shift+arrows or an Option+drag move a pane, omarchy's Super bindings, on the Mac and through to mgmt-1's tmux
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -32,7 +32,8 @@ Cmd over another modifier to match omarchy's Super habits.
   3.8 recognises a Super modifier at all is unmeasured: measure that first,
   through the frame, which runs with `extended-keys always` in `csi-u` form
 - The frame's root bindings: every key it does not bind reaches the right
-  pane, so the frame needs none for this slice
+  pane, so the frame needs none for the keys. It needs one for the drag:
+  tmux's default `M-MouseDrag1Pane` there is `move-pane -M`
 - tmux's `M-MouseDrag1Pane` and `M-MouseDragEnd1Pane`, which Ghostty's
   Option-as-Alt makes reachable. Cmd cannot drive the drag: terminal mouse
   reports carry no Super bit, and Ghostty keeps Cmd+click for links. Whether
@@ -72,3 +73,11 @@ Cmd over another modifier to match omarchy's Super habits.
   `tmux/.tmux.conf.local` now repeat "in an `@ssh_tmux` window send the key
   on, otherwise act here" (`C-Left`/`C-Right` and the eight `C-M-` keys).
   Nothing to fold them into yet; worth revisiting if slice 010 adds more.
+- For the Maintainer: the usual tmux's `M-MouseDrag1Pane` replaces tmux
+  3.8's default `move-pane -M`, the mouse move for floating panes, on every
+  host. The Readme's Panes section says so; `M-MouseDrag1Border` keeps it.
+- For the Maintainer, beyond this slice: the Readme's `stow -n`, `-D` and
+  `-R` examples list `zsh tmux nvim bin` only, without `sesh`, `claude` or
+  now `ghostty`. And `macos-option-as-alt = true`, which Option+drag and the
+  sidebar's `M-` keys need, is set only in the untracked Application Support
+  `config.ghostty`, not in the `ghostty` package.
