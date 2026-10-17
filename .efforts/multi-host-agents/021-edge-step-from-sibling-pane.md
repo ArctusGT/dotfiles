@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** Cmd+Up/Down at a window's top or bottom edge moves to the previous or next sidebar entry from any pane of an entry's window, not only from the Claude pane itself
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -35,3 +35,11 @@ there instead of moving to the next entry.
 **Out of scope:**
 - Cmd+Left into the sidebar, which does not look up an entry
 - Windows holding more than one Claude pane: the first entry found is used
+
+## Comments
+
+2026-10-17, code-review of aa42dc0 (standards and spec): no violations. The
+Readme's edge-key row still said a non-entry pane does nothing; fixed in the
+following commit. Left for the Maintainer:
+- Cmd+Left also lists the window's panes, locally and over ssh, and never
+  uses them: one extra tmux call per press.
