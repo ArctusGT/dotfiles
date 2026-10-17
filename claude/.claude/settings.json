@@ -123,5 +123,5 @@
     "command": "~/.local/bin/claude-statusline"
   },
   "awaySummaryEnabled": false,
-  "theme": "dark"
+  "theme": "dark-ansi"
 }
