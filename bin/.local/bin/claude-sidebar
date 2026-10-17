@@ -260,40 +260,47 @@ edge() { # $1 left|up|down, $2 client tty, $3 pane, $4 ssh host
     down) key=C-M-Down at=pane_at_bottom ;;
     *) return 2 ;;
   esac
-  # frame_main, jump and pick reach the frame as the tmux they run in
-  local socket main=""
-  socket=$(tmux -L frame display -p '#{socket_path}' 2>/dev/null) &&
-    export TMUX=$socket,0,0 && main=$(frame_main)
-  local in_frame=""
-  [[ -n $main && ${main#* } == "$tty" ]] && in_frame=1
-  if [[ -n $host ]]; then
-    local at_edge=""
-    [[ -n $in_frame ]] && at_edge=$(ssh "${ssh_opts[@]}" "$host" "$relay_client -F '#{$at}' | head -1" 2>/dev/null)
-    # the host's pane can still move that way, or there is no sidebar to
-    # cross into, or no answer: the key is the host's
-    [[ $at_edge == 1 ]] || { work send-keys -t "$pane" "$key"; return; }
+  # no sidebar to cross into: the host's key is still the host's
+  if ! from_frame "$tty"; then
+    [[ -z $host ]] || work send-keys -t "$pane" "$key"
+    return 0
   fi
-  [[ -n $in_frame ]] || return 0
+  # the pane at the edge; in an ssh-tmux window, the host's active one
+  local here=$pane
+  if [[ -n $host ]]; then
+    local at_edge
+    read -r at_edge here < <(ssh "${ssh_opts[@]}" "$host" "$relay_client -F '#{$at} #{pane_id}' | head -1" 2>/dev/null)
+    # the host's pane can still move that way, or the host did not answer
+    [[ $at_edge == 1 ]] || { work send-keys -t "$pane" "$key"; return 0; }
+  fi
   case $side in
     left) tmux select-pane -t '{left}' ;; # the sidebar, as the frame's M-s finds it
-    up) step -1 ;;
-    down) step 1 ;;
+    up) step "$host" "$here" -1 ;;
+    down) step "$host" "$here" 1 ;;
   esac
 }
 
-# pick the entry $1 numbers away from the one the right pane shows; nothing
-# past either end, or when it shows none. The rows lag a jump by up to a
-# second or two (a remote one switches in the background), so for that long
-# the entry last picked counts as the one on show, or a held key would pick
-# the same entry over and over
+# whether the usual tmux's client on tty $1 is the frame's right pane. Points
+# TMUX at the frame's server first, so frame_main, jump and pick reach the
+# frame as the tmux they run in, as they do from fzf
+from_frame() {
+  local socket main
+  socket=$(tmux -L frame display -p '#{socket_path}' 2>/dev/null) || return
+  export TMUX=$socket,0,0
+  main=$(frame_main)
+  [[ -n $main && ${main#* } == "$1" ]]
+}
+
+# pick the entry $3 numbers away from pane $2 on ssh host $1 (empty for this
+# one); nothing past either end, or when the pane is no numbered entry. The
+# pane, not the rows' entry on show, which lags a jump by up to a refresh, so
+# a held key walks the list
 step() {
-  local shown
-  if [[ -n $(perl -e 'print 1 if -M $ARGV[0] < 2 / 86400' "$cache/picked" 2>/dev/null) ]]; then
-    shown=$(<"$cache/picked")
-  else
-    shown=$(perl -0ne 'chomp; @f = split /\t/, $_, -1; if ($f[5] eq "1") { print $f[4]; exit }' "$cache/rows" 2>/dev/null)
-  fi
-  [[ -n $shown ]] && (( shown + $1 >= 1 )) && pick $((shown + $1))
+  local here
+  here=$(perl -0ne 'BEGIN { ($h, $p) = splice @ARGV, 0, 2 }
+    chomp; @f = split /\t/, $_, -1;
+    if ($f[0] eq $h && $f[1] eq $p && $f[4] ne "") { print $f[4]; exit }' "$1" "$2" "$cache/rows")
+  [[ -n $here ]] && pick $((here + $3))
   return 0
 }
 
@@ -335,6 +342,7 @@ serve() {
 }
 
 pick() { # $1 entry number, counted as `format` numbers them
+  (( $1 >= 1 )) || return 0 # jq would count 0 and below from the end
   local host pane relay id
   # the running sidebar's list, so N is the number on screen
   local tagged=$cache/tagged
@@ -344,7 +352,6 @@ pick() { # $1 entry number, counted as `format` numbers them
     | [.host, .tmux_pane, .relay, .session_id] | join("\u001f")' "$tagged")
   [[ -n $pane ]] || return 0
   jump "$host" "$pane" "$relay" "$id"
-  [[ -d $cache ]] && echo "$1" >"$cache/picked"
   [[ -S $cache/fzf.sock ]] && fzf_do "pos($(position 5 "$1"))"
 }
 
