@@ -50,8 +50,8 @@ since only the frame sits above whatever the right pane shows.
       output in the source shows in the float within a second
 - [ ] Option+dragging a pane in the Mac's `mgmt-1` window onto the float
       mirrors that mgmt-1 pane
-- [ ] Typing while the float is focused does not reach the mirrored pane
-- [ ] Closing the float (its border's close control, or `kill-pane`) leaves
+- [x] Typing while the float is focused does not reach the mirrored pane
+- [x] Closing the float (its border's close control, or `kill-pane`) leaves
       the source pane and the right pane untouched
 - [ ] The Readme describes opening, filling and closing the mirror float
 
