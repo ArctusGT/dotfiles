@@ -2,9 +2,13 @@
 # ssh-tmux HOST: attach to tmux on HOST and reconnect when the connection
 # drops (sleep, wifi change, idle timeout).
 # Attaches to the host's most recently used session, or creates `main` if the
-# host has none. Detaching or exiting the remote tmux ends the loop.
-# Inside tmux, hides the local session's bar while it runs, so the remote's
-# bar is the one on screen.
+# host has none, and records that client on HOST as @relay_client, the one
+# `claude-tmux-status` there rings. Detaching or exiting the remote tmux ends
+# the loop.
+# Inside tmux ($TMUX_PANE), tags the local window @ssh_tmux, which routes
+# ctrl+left/right to the remote and marks the window on a remote bell, and
+# hides the local session's bar while it runs, so the remote's bar is the one
+# on screen; both are undone on exit.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 host=$1
 [[ -n $host ]] || { echo "usage: ssh-tmux HOST" >&2; exit 2; }
@@ -14,7 +18,7 @@ host=$1
 # `attach` would skip that session for another one. -D detaches every other
 # client on the session, stale or not, so the host keeps exactly one.
 remote='last=$(tmux list-sessions -F "#{session_last_attached} #{session_name}" 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-)
-tmux -u new -AD -s "${last:-main}"'
+tmux -u new -AD -s "${last:-main}" \; set -gF @relay_client "#{client_name}"'
 
 # tag the local window so a bell from the remote marks it (see alert-bell hook)
 # and window keys pass through to it, and hide the local session's bar so the
