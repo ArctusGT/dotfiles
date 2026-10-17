@@ -40,7 +40,7 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
 - [x] The sidebar's focused entry, pointer and match highlight use TokyoNight
       accents, and `sesh-pick` (`prefix f`) shows the same
 - [ ] A background entry is still visibly dimmed
-- [ ] The Readme's sidebar section names no colour that is no longer used
+- [x] The Readme's sidebar section names no colour that is no longer used
 
 **Out of scope:**
 - tmux's bar and borders (slice 001)
