@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Selecting a background Claude session in the sidebar opens it in a tmux window of its own on its host, reused on later selects, so it becomes a numbered, jumpable entry like any other
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** [multi-host-agents/004-cross-host-agent-view]
 
 **Current behavior:**
@@ -38,12 +38,12 @@ back to dimmed.
       pane's tmux session and shows it there
 - [ ] Selecting a mgmt-1 background entry opens it in a window on mgmt-1 and
       shows it in the Mac's `mgmt-1` session
-- [ ] Selecting the same entry again jumps to that window; no second window
+- [x] Selecting the same entry again jumps to that window; no second window
       opens
 - [ ] An entry with an open window is numbered, reachable by its hotkey, and
       followed by the cursor
-- [ ] Closing the window leaves the session running and the entry dimmed again
-- [ ] The Readme describes what selecting a background entry does
+- [x] Closing the window leaves the session running and the entry dimmed again
+- [x] The Readme describes what selecting a background entry does
 
 **Out of scope:**
 - Tracking which conversation a Claude window shows after switching inside

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-sidebar [rows|pick N|kick|jump]: list every Claude session on this host and
+# claude-sidebar [rows|pick N|kick|jump|attach]: list every Claude session on this host and
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
 # A background loop rebuilds the list into a cache every second, so fzf never
@@ -13,9 +13,14 @@
 #                     the running sidebar shows it
 #   kick              have a running sidebar rebuild now (tmux hooks call it
 #                     when a client changes session or window)
-#   jump HOST PANE SESSION
+#   jump HOST PANE SESSION [ID]
 #                     focus PANE on HOST (empty HOST = this one); a remote pane
-#                     is shown through the Mac's SESSION, its ssh-tmux relay
+#                     is shown through the Mac's SESSION, its ssh-tmux relay.
+#                     With no PANE, opens background Claude session ID first
+#   attach ID TMUX_SESSION
+#                     print the pane showing background Claude session ID on
+#                     this host, opening it with `claude attach` in a new window
+#                     of TMUX_SESSION, tagged @claude_attach, if none does
 # CLAUDE_CTX_WARN     context percentage an entry is marked at (default 50)
 # SESH_CONFIG         sesh config the hosts come from
 #                     (default ~/.config/sesh/sesh.toml)
@@ -72,7 +77,7 @@ format() {
       [$r, .n, .cur])
     | .[0] as $r | .[1] as $n | .[2] as $cur
     | if $r.header then
-        ["", "", "", "host-\($r.label)", "", "",
+        ["", "", "", "", "", "",
          "\u001b[1m\($r.label)\u001b[0m" + (if $r.down then "  \u001b[31munreachable\u001b[0m" else "" end)]
       else
         ($r.context.used_pct) as $pct
@@ -125,14 +130,30 @@ collect() {
   rm -rf "$tmp"
 }
 
-jump() { # $1 ssh host, $2 pane, $3 relay session
-  local host=$1 pane=$2 relay=$3
-  [[ -n $pane ]] || return 0 # a header, or a desktop or background session
+# the pane showing background session $1 on this host, opened in a new window
+# of tmux session $2 if none does
+attach() { # $1 session id, $2 tmux session
+  local pane job
+  pane=$(work list-panes -a -F '#{@claude_attach} #{pane_id}' | awk -v s="$1" '$1 == s {print $2; exit}')
+  if [[ -z $pane ]]; then
+    # `claude attach` takes the daemon's job id, which need not be the session's
+    job=$(claude agents --json | jq -r --arg s "$1" '.[] | select(.sessionId == $s) | .id // empty')
+    [[ -n $job ]] || return 1
+    pane=$(work new-window -d -P -F '#{pane_id}' -t "$2:" "claude attach $job") || return 1
+    work set -w -t "$pane" @claude_attach "$1"
+  fi
+  echo "$pane"
+}
+
+jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
+  local host=$1 pane=$2 relay=$3 id=$4
+  [[ -n $pane || -n $id ]] || return 0 # a header
   # inside the frame, move the client in its right pane and focus that pane
   local main client=()
   main=$(frame_main)
   [[ -n $main ]] && client=(-c "${main#* }")
   if [[ -z $host ]]; then
+    [[ -n $pane ]] || pane=$(attach "$id" "$(work display -p "${client[@]}" '#{session_name}')") || return
     work switch-client "${client[@]}" -t "$pane" \; select-window -t "$pane" \; select-pane -t "$pane"
   else
     # the Mac window holding this host's relay, tagged by ssh-tmux
@@ -145,7 +166,10 @@ jump() { # $1 ssh host, $2 pane, $3 relay session
     # which for a click is fzf itself
     ssh "${ssh_opts[@]}" "$host" "
       client=\$(tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{client_name}' | head -1)
-      [ -n \"\$client\" ] && tmux switch-client -c \"\$client\" -t '$pane' \\; select-window -t '$pane' \\; select-pane -t '$pane'" \
+      [ -n \"\$client\" ] || exit
+      pane='$pane'
+      [ -n \"\$pane\" ] || pane=\$(claude-sidebar attach '$id' \"\$(tmux display -p -c \"\$client\" '#{session_name}')\") || exit
+      tmux switch-client -c \"\$client\" -t \"\$pane\" \\; select-window -t \"\$pane\" \\; select-pane -t \"\$pane\"" \
       </dev/null >/dev/null 2>&1 &
   fi
   [[ -n $main ]] && tmux select-pane -t "${main%% *}"
@@ -208,7 +232,8 @@ case $1 in
   rows) collect | format ;;
   pick) pick "$2" ;;
   kick) kick ;;
-  jump) jump "$2" "$3" "$4" ;;
+  jump) jump "$2" "$3" "$4" "$5" ;;
+  attach) attach "$2" "$3" ;;
   "")
     mkdir -p "$cache" && refresh
     serve &
@@ -220,7 +245,7 @@ case $1 in
       --listen "$cache/fzf.sock" \
       --layout reverse --no-scrollbar --info hidden --gap --prompt '' \
       --bind "esc,ctrl-c,ctrl-g,ctrl-q:clear-query" \
-      --bind "enter,left-click:execute-silent($self jump {1} {2} {3})+clear-query"
+      --bind "enter,left-click:execute-silent($self jump {1} {2} {3} {4})+clear-query"
     ;;
   *) "$self" --help >&2; exit 2 ;;
 esac
