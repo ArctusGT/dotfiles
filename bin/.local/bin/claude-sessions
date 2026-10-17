@@ -6,7 +6,8 @@
 # `context` (the status line's last record, or null) and `name` (the one
 # Claude Code's own record holds for it, else the status line's). Removes the
 # files of a session whose process is gone, which is how a killed session is
-# cleared.
+# cleared. Where Claude Code keeps its own records, a session is live only
+# while one of them, with a live pid, names it.
 # `tmux_pane` is the pane on the default tmux server showing the session, its
 # recorded one first. A pane shows the session its title names, alone among
 # the live ones, if it runs Claude Code; else the one tagged on it
@@ -29,18 +30,25 @@ panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
            title: (.[3:] | join("\t") | sub("^[✳◐◑] "; ""))}]')
 [[ -n $panes ]] || panes='[]'
 
-# {session id: {name, spare, kind, jobId}} from Claude Code's own records
+# {session id: {name, spare, kind, jobId, pid}} from Claude Code's own records
 # (~/.claude/sessions/<pid>.json); keyed by id, since their pid need not be
 # the one the hooks record. With no records the glob vanishes under nullglob,
 # so `cat` gets /dev/null as stdin rather than waiting on the caller's
 records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
-  jq -sc 'map({(.sessionId): {name, spare, kind, jobId}}) | add // {}' 2>/dev/null)
+  jq -sc 'map({(.sessionId): {name, spare, kind, jobId, pid}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
 
 for state_file in "$dir"/*.json; do
   [[ $state_file == *.context.json ]] && continue
   sid=$(basename "$state_file" .json)
-  pid=$(jq -r '.pid // empty' "$state_file" 2>/dev/null) || continue
+  # the record's pid where there are records: a background job's hooks run
+  # under the `claude daemon`, so its state file can hold the daemon's pid,
+  # which outlives the job. A session missing from the records has ended
+  if [[ $records != '{}' ]]; then
+    pid=$(jq -r --arg s "$sid" '.[$s].pid // empty' <<<"$records")
+  else
+    pid=$(jq -r '.pid // empty' "$state_file" 2>/dev/null) || continue
+  fi
   if [[ -z $pid ]] || ! kill -0 "$pid" 2>/dev/null; then
     rm -rf "$state_file" "$dir/$sid.context.json" "$dir/$sid.agents"
     continue
