@@ -45,3 +45,22 @@ cursor at that rate, with `prototype-fzf-redraw.py` on the branch
 **Out of scope:**
 - Idle squats (026) and a waiting wave
 - A frame rate per state, or one the Maintainer sets
+
+## Comments
+
+For the Maintainer, from review, beyond what the slice asked:
+- Render the frames at a gather, not at a tick. `serve` formats a whole
+  frame every tick: about 19 ms of jq, a `tmux display` fork for the
+  width, and every still picture rebuilt, which is most of its 31% of a
+  core while one session works. `gather` could write the four frames once
+  a second, as `rows.0` to `rows.3` from one jq run, and a tick would then
+  only post `reload-sync` on the next one. `serve` would lose most of its
+  flags, and "something animates" would become frame 0 differing from
+  frame 1, so `picture` would be the only place deciding what moves. The
+  brief asked for a format per tick with a frame counter; 026's squats, a
+  15-frame cycle per session in the prototype, would weigh on how many
+  frames a gather renders.
+- `kick` still reaches `gathering` through a flag file polled 5 times a
+  second, which is most of what the idle sidebar now spends over the old
+  one (12.6% of a core against 11.3%). A second fifo, opened read-write by
+  `kick` so a stale one cannot hang a tmux hook, would end the polling.

@@ -8,8 +8,8 @@
 # the frame's right pane, and fzf's cursor follows the session on show there
 # however it changed. Run elsewhere, a jump moves the usual tmux's most recent
 # client.
-# Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the refresh loop's errors
-# in ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the list.
+# Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the background loops'
+# errors in ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the list.
 #   rows              print the list once, as fzf reads it
 #   pick N            jump to the entry numbered N (the frame's M-1..9), as
 #                     the running sidebar shows it
@@ -78,7 +78,7 @@ tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5
 }
 
 # the columns an fzf item's line has in the pane this runs in, past the 2 of
-# fzf's pointer and marker; read on each refresh, so the lines follow a resize
+# fzf's pointer and marker; read on each draw, so the lines follow a resize
 line_width() {
   local cols
   cols=$([[ -n $TMUX_PANE ]] && tmux display -p -t "$TMUX_PANE" '#{pane_width}' || tput cols)
@@ -231,7 +231,9 @@ format() { # $1 animation frame, counting from 0 (default 0)
     # Clawd wearing the bandana of session $id, as three lines, his body in
     # the colour for $state: working orange, waiting yellow, idle grey,
     # the only states claude-session-state writes. Working, he runs, in
-    # the run frame for animation frame $frame; otherwise he stands
+    # the run frame for animation frame $frame; otherwise he stands. `serve`
+    # ticks only while a session is working, so a pose for another state
+    # that moves needs it there too
     def picture($state; $id; $frame):
       (bandana($id) as [$main, $s1, $s2, $s3]
         | {B: {working: orange, waiting: yellow, idle: dark5}[$state],
@@ -471,8 +473,6 @@ gather() { collect >"$cache/tagged.new" && mv "$cache/tagged.new" "$cache/tagged
 # and replaced whole, as `step` and `position` read them too
 draw() { format "$1" <"$cache/tagged" >"$cache/rows.new" && mv "$cache/rows.new" "$cache/rows"; }
 
-refresh() { gather && draw 0; }
-
 # gather every second, or as soon as a jump asks, writing a line to the fifo
 # $cache/gathered after each gather, which wakes `serve`
 gathering() {
@@ -515,6 +515,7 @@ serve() {
       fi
     fi
     if [[ $fresh == true ]]; then
+      # the state whose Clawd moves, as `picture` in format draws him
       working=$(jq -s 'any(.[]; .state == "working")' "$cache/tagged")
       check_shown=true
       # while one works, the next tick draws what was gathered, so the
@@ -565,7 +566,7 @@ case $1 in
   jump) jump "$2" "$3" "$4" "$5" ;;
   attach) attach "$2" ;;
   "")
-    mkdir -p "$cache" && { [[ -p $cache/gathered ]] || mkfifo "$cache/gathered"; } && refresh
+    mkdir -p "$cache" && { [[ -p $cache/gathered ]] || mkfifo "$cache/gathered"; } && gather && draw 0
     # errors to a log: written to the pane, they stay over fzf until it redraws
     gathering 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
     loops=$!
