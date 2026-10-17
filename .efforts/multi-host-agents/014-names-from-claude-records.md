@@ -36,9 +36,9 @@ line's record stays the source of context use and cost.
       within a refresh, on the Mac and on mgmt-1, without being on screen
 - [ ] A background session renamed from Claude Code's session list shows
       the new name
-- [ ] A session whose status line never ran shows Claude Code's name for
+- [x] A session whose status line never ran shows Claude Code's name for
       it, not its short id
-- [ ] Context use and cost still come from the status line's record
+- [x] Context use and cost still come from the status line's record
 
 **Out of scope:**
 - Which session a pane shows after switching inside Claude Code
