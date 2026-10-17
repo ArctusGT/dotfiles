@@ -90,18 +90,21 @@ format() {
     # Colours end at the default foreground (39), not a reset, so a background
     # entry stays dimmed. No record ($pct null): the whole line grey
     def ctxline($pct):
-      if $pct == null then "\u001b[38;5;59m" + "┈" * $width + "\u001b[39m"
+      def paint($sgr): "\u001b[\($sgr)m" + .;
+      def gradient($len):
+        [46, 82, 118, 154, 190, 226, 220, 214, 208, 202, 196] as $palette
+        | [range(.) as $i | "━" | paint("38;5;\($palette[$i * ($palette | length) / $len | floor])")]
+        | join("");
+      if $pct == null then "┈" * $width | paint("38;5;59")
       else
-        ($width - (" \($pct)%" | length)) as $len
+        " \($pct)%" as $label
+        | ($width - ($label | length)) as $len
         | ([$pct * $len / 100 | round, $len] | min) as $full
-        | [46, 82, 118, 154, 190, 226, 220, 214, 208, 202, 196] as $gradient
-        | (if $pct >= $warn then "\u001b[31m" else null end) as $red
-        | ([range($full) as $i
-            | ($red // "\u001b[38;5;\($gradient[$i * ($gradient | length) / $len | floor])m") + "━"]
-           | join(""))
-          + "\u001b[38;5;59m" + "┈" * ($len - $full)
-          + ($red // "\u001b[39m") + " \($pct)%\u001b[39m"
-      end;
+        | ("┈" * ($len - $full) | paint("38;5;59")) as $rest
+        | if $pct >= $warn then ("━" * $full | paint(31)) + $rest + ($label | paint(31))
+          else ($full | gradient($len)) + $rest + ($label | paint(39))
+          end
+      end + "\u001b[39m";
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
       elif $r.tmux_pane != null then .n += 1 else . end;
