@@ -88,9 +88,10 @@ line_width() {
 # session, session id (empty only on a header, which is how `jump` tells one),
 # entry number, 1 if the frame's right pane shows it, then the display lines.
 # Sessions with a pane are numbered in order across hosts, for `pick`. Times
-# are in whole minutes, so the rows change only when a session does
-format() {
-  jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" --argjson width "$(line_width)" '
+# are in whole minutes, so the rows change only when a session does, or with
+# the frame while a session works and its Clawd runs
+format() { # $1 animation frame, counting from 0 (default 0)
+  jq -srj --argjson frame "${1:-0}" --argjson now "$(date +%s)" --argjson warn "$warn" --argjson width "$(line_width)" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
     # TokyoNight Night as SGR foregrounds: the terminal palette where it has
@@ -152,6 +153,35 @@ format() {
       "..B.B......B.B..",
       "..B.B......B.B.."
     ];
+    # Clawd running, frame $k of 4: body shifted right, arms swept left,
+    # slanted eyes, the stripes at the right end of the bandana. Columns 0
+    # and 1 of rows 0 to 3, one octant cell, hold the ribbon streaming left,
+    # x in ribbons, drawn in a stripe colour that changes each frame. The
+    # feet step left pair down, all up, right pair down, all up. Same rule
+    # as stand: one colour to a cell
+    def run_body: [
+      "................",
+      "................",
+      "...mmmmmmm332211",
+      "...mmmmmmm332211",
+      "...BBBBBBBBBBBBB",
+      ".BBBB..BBBBBB..B",
+      ".BBBBBBBBBBBBBBB",
+      "...BBBBBBBBBBBBB",
+      ".BBBBBBBBBBBBBBB",
+      ".BBBBBBBBBBBBBBB"
+    ];
+    def ribbons: [["..", "x.", ".x", ".x"], [".x", "x.", "x.", ".."],
+                  ["..", ".x", "xx", ".."], ["x.", ".x", ".x", "x."]];
+    def ribbon_colours: ["1", "2", "3", "2"];
+    def feet: [["....B.B.....B.B.", "....B.......B..."],
+               ["....B.B.....B.B.", "................"],
+               ["....B.B.....B.B.", "......B.......B."],
+               ["....B.B.....B.B.", "................"]];
+    def run($k):
+      ribbon_colours[$k] as $colour
+      | [range(4) as $y | (ribbons[$k][$y] | gsub("x"; $colour)) + run_body[$y][2:]]
+        + run_body[4:] + feet[$k];
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
@@ -199,12 +229,14 @@ format() {
       | if $ink == null then . else paint($ink) end;
     # Clawd wearing the bandana of session $id, as three lines, his body in
     # the colour for $state: working orange, waiting yellow, idle grey,
-    # the only states claude-session-state writes
-    def picture($state; $id):
+    # the only states claude-session-state writes. Working, he runs, in
+    # the run frame for animation frame $frame; otherwise he stands
+    def picture($state; $id; $frame):
       (bandana($id) as [$main, $s1, $s2, $s3]
         | {B: {working: orange, waiting: yellow, idle: dark5}[$state],
            m: $main, "1": $s1, "2": $s2, "3": $s3}) as $palette
-      | (stand | map(split("") | map($palette[.]))) as $pixels
+      | (if $state == "working" then run($frame % 4) else stand end
+         | map(split("") | map($palette[.]))) as $pixels
       | [range(3) as $line
           | [range(8) as $cell
               | [range(4) as $y | range(2) as $x | $pixels[4 * $line + $y][2 * $cell + $x]]
@@ -228,7 +260,7 @@ format() {
         | ($r.tmux_pane != null) as $numbered
         # a session with no pane (a --bg one, or a daemon) is dimmed
         | (if $numbered then "" else "\u001b[2m" end) as $dim
-        | picture($r.state; $r.session_id) as [$pic0, $pic1, $pic2]
+        | picture($r.state; $r.session_id; $frame) as [$pic0, $pic1, $pic2]
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
            (if $numbered then "\($n)" else "" end),
            (if $numbered and $r.tmux_pane == $cur then "1" else "" end),

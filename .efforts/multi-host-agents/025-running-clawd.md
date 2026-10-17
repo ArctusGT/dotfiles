@@ -34,7 +34,7 @@ cursor at that rate, with `prototype-fzf-redraw.py` on the branch
 **Acceptance criteria:**
 - [ ] A working session's Clawd runs through four distinct frames at about
       8 fps; the others stay still
-- [ ] Every run frame keeps each cell to two colours at most, by the count
+- [x] Every run frame keeps each cell to two colours at most, by the count
       script from 024
 - [ ] With no session working, `reload-sync` posts no more often than once
       a second, measured by counting them for a minute
