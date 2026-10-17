@@ -135,10 +135,9 @@ format() {
     # Clawd standing, as Claude Code 2.1.292 draws him in its banner, open
     # eyes and arms down, redrawn 16 pixels wide and 12 tall under a
     # bandana in place of his head-top row: B body, m the bandana, 1 2 3 its
-    # stripes, the ribbon at the right in stripe 3. Drawn in octants, cells 2
-    # pixels wide and 4 tall from rows 0, 4 and 8, each drawn in the colour
-    # of its first lit pixel on the background, so the frame keeps every cell
-    # to one colour; a second would show in the first, not drop out
+    # stripes, the ribbon at the right in stripe 3. Drawn as octant cells 2
+    # pixels wide and 4 tall, from rows 0, 4 and 8, so keep each cell to one
+    # colour: octant paints a second colour in the first
     def stand: [
       "..............3.",
       "..............3.",
@@ -180,17 +179,19 @@ format() {
     # red, green, blue, magenta, cyan, teal, fg, blue1, purple
     def bandana_colours: [red, green, blue, "35", "36", "38;2;115;218;202",
       "38;2;192;202;245", "38;2;42;195;222", "38;2;157;124;216"];
+    # djb2 of a string, kept under 2^31 so jq, counting in doubles, stays exact
+    def djb: reduce explode[] as $c (5381; (. * 33 + $c) % 2147483647);
     # four different bandana colours for session $id, main then stripes, from
     # a stable hash of the id, so a session wears the same bandana on every
-    # refresh and from either host
-    def djb: reduce explode[] as $c (5381; (. * 33 + $c) % 2147483647);
+    # refresh and from either host. Each pick takes the hash modulo the
+    # colours left and passes the quotient on to the next
     def bandana($id):
-      [foreach range(4) as $_ ({h: ($id | djb), pool: bandana_colours};
-         (.pool | length) as $n | (.h % $n) as $i
-         | {h: (.h / $n | floor), pool: (.pool | del(.[$i])), pick: .pool[$i]};
+      [foreach range(4) as $_ ({hash: ($id | djb), left: bandana_colours};
+         (.left | length) as $n | (.hash % $n) as $i
+         | {hash: (.hash / $n | floor), left: (.left | del(.[$i])), pick: .left[$i]};
          .pick)];
-    # a cell of 8 pixels (colours or null) as its octant, in the colour of
-    # its first lit pixel
+    # a cell of 8 pixels (colours or null, left to right, top to bottom) as
+    # its octant, in the colour of its first lit pixel
     def octant:
       ([range(8) as $k | select(.[$k] != null) | pow(2; $k)] | add // 0) as $bits
       | (map(values) | first) as $ink
@@ -202,11 +203,11 @@ format() {
     def picture($state; $id):
       (bandana($id) as [$main, $s1, $s2, $s3]
         | {B: {working: orange, waiting: yellow, idle: dark5}[$state],
-           m: $main, "1": $s1, "2": $s2, "3": $s3}) as $colour
-      | (stand | map(split("") | map($colour[.]))) as $px
+           m: $main, "1": $s1, "2": $s2, "3": $s3}) as $palette
+      | (stand | map(split("") | map($palette[.]))) as $pixels
       | [range(3) as $line
-          | [range(8) as $i
-              | [range(4) as $y | range(2) as $x | $px[4 * $line + $y][2 * $i + $x]]
+          | [range(8) as $cell
+              | [range(4) as $y | range(2) as $x | $pixels[4 * $line + $y][2 * $cell + $x]]
               | octant]
           | join("")];
     foreach .[] as $r ({n: 0, cur: ""};
