@@ -466,16 +466,19 @@ set -g detach-on-destroy off
 bind -n C-Left if -F '#{@ssh_tmux}' 'send-keys C-Left' previous-window
 bind -n C-Right if -F '#{@ssh_tmux}' 'send-keys C-Right' next-window
 # panes: Cmd+arrows focus the neighbour that way, Cmd+Shift+arrows swap with it
-# and keep focus on the moved pane; nothing at a window's edge, where tmux
-# would otherwise wrap (the inner #{} in #{!:#{pane_at_left}} is needed:
-# #{!:pane_at_left} reads the name as text). tmux reads Cmd as Alt, so
+# and keep focus on the moved pane. tmux wraps at a window's edge, so each
+# tests pane_at_<side> first (the inner #{} in #{!:#{pane_at_right}} is needed:
+# #{!:pane_at_right} reads the name as text). tmux reads Cmd as Alt, so
 # ghostty/.config/ghostty/config sends these as Ctrl+Alt(+Shift)+arrow
 # instead. In an ssh-tmux window they go to the remote tmux, like
 # ctrl+left/right.
-bind -n C-M-Left  if -F '#{@ssh_tmux}' 'send-keys C-M-Left'  { if -F '#{!:#{pane_at_left}}'   'select-pane -L' }
+# Cmd+Left/Up/Down at an edge cross into the frame's sidebar (`claude-sidebar
+# edge`): nothing outside the frame. In an ssh-tmux window the remote pane's
+# edge is the one that counts, so it is asked first.
+bind -n C-M-Left  if -F '#{||:#{@ssh_tmux},#{pane_at_left}}'   'run-shell -b "~/.local/bin/claude-sidebar edge left #{client_tty} #{pane_id} #{@ssh_tmux}"' 'select-pane -L'
 bind -n C-M-Right if -F '#{@ssh_tmux}' 'send-keys C-M-Right' { if -F '#{!:#{pane_at_right}}'  'select-pane -R' }
-bind -n C-M-Up    if -F '#{@ssh_tmux}' 'send-keys C-M-Up'    { if -F '#{!:#{pane_at_top}}'    'select-pane -U' }
-bind -n C-M-Down  if -F '#{@ssh_tmux}' 'send-keys C-M-Down'  { if -F '#{!:#{pane_at_bottom}}' 'select-pane -D' }
+bind -n C-M-Up    if -F '#{||:#{@ssh_tmux},#{pane_at_top}}'    'run-shell -b "~/.local/bin/claude-sidebar edge up #{client_tty} #{pane_id} #{@ssh_tmux}"' 'select-pane -U'
+bind -n C-M-Down  if -F '#{||:#{@ssh_tmux},#{pane_at_bottom}}' 'run-shell -b "~/.local/bin/claude-sidebar edge down #{client_tty} #{pane_id} #{@ssh_tmux}"' 'select-pane -D'
 bind -n C-M-S-Left  if -F '#{@ssh_tmux}' 'send-keys C-M-S-Left'  { if -F '#{!:#{pane_at_left}}'   'swap-pane -d -t "{left-of}"' }
 bind -n C-M-S-Right if -F '#{@ssh_tmux}' 'send-keys C-M-S-Right' { if -F '#{!:#{pane_at_right}}'  'swap-pane -d -t "{right-of}"' }
 bind -n C-M-S-Up    if -F '#{@ssh_tmux}' 'send-keys C-M-S-Up'    { if -F '#{!:#{pane_at_top}}'    'swap-pane -d -t "{up-of}"' }

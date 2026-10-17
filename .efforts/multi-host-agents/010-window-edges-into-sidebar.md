@@ -39,14 +39,14 @@ vertical edges, and for Cmd+Left to enter the sidebar.
   connection, before forwarding the key or moving the sidebar
 
 **Acceptance criteria:**
-- [ ] Cmd+Left in the leftmost pane of a Mac window focuses the sidebar;
+- [x] Cmd+Left in the leftmost pane of a Mac window focuses the sidebar;
       Cmd+Up/Down there move the cursor and Cmd+Right shows that entry and
       returns focus to the right pane
-- [ ] Cmd+Down in the lowest pane shows the next numbered entry and moves
+- [x] Cmd+Down in the lowest pane shows the next numbered entry and moves
       the sidebar's cursor to it; Cmd+Up in the top pane the previous one
-- [ ] From the last entry on the Mac, Cmd+Down reaches mgmt-1's first entry,
+- [x] From the last entry on the Mac, Cmd+Down reaches mgmt-1's first entry,
       and back with Cmd+Up
-- [ ] In the Mac's `mgmt-1` window, Cmd+Up/Down move between mgmt-1's panes
+- [x] In the Mac's `mgmt-1` window, Cmd+Up/Down move between mgmt-1's panes
       and cross to the neighbouring entry only from mgmt-1's top or lowest
       pane
 - [ ] The Readme's key table describes the edges

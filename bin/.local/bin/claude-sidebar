@@ -13,6 +13,13 @@
 #                     the running sidebar shows it
 #   kick              have a running sidebar rebuild now (tmux hooks call it
 #                     when a client changes session or window)
+#   edge SIDE TTY PANE [HOST]
+#                     cross the usual tmux's window edge SIDE (left, up or
+#                     down) from PANE, for the client on TTY: left focuses the
+#                     sidebar, up and down show the previous or next entry.
+#                     Only from the frame's right pane. With HOST, PANE is an
+#                     ssh-tmux window's and HOST's active pane decides: not at
+#                     that edge, the key goes on to HOST's tmux
 #   jump HOST PANE SESSION [ID]
 #                     focus PANE on HOST (empty HOST = this one); a remote pane
 #                     is shown through the Mac's SESSION, its ssh-tmux relay.
@@ -241,6 +248,46 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
 
 kick() { [[ -d $cache ]] && touch "$cache/kick"; return 0; }
 
+# the usual tmux's Cmd+Left/Up/Down bindings call this at a window's edge, and
+# always in an ssh-tmux window, whose edges are the host's
+edge() { # $1 left|up|down, $2 client tty, $3 pane, $4 ssh host
+  local side=$1 tty=$2 pane=$3 host=$4 key at
+  case $side in
+    left) key=C-M-Left at=pane_at_left ;;
+    up) key=C-M-Up at=pane_at_top ;;
+    down) key=C-M-Down at=pane_at_bottom ;;
+    *) return 2 ;;
+  esac
+  # frame_main, jump and pick reach the frame as the tmux they run in
+  local socket main=""
+  socket=$(tmux -L frame display -p '#{socket_path}' 2>/dev/null) &&
+    export TMUX=$socket,0,0 && main=$(frame_main)
+  local in_frame=""
+  [[ -n $main && ${main#* } == "$tty" ]] && in_frame=1
+  # the host's one client from the Mac, as `jump` finds it. Outside the frame,
+  # or with no answer, the key goes on as it did before there was an edge
+  if [[ -n $host && ( -z $in_frame || $(ssh "${ssh_opts[@]}" "$host" \
+    "tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{$at}' | head -1" 2>/dev/null) != 1 ) ]]; then
+    work send-keys -t "$pane" "$key"
+    return
+  fi
+  [[ -n $in_frame ]] || return 0
+  case $side in
+    left) tmux select-pane -t "$(tmux list-panes -s -F '#{@claude_sidebar} #{pane_id}' | awk '$1 == 1 {print $2; exit}')" ;;
+    up) step -1 ;;
+    down) step 1 ;;
+  esac
+}
+
+# pick the entry $1 numbers away from the one the right pane shows; nothing
+# past either end, or when it shows none
+step() {
+  local shown
+  shown=$(perl -0ne 'chomp; @f = split /\t/, $_, -1; if ($f[5] eq "1") { print $f[4]; exit }' "$cache/rows" 2>/dev/null)
+  [[ -n $shown ]] && (( shown + $1 >= 1 )) && pick $((shown + $1))
+  return 0
+}
+
 # the position in fzf's list (from 1) of the first row whose field $1 is $2
 position() {
   perl -0ne 'BEGIN { ($f, $v) = splice @ARGV, 0, 2 }
@@ -295,6 +342,7 @@ case $1 in
   rows) collect | format ;;
   pick) pick "$2" ;;
   kick) kick ;;
+  edge) edge "$2" "$3" "$4" "$5" ;;
   jump) jump "$2" "$3" "$4" "$5" ;;
   attach) attach "$2" "$3" ;;
   "")
