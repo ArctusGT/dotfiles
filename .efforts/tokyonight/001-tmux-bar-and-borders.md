@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The tmux bar and pane borders, in the usual tmux, the frame and mgmt-1's tmux, take TokyoNight Night's colours, and Ghostty's theme moves into the repo as the one source of the palette
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -37,12 +37,12 @@ the terminal palette as the source over hex in every tool.
   file states it; `ghostty +show-config` shows the loaded values
 
 **Acceptance criteria:**
-- [ ] `ghostty +show-config` reports TokyoNight Night's background and
+- [x] `ghostty +show-config` reports TokyoNight Night's background and
       palette with the theme set only in the `ghostty` package
 - [x] The usual tmux's bar, window list and pane borders show TokyoNight
       colours, with no oh-my-tmux default yellow or pink left
 - [x] The frame's borders match the usual tmux's
-- [ ] mgmt-1's bar, seen through the Mac's `mgmt-1` window, matches the
+- [x] mgmt-1's bar, seen through the Mac's `mgmt-1` window, matches the
       Mac's after a pull
 - [x] Every hex value left in the tmux configs names the TokyoNight colour it
       stands for

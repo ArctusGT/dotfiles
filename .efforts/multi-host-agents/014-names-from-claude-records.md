@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** The sidebar shows each session's current name, renames included, from the record Claude Code keeps per session, rather than the status line's last record, which goes stale for any session not on screen
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -32,9 +32,9 @@ line's record stays the source of context use and cost.
   automatic one); show it as Claude Code does
 
 **Acceptance criteria:**
-- [ ] A session renamed with `/rename` shows its new name in the sidebar
+- [x] A session renamed with `/rename` shows its new name in the sidebar
       within a refresh, on the Mac and on mgmt-1, without being on screen
-- [ ] A background session renamed from Claude Code's session list shows
+- [x] A background session renamed from Claude Code's session list shows
       the new name
 - [x] A session whose status line never ran shows Claude Code's name for
       it, not its short id

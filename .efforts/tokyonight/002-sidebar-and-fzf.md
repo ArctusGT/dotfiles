@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's Clawd, context line, headings and dimming, and fzf's pointer, highlight and accents everywhere it runs, take TokyoNight Night's colours from the terminal palette
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -35,11 +35,11 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
 **Acceptance criteria:**
 - [x] Every colour `claude-sidebar` writes is a terminal palette number or a
       hex value naming the TokyoNight colour it stands for
-- [ ] The context line runs green to red in TokyoNight's colours, and turns
+- [x] The context line runs green to red in TokyoNight's colours, and turns
       the warn red at `CLAUDE_CTX_WARN`
 - [x] The sidebar's focused entry, pointer and match highlight use TokyoNight
       accents, and `sesh-pick` (`prefix f`) shows the same
-- [ ] A background entry is still visibly dimmed
+- [x] A background entry is still visibly dimmed
 - [x] The Readme's sidebar section names no colour that is no longer used
 
 **Out of scope:**

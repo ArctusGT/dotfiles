@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** When a Claude window switches to another session through Claude Code's own session list, the sidebar's entry for that pane takes on the session now on show, its name, state and context, found from the pane's terminal title
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/014-names-from-claude-records]
 
 **Current behavior:**
@@ -52,12 +52,12 @@ within a refresh.
   not parse
 
 **Acceptance criteria:**
-- [ ] After switching a Claude window to a background session from Claude
+- [x] After switching a Claude window to a background session from Claude
       Code's session list, the pane's entry shows that session's name and
       live state within a refresh, on the Mac and on mgmt-1
-- [ ] That session is no longer listed a second time as a background row,
+- [x] That session is no longer listed a second time as a background row,
       and the client's own unnamed record is not listed
-- [ ] Switching the window back shows the client's own session again
+- [x] Switching the window back shows the client's own session again
 - [x] A pane whose title is ambiguous or a default keeps today's entry
 - [x] The Readme's sidebar section says a pane follows the session it shows
 

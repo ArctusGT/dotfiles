@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** nvim's tokyonight uses the Night style, lazygit gets a TokyoNight theme in a new stow package, and Claude Code uses its terminal-palette theme, so all three match Ghostty
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -35,11 +35,11 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
   `/theme` list
 
 **Acceptance criteria:**
-- [ ] nvim's background matches Ghostty's (`#1a1b26`) on the Mac and on
+- [x] nvim's background matches Ghostty's (`#1a1b26`) on the Mac and on
       mgmt-1
-- [ ] lazygit shows TokyoNight colours on both hosts from the stowed config,
+- [x] lazygit shows TokyoNight colours on both hosts from the stowed config,
       and the Readme lists its package with the others
-- [ ] Claude Code's prompt, borders and diffs take the terminal's palette
+- [x] Claude Code's prompt, borders and diffs take the terminal's palette
       after the settings change
 - [x] No other tool's config is changed
 

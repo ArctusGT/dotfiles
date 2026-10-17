@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Selecting a background entry opens its `claude attach` window in a tmux session named for the session's repo, created if absent, on the session's own host, so mgmt-1's layout matches the Mac's one-session-per-repo and the window list says which repo is on screen
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -41,7 +41,7 @@ wherever it is.
 **Acceptance criteria:**
 - [x] Selecting a Mac background entry whose repo has a sesh session opens
       its window in that session and shows it
-- [ ] Selecting a mgmt-1 background entry opens its window in a mgmt-1 tmux
+- [x] Selecting a mgmt-1 background entry opens its window in a mgmt-1 tmux
       session named for its repo, creating the session when absent, and the
       Mac's `mgmt-1` window shows it
 - [x] Two background sessions in different repos end in different tmux
