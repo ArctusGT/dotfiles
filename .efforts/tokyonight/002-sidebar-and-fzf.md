@@ -37,7 +37,7 @@ The Maintainer chose TokyoNight Night and the terminal palette as the source.
       hex value naming the TokyoNight colour it stands for
 - [x] The context line runs green to red in TokyoNight's colours, and turns
       the warn red at `CLAUDE_CTX_WARN`
-- [ ] The sidebar's focused entry, pointer and match highlight use TokyoNight
+- [x] The sidebar's focused entry, pointer and match highlight use TokyoNight
       accents, and `sesh-pick` (`prefix f`) shows the same
 - [ ] A background entry is still visibly dimmed
 - [ ] The Readme's sidebar section names no colour that is no longer used

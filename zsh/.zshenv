@@ -17,3 +17,13 @@ export PATH
 # Only a default: a terminal that sets its own locale (Ghostty) keeps it.
 export LANG=${LANG:-en_US.UTF-8}
 export EDITOR=nvim
+
+# fzf in TokyoNight Night, for every fzf: the shell's, sesh-pick and the
+# Claude sidebar, which run under tmux and so get the environment of the zsh
+# that started the server. Palette numbers, and hex for #283457, TokyoNight's
+# selection blue, which the 16 lack. -1 keeps the terminal's own colour;
+# the gutter is palette 0, a shade under the background, as fzf draws it as
+# a bar
+export FZF_DEFAULT_OPTS="--color=fg:-1,bg:-1,gutter:0,fg+:-1,bg+:#283457\
+,hl:6,hl+:6,pointer:5,marker:5,spinner:5,prompt:6,info:8,header:3\
+,border:4,separator:8,scrollbar:8"
