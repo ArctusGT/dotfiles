@@ -29,8 +29,8 @@ sudo dnf install git curl zsh tmux fzf stow ripgrep fd-find ghostscript cargo np
 
 On EL10 (Enterprise Linux 10: RHEL and Rocky Linux 10), dnf's tmux is a git
 snapshot (`tmux -V` says `next-3.4`) that aborts the whole server on any
-`capture-pane`, which the theme's `F` binding uses. Build a
-tmux release into `~/.local/opt/tmux-<version>` and link it as
+`capture-pane`, which the theme's `F` binding and the frame's mirror float
+use. Build a tmux release into `~/.local/opt/tmux-<version>` and link it as
 `~/.local/bin/tmux`, which `zsh/.zshenv` puts first on PATH. Leave the dnf
 package installed; it is only a fallback.
 

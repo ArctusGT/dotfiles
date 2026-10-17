@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Option+dragging a pane onto a floating pane makes the float mirror it, and the float stays over the frame's right pane while the Maintainer moves to other windows, sessions and hosts, so instructions in one pane stay readable while acting in another
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** [multi-host-agents/009-cmd-arrows-between-panes]
 
 **Current behavior:**
@@ -60,3 +60,20 @@ since only the frame sits above whatever the right pane shows.
 - More than one mirror float at a time
 - Mirroring outside the frame
 - Floats inside the usual tmux's windows, which keep tmux's own behaviour
+
+**Waiting on the Maintainer:**
+The first two criteria passed with SGR mouse sequences fed to a scratch
+frame's client, and the second through a scratch ssh relay client on mgmt-1.
+They are ticked after a real Option+drag in Ghostty, onto a float made with
+Ctrl+drag: one from a Mac pane, one from a pane in the Mac's `mgmt-1` window.
+
+**Named for the Maintainer, beyond this slice:**
+- Option+drag in an ssh-tmux window is now forwarded to the host's tmux, so
+  it swaps the host's panes there as well; that is how the drag names a
+  mgmt-1 pane for the drop.
+- The relay client on a host is found by its termname (`tmux*`, first match),
+  as `claude-sidebar` does, while `ssh-tmux` records it as `@relay_client`. A
+  second nested client on the host could be taken instead. `ssh_opts`, `work`
+  and the right-pane lookup are also copied from `claude-sidebar`; a shared
+  sourced file, or folding `tmux-mirror` into `claude-sidebar`, would give
+  them one home.
