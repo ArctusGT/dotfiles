@@ -38,10 +38,10 @@ per-entry value. Bar plus percentage, red at the warn level, still holds.
 **Acceptance criteria:**
 - [ ] An entry at 24% ends in a line about a quarter filled, in the
       theme's gradient colours, with `24%` at its end
-- [ ] An entry at or past `CLAUDE_CTX_WARN` shows its filled part and
+- [x] An entry at or past `CLAUDE_CTX_WARN` shows its filled part and
       number red
-- [ ] An entry with no context record ends in an all-grey line
-- [ ] Entries stay visibly separated, with no blank row between them, and
+- [x] An entry with no context record ends in an all-grey line
+- [x] Entries stay visibly separated, with no blank row between them, and
       the third line fits the sidebar's width, `background` included
 - [ ] The Readme describes the line where it described the bar
 

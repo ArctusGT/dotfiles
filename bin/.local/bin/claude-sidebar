@@ -22,7 +22,8 @@
 #                     this host, opening it with `claude attach` in a new window
 #                     of CLIENT's tmux session, tagged @claude_attach, if none
 #                     does
-# CLAUDE_CTX_WARN     context percentage an entry's bar turns red at (default 50)
+# CLAUDE_CTX_WARN     context percentage an entry's context line turns red at
+#                     (default 50)
 # SESH_CONFIG         sesh config the hosts come from
 #                     (default ~/.config/sesh/sesh.toml)
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
@@ -64,30 +65,42 @@ tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5
      | sort_by(.tmux_pane == null)[] + {$host, $relay}'
 }
 
+# the columns an fzf item's line has in the pane this runs in, past the 2 of
+# fzf's pointer and marker; read on each refresh, so the lines follow a resize
+line_width() {
+  local cols
+  cols=$([[ -n $TMUX_PANE ]] && tmux display -p -t "$TMUX_PANE" '#{pane_width}' || tput cols)
+  echo $((cols - 2))
+}
+
 # one NUL-terminated fzf item per header or session: ssh host, pane, relay
 # session, session id (empty only on a header, which is how `jump` tells one),
 # entry number, 1 if the frame's right pane shows it, then the display lines.
 # Sessions with a pane are numbered in order across hosts, for `pick`. Times
 # are in whole minutes, so the rows change only when a session does
 format() {
-  jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" '
+  jq -srj --argjson now "$(date +%s)" --argjson warn "$warn" --argjson width "$(line_width)" '
     def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
              else "\(. / 3600 | floor)h" end;
-    # context use in the style of the battery bar of the tmux theme, its
-    # symbols and palette copied from tmux/.tmux.conf.local rather than read
-    # from tmux: ◼/◻ in 4 cells, the length it picks for a narrow client.
-    # Filled cells run its gradient palette reversed, green to red, as a full
-    # context is the bad end; empty ones stay plain. All red at $warn.
+    # context use as a line across the entry: the filled share heavy, each
+    # cell coloured by how far along the bar it sits on the gradient palette
+    # of the tmux theme, copied from tmux/.tmux.conf rather than read from
+    # tmux, reversed to run green to red as a full context is the bad end. The
+    # rest light, in the grey (59) of the gap line fzf draws. All red at $warn.
     # Colours end at the default foreground (39), not a reset, so a background
-    # entry stays dimmed
-    def ctxbar:
-      (. / 25 | round) as $full
-      | if . >= $warn then
-          "\u001b[31m" + "◼" * $full + "◻" * (4 - $full) + " \(.)%\u001b[39m"
-        else
-          ([46, 226, 208, 196][:$full] | map("\u001b[38;5;\(.)m◼") | join(""))
-          + "\u001b[39m" + "◻" * (4 - $full) + " \(.)%"
-        end;
+    # entry stays dimmed. No record ($pct null): the whole line grey
+    def ctxline($pct):
+      if $pct == null then "\u001b[38;5;59m" + "┈" * $width + "\u001b[39m"
+      else
+        ($width - (" \($pct)%" | length)) as $len
+        | ([$pct * $len / 100 | round, $len] | min) as $full
+        | (if $pct >= $warn then "\u001b[31m" + "━" * $full
+           else [range($full) as $i
+                 | [46, 82, 118, 154, 190, 226, 220, 214, 208, 202, 196][$i * 11 / $len | floor]
+                 | "\u001b[38;5;\(.)m━"] | join("") end)
+          + "\u001b[38;5;59m" + "┈" * ($len - $full)
+          + (if $pct >= $warn then "\u001b[31m" else "\u001b[39m" end) + " \($pct)%\u001b[39m"
+      end;
     foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
       elif $r.tmux_pane != null then .n += 1 else . end;
@@ -95,7 +108,10 @@ format() {
     | .[0] as $r | .[1] as $n | .[2] as $cur
     | if $r.header then
         ["", "", "", "", "", "",
-         "\u001b[1m\($r.label)\u001b[0m" + (if $r.down then "  \u001b[31munreachable\u001b[0m" else "" end)]
+         "\u001b[1m\($r.label)\u001b[0m" + (if $r.down then "  \u001b[31munreachable\u001b[0m" else "" end)
+         # a blank second line to keep the gap that --gap drew, as a braille
+         # blank (U+2800) since fzf drops a trailing line of only spaces
+         + "\n\u2800"]
       else
         ($r.context.used_pct) as $pct
         | ($r.tmux_pane != null) as $numbered
@@ -108,8 +124,10 @@ format() {
            + $dim + "  \($r.name // $r.session_id[:8])\n"
            + $dim + "  \($r.state) \($now - $r.since | ago)"
            + (if $r.subagents > 0 then "  +\($r.subagents)" else "" end)
-           + (if $pct == null then "" else "  " + ($pct | ctxbar) end)
-           + (if $numbered then "" else "  " + $dim + "background\u001b[0m" end)]
+           + (if $numbered then "" else "  " + $dim + "background\u001b[0m" end)
+           # reset at the end, or the dim of a background entry leaks into
+           # the entries fzf draws after it
+           + "\n" + $dim + ctxline($pct) + "\u001b[0m"]
       end
     | join("\t") + "\u0000"'
 }
@@ -265,7 +283,7 @@ case $1 in
     # ctrl-c clear the query rather than closing the sidebar
     fzf --read0 --ansi --delimiter '\t' --with-nth 7.. <"$cache/rows" \
       --listen "$cache/fzf.sock" \
-      --layout reverse --no-scrollbar --info hidden --gap --prompt '' \
+      --layout reverse --no-scrollbar --info hidden --prompt '' \
       --bind "esc,ctrl-c,ctrl-g,ctrl-q:clear-query" \
       --bind "enter,left-click:execute-silent($self jump {1} {2} {3} {4})+clear-query"
     ;;
