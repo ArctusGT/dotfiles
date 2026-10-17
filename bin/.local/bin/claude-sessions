@@ -7,7 +7,9 @@
 # session whose process is gone, which is how a killed session is cleared.
 # A background session open in a pane `claude-sidebar` tagged @claude_attach,
 # on the default tmux server, gets that pane as `tmux_pane`. A recorded pane
-# the default server no longer has is dropped to null.
+# the default server no longer has is dropped to null. A pre-warmed spare, which
+# a `claude daemon` keeps idle for its next background job and which has
+# nothing to attach to, is left out.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 dir=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sessions
 [[ -d $dir ]] || exit 0
@@ -21,9 +23,15 @@ panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
   jq -Rn '[inputs | split(" ") | {(.[0]): (.[1] // "")}] | add // {}')
 attached=$(jq -c 'to_entries | map(select(.value != "") | {(.value): .key}) | add // {}' <<<"$panes")
 
+# the session ids Claude Code's own records (~/.claude/sessions/<pid>.json)
+# mark as a spare; matched by id, since their pid need not be the one the
+# hooks record
+spares=" $(cat ~/.claude/sessions/*.json 2>/dev/null | jq -r 'select(.spare == true) | .sessionId' 2>/dev/null | tr '\n' ' ')"
+
 for state_file in "$dir"/*.json; do
   [[ $state_file == *.context.json ]] && continue
   sid=$(basename "$state_file" .json)
+  [[ $spares == *" $sid "* ]] && continue
   pid=$(jq -r '.pid // empty' "$state_file" 2>/dev/null) || continue
   if [[ -z $pid ]] || ! kill -0 "$pid" 2>/dev/null; then
     rm -rf "$state_file" "$dir/$sid.context.json" "$dir/$sid.agents"
