@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The mouse wheel over a frame float showing `tmux-mirror show` scrolls the pane it mirrors exactly as the wheel over that pane would, and the float shows the result
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -42,7 +42,7 @@ over ignoring the wheel on a mirror float.
       Code's transcript, seen in the float and in the source pane alike
 - [x] Over a float mirroring a shell pane, the wheel scrolls the shell's
       history in copy-mode, and scrolling back to the bottom leaves it
-- [ ] Both hold for a mirrored mgmt-1 pane
+- [x] Both hold for a mirrored mgmt-1 pane
 - [x] The wheel over a float that is not a mirror scrolls that float, as now
 
 **Out of scope:**
