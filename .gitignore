@@ -8,8 +8,8 @@
 # be published by a stray `git add -A`.
 #
 # Ignored by this today: clangd (generated per-project registrations holding
-# machine-local paths), tailscale (ssh_known_hosts naming tailnet machines),
-# lazygit. To start tracking one, add a `!` line for it here.
+# machine-local paths), tailscale (ssh_known_hosts naming tailnet machines).
+# To start tracking one, add a `!` line for it here.
 nvim/.config/*
 !nvim/.config/nvim
 
