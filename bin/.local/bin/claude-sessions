@@ -2,9 +2,9 @@
 # claude-sessions: print one JSON object per live Claude session on this host,
 # from the state files `claude-session-state` and `claude-statusline` keep in
 # ${XDG_STATE_HOME:-~/.local/state}/claude-sessions.
-# Each object carries the session's state file plus `subagents` (a count) and
-# `context` (the status line's last record, or null), and `name`, the one
-# Claude Code's own record holds for it, else the status line's. Removes the
+# Each object carries the session's state file plus `subagents` (a count),
+# `context` (the status line's last record, or null) and `name` (the one
+# Claude Code's own record holds for it, else the status line's). Removes the
 # files of a session whose process is gone, which is how a killed session is
 # cleared.
 # A background session open in a pane `claude-sidebar` tagged @claude_attach,
@@ -27,7 +27,8 @@ attached=$(jq -c 'to_entries | map(select(.value != "") | {(.value): .key}) | ad
 
 # {session id: {name, spare}} from Claude Code's own records
 # (~/.claude/sessions/<pid>.json); keyed by id, since their pid need not be
-# the one the hooks record
+# the one the hooks record. With no records the glob vanishes under nullglob,
+# so `cat` gets /dev/null as stdin rather than waiting on the caller's
 records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
   jq -sc 'map({(.sessionId): {name, spare}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
