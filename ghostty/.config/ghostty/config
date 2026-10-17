@@ -1,0 +1,15 @@
+# Ghostty on the Mac, loaded before ~/Library/Application Support/com.mitchellh.ghostty/config.ghostty,
+# which wins where both set the same option.
+
+# Cmd+arrows and Cmd+Shift+arrows move between and swap tmux panes
+# (tmux/.tmux.conf.local). tmux reads a Cmd modifier as Alt, so these send
+# Ctrl+Alt+arrow and Ctrl+Alt+Shift+arrow, which tmux binds. They replace
+# Ghostty's line start/end and jump-to-prompt defaults.
+keybind = super+arrow_left=csi:1;7D
+keybind = super+arrow_right=csi:1;7C
+keybind = super+arrow_up=csi:1;7A
+keybind = super+arrow_down=csi:1;7B
+keybind = super+shift+arrow_left=csi:1;8D
+keybind = super+shift+arrow_right=csi:1;8C
+keybind = super+shift+arrow_up=csi:1;8A
+keybind = super+shift+arrow_down=csi:1;8B
