@@ -56,23 +56,18 @@ done | jq -sc --argjson panes "$panes" --argjson records "$records" '
   # the ids of the sessions a title names, by either of their names
   def named($t): [.[] | select(any(.name, .context.name?; . == $t)) | .session_id];
   . as $sessions
-  # {pane: the one session its title names, else null}, for Claude panes
-  | ($panes | map({key: .id, value: (if .claude then (.title as $t | $sessions | named($t)) else [] end
-                                     | if length == 1 then .[0] else null end)})
+  # {pane: session id} of the panes the hooks recorded a session in
+  | ($sessions | map(select(.tmux_pane != null) | {(.tmux_pane): .session_id}) | add // {}) as $opened
+  # {pane: the session it shows}: the one its title names, for a Claude pane,
+  # else the one tagged on it, else the one the hooks recorded in it
+  | ($panes | map({key: .id, value: (
+        (if .claude then (.title as $t | $sessions | named($t) | select(length == 1) | .[0]) else empty end)
+        // (.tag | select(. != "")) // $opened[.id])})
      | from_entries) as $shows
-  # {session id: pane} of tagged panes not showing another session
-  | ($panes | map(select(.tag != "" and ($shows[.id] // .tag) == .tag) | {(.tag): .id})
-     | add // {}) as $attached
-  | ($panes | map({(.id): true}) | add // {}) as $live
   | $sessions[]
   | .session_id as $s
-  # the pane the session was opened in: recorded by the hooks, else tagged
-  | ((.tmux_pane | select(. != null and $live[.])) // $attached[$s]) as $own
-  # a pane whose title names it, its own first; else its own, unless that
-  # pane now shows another session
-  | ([$panes[].id | select($shows[.] == $s)] | (map(select(. == $own)) + .)[0]) as $titled
-  | (if $own != null and ($shows[$own] // $s) != $s then null else $own end) as $kept
-  | ($titled // $kept) as $pane
-  # an interactive client showing another session is that session'"'"'s entry
-  | select(($pane == null and $own != null and $records[$s].kind == "interactive") | not)
-  | .tmux_pane = $pane'
+  # an interactive client whose pane shows another session is left out: the
+  # pane is the other entry now
+  | select(.tmux_pane as $p | $records[$s].kind == "interactive" and ($shows[$p // ""] // $s) != $s | not)
+  # its recorded pane first, while that still shows it
+  | .tmux_pane = ([.tmux_pane, $panes[].id] | map(select(. != null and $shows[.] == $s)) | .[0])'

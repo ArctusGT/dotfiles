@@ -62,3 +62,13 @@ within a refresh.
 
 **Out of scope:**
 - Changing Claude Code's titles, or reading its transcripts
+
+**Left for the Maintainer:**
+- A title can carry the status line's topic summary rather than the
+  record's name (Mac `%13`: `Reddit links rendering`, session
+  `obsidian-thislists-29`). Should an unswitched client's summary ever equal
+  another live session's name exactly, its pane would go to that session.
+  This has not been seen, so nothing guards against it.
+- "Runs Claude Code" is read as `pane_current_command == claude`, which
+  holds for the Homebrew install and the native one on mgmt-1. An npm
+  install would show as `node`.
