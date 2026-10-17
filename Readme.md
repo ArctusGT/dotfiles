@@ -206,7 +206,11 @@ they are about.
    over the float. The float now shows the bottom of that pane, cut to the
    float's size. Whatever the float was running ends. Drop another pane on
    it to switch.
-3. Keys typed in the float go nowhere. Close it with its border's close
+3. The wheel over the float scrolls the mirrored pane as the wheel over that
+   pane would: Claude Code or nvim scroll themselves, and a shell's pane
+   enters copy-mode, which the float shows scrolled, and leaves it when
+   scrolled back to the bottom.
+4. Keys typed in the float go nowhere. Close it with its border's close
    control or `kill-pane`; the mirrored pane carries on. The float also
    closes when the mirrored pane does.
 

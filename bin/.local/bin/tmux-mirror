@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tmux-mirror drop PANE FLOATING | show PANE [HOST]: show a pane of the usual
+# tmux-mirror drop | show | wheel: show a pane of the usual
 # tmux, or of an ssh-tmux host's, live and read-only in a floating pane of the
 # frame (`tmux-frame`), which stays on screen whatever its right pane shows.
 #   drop PANE FLOATING
@@ -9,8 +9,14 @@
 #                     is 1, respawn PANE to show the pane the drag started on,
 #                     in the usual tmux or, from an ssh-tmux window, on its
 #                     host. Ends whatever the float was running
-#   show PANE [HOST]  draw PANE, on HOST if given, until it closes: the bottom
-#                     of it, cut to this pane's size. Reads no keys
+#   show PANE [HOST]  draw PANE, on HOST if given, until it closes: what it
+#                     shows, copy-mode's scrolled view included, the bottom of
+#                     it cut to this pane's size. Reads no keys
+#   wheel up|down PANE [HOST]
+#                     a wheel tick over the float mirroring PANE (the frame's
+#                     WheelUpPane/WheelDownPane run this): scroll PANE as the
+#                     wheel over it would, in the program if it takes the
+#                     mouse, otherwise in copy-mode
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 shopt -s extglob # before the functions are read: draw's patterns need it
@@ -50,16 +56,26 @@ drop() { # $1 the frame pane the drag ended over, $2 1 if it is floating
   # cell. As raw bytes (-H), which the frame's csi-u key encoding leaves alone
   tmux send-keys -t "$right" -H 1b 5b 3c 38 3b 31 3b 31 6d # \e[<8;1;1m
   [[ -n $src && $2 == 1 ]] || return 0
-  tmux respawn-pane -k -t "$1" "$self show $src $host"
+  # @mirror tells the frame's wheel bindings which pane the float shows
+  tmux respawn-pane -k -t "$1" "$self show $src $host" \; set -p -t "$1" @mirror "$src${host:+ $host}"
+}
+
+# run POSIX sh $1 where the usual tmux is: here, or on ssh host $2
+on_host() {
+  if [[ -n $2 ]]; then ssh "${ssh_opts[@]}" "$2" "$1"
+  else env -u TMUX -u TMUX_PANE sh -c "$1"; fi
 }
 
 # the capture of pane $1 every 0.2s, each followed by \n\036 (so even a blank
 # pane's is not empty), or a bare \036 when unchanged, so a closed reader ends
-# it within a tick; ends when the pane does.
+# it within a tick; ends when the pane does. In copy-mode, the view it is
+# scrolled to: -M reads copy-mode's copy of the pane, whose view starts
+# scroll_position rows up (empty out of copy-mode, so 0).
 # POSIX sh, as it also runs on an ssh-tmux host
 capture_loop() {
   printf '%s' "PATH=\$HOME/.local/bin:\$PATH last=
-    while out=\$(tmux capture-pane -p -e -t '$1' 2>/dev/null); do
+    while out=\$(tmux capture-pane -p -e -M -t '$1' -S '#{e|-:0,#{scroll_position}}' \\
+        -E '#{e|-:#{e|-:#{pane_height},1},#{scroll_position}}' 2>/dev/null); do
       if [ \"\$out\" = \"\$last\" ]; then printf '\036'; else printf '%s\n\036' \"\$out\"; last=\$out; fi
       sleep 0.2
     done"
@@ -79,12 +95,7 @@ draw() {
 }
 
 # the frames of pane $1, on ssh host $2 if given
-frames() {
-  local loop
-  loop=$(capture_loop "$1")
-  if [[ -n $2 ]]; then ssh "${ssh_opts[@]}" "$2" "$loop"
-  else env -u TMUX -u TMUX_PANE sh -c "$loop"; fi
-}
+frames() { on_host "$(capture_loop "$1")" "$2"; }
 
 show() { # $1 pane, $2 ssh host
   local frame shown="" size last_size=""
@@ -99,8 +110,28 @@ show() { # $1 pane, $2 ssh host
   done 3< <(frames "$1" "$2")
 }
 
+# one wheel tick, $1 up or down, over pane $2 on ssh host $3 if given, as
+# tmux's default bindings take it: in copy-mode, scroll 5 lines, leaving it at
+# the bottom; to a program that takes the mouse, a wheel event at the pane's
+# centre, encoded as tmux would; otherwise up enters copy-mode, unless the
+# pane is on its alternate screen. POSIX sh, as for capture_loop
+wheel() {
+  local button=64
+  [[ $1 == down ]] && button=65
+  on_host "PATH=\$HOME/.local/bin:\$PATH
+    set -- \$(tmux display -p -t '$2' '#{pane_in_mode} #{mouse_any_flag} #{mouse_sgr_flag} #{alternate_on} #{e|+:#{e|/:#{pane_width},2},1} #{e|+:#{e|/:#{pane_height},2},1}')
+    if [ \"\$1\" = 1 ]; then tmux send-keys -t '$2' -X -N 5 scroll-$1
+    elif [ \"\$2\" = 1 ] && [ \"\$3\" = 1 ]; then
+      tmux send-keys -t '$2' -H \$(printf '\\033[<$button;%d;%dM' \$5 \$6 | od -An -tx1)
+    elif [ \"\$2\" = 1 ]; then
+      tmux send-keys -t '$2' -H 1b 5b 4d \$(printf '%x %x %x' $((button + 32)) \$((\$5 + 32)) \$((\$6 + 32)))
+    elif [ $1 = up ] && [ \"\$4\" != 1 ]; then tmux copy-mode -e -t '$2'
+    fi" "$3" </dev/null
+}
+
 case $1 in
   drop) drop "$2" "$3" ;;
   show) show "$2" "$3" ;;
+  wheel) wheel "$2" "$3" "$4" ;;
   *) "$self" --help >&2; exit 2 ;;
 esac

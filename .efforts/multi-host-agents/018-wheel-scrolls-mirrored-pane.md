@@ -40,10 +40,10 @@ over ignoring the wheel on a mirror float.
 **Acceptance criteria:**
 - [ ] Over a float mirroring a Claude Code pane, the wheel scrolls Claude
       Code's transcript, seen in the float and in the source pane alike
-- [ ] Over a float mirroring a shell pane, the wheel scrolls the shell's
+- [x] Over a float mirroring a shell pane, the wheel scrolls the shell's
       history in copy-mode, and scrolling back to the bottom leaves it
 - [ ] Both hold for a mirrored mgmt-1 pane
-- [ ] The wheel over a float that is not a mirror scrolls that float, as now
+- [x] The wheel over a float that is not a mirror scrolls that float, as now
 
 **Out of scope:**
 - Keys, clicks or selection in a mirror float; it stays read-only otherwise
