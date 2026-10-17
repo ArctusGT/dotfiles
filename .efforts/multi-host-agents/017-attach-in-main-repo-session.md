@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** A background session's `claude attach` window opens in the tmux session named for the git repo its working directory belongs to, so a job in a subdirectory or a worktree joins its repo's session rather than starting one of its own
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -38,7 +38,7 @@ The Maintainer chose the main repo's name over the cwd's last component.
 - [x] A Mac background session started in a subdirectory of `dotfiles`, and
       one in a `.claude/worktrees/<name>` worktree of it, each open in the
       `dotfiles` tmux session sesh uses
-- [ ] A mgmt-1 background session in a subdirectory of a repo opens in the
+- [x] A mgmt-1 background session in a subdirectory of a repo opens in the
       tmux session named for that repo, created if absent
 - [x] A background session whose `cwd` is outside any git repo opens in a
       session named for the cwd's last component
