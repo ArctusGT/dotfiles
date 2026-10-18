@@ -48,32 +48,28 @@ fn main() {
     };
     match arg.as_str() {
         "--help" => println!("{USAGE}"),
-        "rows" => {
-            if let Err(err) = print_rows() {
-                eprintln!("claude-sidebar-loop: {err}");
-                std::process::exit(1);
-            }
-        }
         "sessions" => {
             for session in sessions::read(&sessions::Sources::from_env()) {
                 println!("{session}");
             }
         }
-        cache => run(Cache {
-            dir: PathBuf::from(cache),
-        }),
+        "rows" => {
+            let rows = render(&gather::gather(), 1, warn_level());
+            if let Err(err) = io::stdout().write_all(&rows[0]) {
+                eprintln!("claude-sidebar-loop: {err}");
+                std::process::exit(1);
+            }
+        }
+        cache => run(
+            Cache {
+                dir: PathBuf::from(cache),
+            },
+            warn_level(),
+        ),
     }
 }
 
-/// renders frame 0 of a gather to stdout
-fn print_rows() -> Result<(), String> {
-    let rows = render(&gather::gather(), 1)?;
-    io::stdout()
-        .write_all(&rows[0])
-        .map_err(|err| err.to_string())
-}
-
-fn run(cache: Cache) {
+fn run(cache: Cache, warn: f64) {
     let kicks = match kicks(&cache.dir) {
         Ok(kicks) => kicks,
         Err(err) => {
@@ -83,33 +79,36 @@ fn run(cache: Cache) {
     };
     let (send, gathers) = mpsc::channel();
     let gathering_cache = cache.clone();
-    thread::spawn(move || gathering(&gathering_cache, &kicks, &send));
+    thread::spawn(move || gathering(&gathering_cache, warn, &kicks, &send));
     let dir = cache.dir.clone();
     serve(Serve::new(cache), &gathers, &dir);
 }
 
-/// the first `count` frames of a gather's `hosts`, for this terminal, now
-fn render(hosts: &[Host], count: usize) -> Result<Vec<Vec<u8>>, String> {
+/// the first `count` frames of a gather's `hosts`, for this terminal, now,
+/// a context line red at `warn` percent
+fn render(hosts: &[Host], count: usize, warn: f64) -> Vec<Vec<u8>> {
     let view = View {
         width: line_width(),
-        warn: warn_level()?,
+        warn,
         now: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs() as i64),
     };
-    Ok(frames::render(hosts, &view, count)
+    frames::render(hosts, &view, count)
         .into_iter()
         .map(String::into_bytes)
-        .collect())
+        .collect()
 }
 
-/// CLAUDE_CTX_WARN, 50 when unset or empty, as bash's `${CLAUDE_CTX_WARN:-50}`
-fn warn_level() -> Result<f64, String> {
+/// CLAUDE_CTX_WARN, 50 when unset or empty, as bash's `${CLAUDE_CTX_WARN:-50}`;
+/// exits if it is no number
+fn warn_level() -> f64 {
     match std::env::var("CLAUDE_CTX_WARN") {
-        Ok(w) if !w.is_empty() => w
-            .parse()
-            .map_err(|_| "CLAUDE_CTX_WARN is not a number".into()),
-        _ => Ok(50.0),
+        Ok(w) if !w.is_empty() => w.parse().unwrap_or_else(|_| {
+            eprintln!("claude-sidebar-loop: CLAUDE_CTX_WARN is not a number");
+            std::process::exit(1);
+        }),
+        _ => 50.0,
     }
 }
 
@@ -225,26 +224,21 @@ fn kicks(dir: &Path) -> io::Result<Receiver<()>> {
 /// whether a kick came during it, so what it saw on show in the frame may
 /// already be gone; then gathers again at once. Returns once nothing takes
 /// the gathers
-fn gathering(cache: &Cache, kicks: &Receiver<()>, send: &Sender<Gather>) {
+fn gathering(cache: &Cache, warn: f64, kicks: &Receiver<()>, send: &Sender<Gather>) {
     loop {
         drained(kicks); // the kicks this gather answers
         let since = cache.jumped();
-        let frames = render(&gather::gather(), FRAME_COUNT);
+        let frames = render(&gather::gather(), FRAME_COUNT, warn);
         let moved = drained(kicks);
-        match frames {
-            Ok(frames) => {
-                if send
-                    .send(Gather {
-                        since,
-                        moved,
-                        frames,
-                    })
-                    .is_err()
-                {
-                    return;
-                }
-            }
-            Err(err) => eprintln!("claude-sidebar-loop: {err}"),
+        if send
+            .send(Gather {
+                since,
+                moved,
+                frames,
+            })
+            .is_err()
+        {
+            return;
         }
         if !moved && kicks.recv_timeout(GATHER_EVERY) == Err(RecvTimeoutError::Disconnected) {
             return;
@@ -388,7 +382,7 @@ mod tests {
             on_show: None,
             sessions: Vec::new(),
         }];
-        let frames = render(&hosts, FRAME_COUNT).unwrap();
+        let frames = render(&hosts, FRAME_COUNT, 50.0);
         write_rows(dir.path(), &frames).unwrap();
         assert_eq!(frames.len(), FRAME_COUNT);
         for (k, rows) in frames.iter().enumerate() {

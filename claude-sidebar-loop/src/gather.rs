@@ -48,6 +48,23 @@ pub struct Host {
     pub sessions: Vec<Value>,
 }
 
+impl Host {
+    /// this host, with `sessions`
+    fn local(on_show: &OnShow, sessions: Vec<Value>) -> Host {
+        Host {
+            label: "local".into(),
+            ssh_host: String::new(),
+            relay: String::new(),
+            down: false,
+            on_show: match on_show {
+                OnShow::Local(pane) => Some(pane.clone()),
+                _ => None,
+            },
+            sessions,
+        }
+    }
+}
+
 /// A host a sesh entry reaches through `ssh-tmux`.
 struct Remote {
     /// the sesh session's name: the host's heading and its relay session
@@ -76,17 +93,10 @@ pub fn gather() -> Vec<Host> {
             .iter()
             .map(|remote| (remote, scope.spawn(|| poll(remote, &on_show))))
             .collect();
-        let mut hosts = vec![Host {
-            label: "local".into(),
-            ssh_host: String::new(),
-            relay: String::new(),
-            down: false,
-            on_show: match &on_show {
-                OnShow::Local(pane) => Some(pane.clone()),
-                _ => None,
-            },
-            sessions: listed(sessions::read(&Sources::from_env())),
-        }];
+        let mut hosts = vec![Host::local(
+            &on_show,
+            listed(sessions::read(&Sources::from_env())),
+        )];
         for (remote, poll) in polls {
             hosts.push(poll.join().unwrap_or_else(|_| remote.host(true)));
         }
@@ -126,14 +136,13 @@ fn frame_main_tty() -> Option<String> {
     ]));
     panes.lines().find_map(|line| {
         let mut words = line.split_whitespace();
-        (words.next() == Some("1"))
-            .then(|| words.nth(1).map(str::to_string))
-            .flatten()
+        words.next().filter(|&word| word == "1")?;
+        words.nth(1).map(str::to_string)
     })
 }
 
 /// `command`'s standard output, empty if it could not run
-fn output(command: &mut Command) -> String {
+pub fn output(command: &mut Command) -> String {
     command
         .stdin(Stdio::null())
         .stderr(Stdio::null())
@@ -169,17 +178,13 @@ fn parse_remotes(config: &str) -> Vec<Remote> {
             let value = value.strip_prefix('"').unwrap_or(value);
             name = value.split('"').next().unwrap_or_default().to_string();
         }
-        if let Some(value) = assignment(line, "startup_command")
-            && let Some(at) = value.rfind("ssh-tmux ")
+        if let Some((_, host)) =
+            assignment(line, "startup_command").and_then(|value| value.rsplit_once("ssh-tmux "))
         {
-            let host = value[at + "ssh-tmux ".len()..].trim_start_matches(' ');
+            let host = host.trim_start_matches(' ').split([' ', '"']).next();
             remotes.push(Remote {
                 name: name.clone(),
-                ssh_host: host
-                    .split([' ', '"'])
-                    .next()
-                    .unwrap_or_default()
-                    .to_string(),
+                ssh_host: host.unwrap_or_default().to_string(),
             });
         }
     }
@@ -221,6 +226,8 @@ fn poll(remote: &Remote, on_show: &OnShow) -> Host {
         Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).into_owned(),
         _ => return remote.host(true),
     };
+    // with no \036, both halves are the whole answer, as bash's
+    // ${out%%$'\036'*} and ${out#*$'\036'} take it
     let (sessions, client_pane) = out.split_once('\u{1e}').unwrap_or((&out, &out));
     let mut host = remote.host(false);
     if matches!(on_show, OnShow::Relay(h) if *h == remote.ssh_host) {

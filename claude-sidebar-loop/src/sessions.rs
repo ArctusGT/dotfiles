@@ -3,11 +3,12 @@
 //! sessions, the same left out, the same pane for each, and the same JSON
 //! for each, field for field. Change one, change both.
 
+use crate::gather;
 use crate::json::{self, Value};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
 /// Where this host's sessions are kept.
 pub struct Sources {
@@ -79,23 +80,30 @@ pub fn read(sources: &Sources) -> Vec<Value> {
     let shows = shows(&panes, &sessions, &records);
     sessions
         .into_iter()
-        .filter_map(|mut session| {
-            let id = session.get("session_id").clone();
-            // an interactive client whose pane shows another session is
-            // left out: the pane is the other entry now
-            let shown = or(at(&shows, session.get("tmux_pane")).clone(), id.clone());
-            if record(&records, &id).is_some_and(|r| r.interactive) && shown != id {
-                return None;
-            }
-            // the first pane showing it, its recorded one first
-            let pane = std::iter::once(session.get("tmux_pane").clone())
-                .chain(panes.iter().map(|p| Value::String(p.id.clone())))
-                .find(|pane| pane != &Value::Null && at(&shows, pane) == &id)
-                .unwrap_or(Value::Null);
+        .filter(|session| !client_of_another(session, &shows, &records))
+        .map(|mut session| {
+            let pane = first_pane_showing(&session, &panes, &shows);
             session.set("tmux_pane", pane);
-            Some(session)
+            session
         })
         .collect()
+}
+
+/// whether `session` is an interactive client whose pane shows another
+/// session, which is left out: the pane is the other entry now
+fn client_of_another(session: &Value, shows: &ByPane, records: &Records) -> bool {
+    let id = session.get("session_id");
+    let shown = or(at(shows, session.get("tmux_pane")).clone(), id.clone());
+    record(records, id).is_some_and(|r| r.interactive) && &shown != id
+}
+
+/// the first pane showing `session`, its recorded one first; null for none
+fn first_pane_showing(session: &Value, panes: &[Pane], shows: &ByPane) -> Value {
+    let id = session.get("session_id");
+    std::iter::once(session.get("tmux_pane").clone())
+        .chain(panes.iter().map(|p| Value::String(p.id.clone())))
+        .find(|pane| pane != &Value::Null && at(shows, pane) == id)
+        .unwrap_or(Value::Null)
 }
 
 /// what `by_pane` holds for `pane`, null for none or no pane
@@ -117,41 +125,43 @@ fn or(a: Value, b: Value) -> Value {
 
 /// every pane on the default server, even from inside the sidebar's frame
 fn panes() -> Vec<Pane> {
-    let listed = Command::new("tmux")
-        .args([
-            "list-panes",
-            "-a",
-            "-F",
-            "#{pane_id}\t#{@claude_attach}\t#{pane_current_command}\t#{pane_title}",
-        ])
-        .env_remove("TMUX")
-        .env_remove("TMUX_PANE")
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .output()
-        .map(|out| String::from_utf8_lossy(&out.stdout).into_owned())
-        .unwrap_or_default();
-    input_lines(&listed)
-        .map(|line| {
-            let fields: Vec<&str> = line.split('\t').collect();
-            let title = fields
-                .get(3..)
-                .map(|rest| rest.join("\t"))
-                .unwrap_or_default();
-            let title = ["✳ ", "◐ ", "◑ "]
-                .iter()
-                .find_map(|glyph| title.strip_prefix(glyph))
-                .map_or(title.clone(), str::to_string);
-            Pane {
-                id: fields[0].to_string(),
-                tag: fields
-                    .get(1)
-                    .map_or(Value::Null, |t| Value::String(t.to_string())),
-                runs_claude: fields.get(2) == Some(&"claude"),
-                title: Value::String(title),
-            }
-        })
-        .collect()
+    let listed = gather::output(
+        Command::new("tmux")
+            .args([
+                "list-panes",
+                "-a",
+                "-F",
+                "#{pane_id}\t#{@claude_attach}\t#{pane_current_command}\t#{pane_title}",
+            ])
+            .env_remove("TMUX")
+            .env_remove("TMUX_PANE"),
+    );
+    input_lines(&listed).map(Pane::parse).collect()
+}
+
+impl Pane {
+    /// a line of the list above, its title with Claude Code's status glyph
+    /// (idle ✳, working ◐ ◑) taken off
+    fn parse(line: &str) -> Pane {
+        let fields: Vec<&str> = line.split('\t').collect();
+        let title = fields
+            .get(3..)
+            .map(|rest| rest.join("\t"))
+            .unwrap_or_default();
+        let title = ["✳ ", "◐ ", "◑ "]
+            .iter()
+            .find_map(|glyph| title.strip_prefix(glyph))
+            .unwrap_or(&title)
+            .to_string();
+        Pane {
+            id: fields[0].to_string(),
+            tag: fields
+                .get(1)
+                .map_or(Value::Null, |t| Value::String(t.to_string())),
+            runs_claude: fields.get(2) == Some(&"claude"),
+            title: Value::String(title),
+        }
+    }
 }
 
 /// the lines of `text` as jq's `-R` reads them: a last line with no newline
@@ -178,23 +188,27 @@ fn records(dir: &Path) -> Records {
     let Ok(values) = json::parse_stream(&text) else {
         return Records::new();
     };
-    let mut records = Records::new();
-    for record in &values {
-        let (Value::Object(_), Value::String(id)) = (record, record.get("sessionId")) else {
-            return Records::new();
-        };
-        records.insert(
-            id.clone(),
-            Record {
-                name: record.get("name").clone(),
-                spare: record.get("spare") == &Value::Bool(true),
-                interactive: record.get("kind").as_str() == Some("interactive"),
-                job_id: record.get("jobId").clone(),
-                pid: record.get("pid").clone(),
-            },
-        );
+    values
+        .iter()
+        .map(|record| match (record, record.get("sessionId")) {
+            (Value::Object(_), Value::String(id)) => Some((id.clone(), Record::from(record))),
+            // where `claude-sessions`' map({(.sessionId): ...}) fails
+            _ => None,
+        })
+        .collect::<Option<Records>>()
+        .unwrap_or_default()
+}
+
+impl From<&Value> for Record {
+    fn from(record: &Value) -> Record {
+        Record {
+            name: record.get("name").clone(),
+            spare: record.get("spare") == &Value::Bool(true),
+            interactive: record.get("kind").as_str() == Some("interactive"),
+            job_id: record.get("jobId").clone(),
+            pid: record.get("pid").clone(),
+        }
     }
-    records
 }
 
 /// the `*.json` files in `dir`, as bash globs them, in byte order: the
@@ -236,35 +250,50 @@ fn live_sessions(dir: &Path, records: &Records) -> Vec<Value> {
         };
         // jq passes over a state that is no object
         for mut state in states.into_iter().filter(|s| matches!(s, Value::Object(_))) {
-            let pid = if records.is_empty() {
-                state.get("pid")
-            } else {
-                records.get(&id).map_or(&Value::Null, |r| &r.pid)
-            };
-            if !alive(pid) {
-                for file in [
-                    path.clone(),
-                    dir.join(format!("{id}.context.json")),
-                    dir.join(format!("{id}.agents")),
-                ] {
-                    remove(&file);
-                }
+            if !alive(liveness_pid(&state, &id, records)) {
+                remove_session(dir, &id);
                 continue;
             }
-            let record = record(records, state.get("session_id"));
-            if record.is_some_and(|r| r.spare) {
+            let own = record(records, state.get("session_id"));
+            if own.is_some_and(|r| r.spare) {
                 continue;
             }
-            let context = context(dir, &id);
-            let own_name = record.map_or(Value::Null, |r| r.name.clone());
-            let name = or(own_name, context.get("name").clone());
-            state.set("name", name);
-            state.set("subagents", Value::Number(subagents(dir, &id).to_string()));
-            state.set("context", context);
+            add_fields(&mut state, dir, &id, own);
             sessions.push(state);
         }
     }
     sessions
+}
+
+/// the pid session `id` lives by: its record's where there are records,
+/// else its state file's
+fn liveness_pid<'a>(state: &'a Value, id: &str, records: &'a Records) -> &'a Value {
+    if records.is_empty() {
+        state.get("pid")
+    } else {
+        records.get(id).map_or(&Value::Null, |r| &r.pid)
+    }
+}
+
+/// removes session `id`'s state file, context file and subagents
+fn remove_session(dir: &Path, id: &str) {
+    for name in [
+        format!("{id}.json"),
+        format!("{id}.context.json"),
+        format!("{id}.agents"),
+    ] {
+        remove(&dir.join(name));
+    }
+}
+
+/// adds `name` (its record's, else its status line's), `subagents` and
+/// `context` to session `id`'s `state`
+fn add_fields(state: &mut Value, dir: &Path, id: &str, record: Option<&Record>) {
+    let context = context(dir, id);
+    let own_name = record.map_or(Value::Null, |r| r.name.clone());
+    state.set("name", or(own_name, context.get("name").clone()));
+    state.set("subagents", Value::Number(subagents(dir, id).to_string()));
+    state.set("context", context);
 }
 
 /// whether process `pid` is running, as `kill -0` tells; false for no pid
@@ -321,13 +350,16 @@ fn subagents(dir: &Path, id: &str) -> usize {
 /// tag naming no live session counts as none: /clear in an attached job
 /// gives its conversation a new id, and the pane goes on showing it
 fn shows(panes: &[Pane], sessions: &[Value], records: &Records) -> ByPane {
-    // the session the hooks recorded in each pane
-    let mut recorded = ByPane::new();
-    for session in sessions {
-        if let Some(pane) = session.get("tmux_pane").as_str() {
-            recorded.insert(pane.to_string(), session.get("session_id").clone());
-        }
-    }
+    // the session the hooks recorded in each pane, the last of several
+    let recorded: ByPane = sessions
+        .iter()
+        .filter_map(|s| {
+            Some((
+                s.get("tmux_pane").as_str()?.to_string(),
+                s.get("session_id").clone(),
+            ))
+        })
+        .collect();
     // the one session a title names, by either of its names
     let titled = |pane: &Pane| -> Value {
         let named: Vec<&Value> = sessions
@@ -340,24 +372,21 @@ fn shows(panes: &[Pane], sessions: &[Value], records: &Records) -> ByPane {
             _ => Value::Null,
         }
     };
-    let mut shows = ByPane::new();
-    for pane in panes {
-        let shown = if sessions.iter().any(|s| s.get("session_id") == &pane.tag) {
-            let own = names(sessions, &pane.tag, records);
-            if !own.is_empty() && !own.contains(&&pane.title) {
-                or(titled(pane), pane.tag.clone())
-            } else {
-                pane.tag.clone()
-            }
-        } else {
+    let shown = |pane: &Pane| -> Value {
+        let tag_live = sessions.iter().any(|s| s.get("session_id") == &pane.tag);
+        let own = names(sessions, &pane.tag, records);
+        if !tag_live {
             or(
                 titled(pane),
-                recorded.get(&pane.id).cloned().unwrap_or(Value::Null),
+                at(&recorded, &Value::String(pane.id.clone())).clone(),
             )
-        };
-        shows.insert(pane.id.clone(), shown);
-    }
-    shows
+        } else if own.is_empty() || own.contains(&&pane.title) {
+            pane.tag.clone()
+        } else {
+            or(titled(pane), pane.tag.clone())
+        }
+    };
+    panes.iter().map(|p| (p.id.clone(), shown(p))).collect()
 }
 
 /// the names session `id` goes by, less the default Claude Code gives a

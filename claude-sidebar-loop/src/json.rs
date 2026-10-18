@@ -347,28 +347,32 @@ fn jq_number(literal: &str) -> Option<String> {
     let exponent = exponent - fraction.len() as i64;
     let adjusted = exponent + digits.len() as i64 - 1;
     let text = if exponent <= 0 && adjusted >= -6 {
-        let point = digits.len() as i64 + exponent;
-        if exponent == 0 {
-            digits.to_string()
-        } else if point > 0 {
-            format!(
-                "{}.{}",
-                &digits[..point as usize],
-                &digits[point as usize..]
-            )
-        } else {
-            format!("0.{}{digits}", "0".repeat(-point as usize))
-        }
+        plain(digits, exponent)
     } else {
-        let (first, rest) = digits.split_at(1);
-        let point = if rest.is_empty() { "" } else { "." };
-        format!(
-            "{first}{point}{rest}E{}{}",
-            if adjusted < 0 { "-" } else { "+" },
-            adjusted.abs()
-        )
+        scientific(digits, adjusted)
     };
     Some(format!("{sign}{text}"))
+}
+
+/// `digits` × 10^`exponent`, `exponent` at most 0, with a decimal point
+fn plain(digits: &str, exponent: i64) -> String {
+    let point = digits.len() as i64 + exponent;
+    if exponent == 0 {
+        digits.to_string()
+    } else if point > 0 {
+        let (whole, fraction) = digits.split_at(point as usize);
+        format!("{whole}.{fraction}")
+    } else {
+        format!("0.{}{digits}", "0".repeat(-point as usize))
+    }
+}
+
+/// `digits` with one before the point and `adjusted` as the exponent
+fn scientific(digits: &str, adjusted: i64) -> String {
+    let (first, rest) = digits.split_at(1);
+    let point = if rest.is_empty() { "" } else { "." };
+    let sign = if adjusted < 0 { "-" } else { "+" };
+    format!("{first}{point}{rest}E{sign}{}", adjusted.abs())
 }
 
 #[cfg(test)]

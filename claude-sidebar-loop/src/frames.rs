@@ -91,9 +91,7 @@ fn render_session(
     clawd: &Clawd,
     frames: &mut [String],
 ) {
-    let pane = session.get("tmux_pane");
-    let on_show = host.on_show.is_some() && pane.as_str() == host.on_show.as_deref();
-    let entry = Entry::new(session, host, number, on_show, view);
+    let entry = Entry::new(session, host, number, view);
     let (animation, phase) = clawd.animation(session);
     let palette = Palette::new(session);
     // each distinct pose drawn once, as most repeat across the frames
@@ -135,14 +133,12 @@ struct Entry {
 }
 
 impl Entry {
-    fn new(
-        session: &Value,
-        host: &Host,
-        number: Option<usize>,
-        on_show: bool,
-        view: &View,
-    ) -> Entry {
+    fn new(session: &Value, host: &Host, number: Option<usize>, view: &View) -> Entry {
         let pane = session.get("tmux_pane");
+        let on_show = host
+            .on_show
+            .as_deref()
+            .is_some_and(|shown| pane.as_str() == Some(shown));
         let number_text = number.map(|n| n.to_string());
         let fields = [
             host.ssh_host.clone(),
