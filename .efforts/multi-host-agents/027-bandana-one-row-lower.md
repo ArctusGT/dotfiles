@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's standing and running Clawd wear the bandana below a strip of head, with the eyes just under it, as the Maintainer chose from the "low" prototype
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** []
 
 **Current behavior:**
@@ -40,7 +40,7 @@ own mock trimmed to 12 rows is the same standing frame pixel for pixel.
 - [x] The standing and the four run frames match the prototype's, row for
       row
 - [x] Each has no cell holding more than two colours, by a count script
-- [ ] The Maintainer judges it by eye in the frame, standing and running
+- [x] The Maintainer judges it by eye in the frame, standing and running
 
 **Out of scope:**
 - The squat (026), redrawn to this head on its own slice
@@ -77,3 +77,12 @@ What remains for the Maintainer to see by eye, beside criterion 3:
 in `picture` and drop SGR 2 from the picture. That keeps it in one place
 rather than two, but one-colour cells would then follow `faded`'s table
 rather than the terminal's own faint.
+
+---
+
+2026-10-18, the Maintainer's look: standing, the eyes became slits two
+pixels wide and one tall under the bandana (8e8fc89, 00c56cb); running,
+the slits glance a pixel right and left with the head, set a pixel right
+of the prototype's (00c56cb, 5347364). 0 clashes in all five frames. The
+open choice above, fading the whole picture rather than SGR 2, was not
+taken up.
