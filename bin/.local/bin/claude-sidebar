@@ -145,7 +145,8 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # ribbon a tail at its end and a drop beside the eyes. Every feature
     # takes two rows, head-top, bandana, eyes, arms, body, feet. Drawn as
     # octant cells 2 pixels wide and 4 tall, from rows 0, 4 and 8, so keep
-    # each cell to one colour: octant paints a second colour in the first
+    # each cell to two colours, the empty background counting as one: octant
+    # draws a cell as one colour and empty, or as two colours and full
     def stand: [
       "..BBBBBBBBBBBB..",
       "..BBBBBBBBBBBB..",
@@ -165,7 +166,7 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # to 3 of rows 0 to 3, two octant cells, hold the ribbon streaming left,
     # x in ribbons, each cell in a stripe colour that changes each frame.
     # The feet step left pair down, all up, right pair down, all up. Same
-    # rule as stand: one colour to a cell
+    # rule as stand: two colours to a cell, empty counting as one
     def run_body: [
       "....BBBBBBBBBBBB",
       "....BBBBBBBBBBBB",
@@ -235,20 +236,42 @@ format() { # $@ animation frames, counting from 0 (default 0)
          (.left | length) as $n | (.hash % $n) as $i
          | {hash: (.hash / $n | floor), left: (.left | del(.[$i])), pick: .left[$i]};
          .pick)];
+    # the background twin of foreground $sgr: 3x as 4x, 9x as 10x, 38;2 as 48;2
+    def under: if startswith("38;") then "48" + .[2:] else tonumber + 10 | tostring end;
+    # foreground $sgr halfway to the background, #1a1b26, as Ghostty draws a
+    # faint (SGR 2) foreground at its faint-opacity of 0.5; the palette
+    # shades as TokyoNight Night sets them
+    def faded:
+      (if startswith("38;2;") then .[5:] | split(";") | map(tonumber)
+       else {"31": [247, 118, 142], "32": [158, 206, 106], "33": [224, 175, 104],
+             "34": [122, 162, 247], "35": [187, 154, 247], "36": [125, 207, 255]}[.] end)
+      | [., [26, 27, 38]] | transpose | map(add / 2 | floor | tostring)
+      | "38;2;" + join(";");
     # a cell of 8 pixels (colours or null, left to right, top to bottom) as
-    # its octant, in the colour of its first lit pixel
-    def octant:
-      ([range(8) as $k | select(.[$k] != null) | pow(2; $k)] | add // 0) as $bits
-      | (map(values) | first) as $ink
+    # its octant: the commonest colour (ties to the first lit) is the ink and
+    # lights the glyph, and a second colour filling the rest of the cell is
+    # its background, closed again (49) so it stops at the cell. Faint dims
+    # only a foreground, so where $faint, such a cell leaves faint off and
+    # draws both colours faded
+    def octant($faint):
+      map(values) as $lit
+      | ($lit | unique
+         | sort_by(. as $c | [($lit | map(select(. != $c)) | length), ($lit | index($c))])) as $ranked
+      | $ranked[0] as $ink
+      | (if ($lit | length) == 8 then $ranked[1] else null end) as $back
+      | ([range(8) as $k | select(.[$k] != null and .[$k] == $ink) | pow(2; $k)] | add // 0) as $bits
       | octants[$bits:$bits + 1]
-      | if $ink == null then . else paint($ink) end;
+      | if $ink == null then .
+        elif $back == null then paint($ink)
+        elif $faint then "\u001b[22;\($ink | faded);\($back | faded | under)m" + . + "\u001b[39;49;2m"
+        else "\u001b[\($back | under)m" + paint($ink) + "\u001b[49m" end;
     # Clawd wearing the bandana of session $id, as three lines, his body in
     # the colour for $state: working orange, waiting yellow, idle grey,
     # the only states claude-session-state writes. Working, he runs, in
     # the run frame for animation frame $frame; otherwise he stands. `serve`
     # ticks while frame 0 and frame 1 differ, so a pose that moves changes
-    # by frame 1 and repeats within frame_count frames
-    def picture($state; $id; $frame):
+    # by frame 1 and repeats within frame_count frames. $faint as in octant
+    def picture($state; $id; $frame; $faint):
       (bandana($id) as [$main, $s1, $s2, $s3]
         | {B: {working: orange, waiting: yellow, idle: dark5}[$state],
            m: $main, "1": $s1, "2": $s2, "3": $s3}) as $palette
@@ -257,7 +280,7 @@ format() { # $@ animation frames, counting from 0 (default 0)
       | [range(3) as $line
           | [range(8) as $cell
               | [range(4) as $y | range(2) as $x | $pixels[4 * $line + $y][2 * $cell + $x]]
-              | octant]
+              | octant($faint)]
           | join("")];
     . as $tagged
     | $frames[] as $frame
@@ -280,7 +303,7 @@ format() { # $@ animation frames, counting from 0 (default 0)
         | ($r.tmux_pane != null) as $numbered
         # a session with no pane (a --bg one, or a daemon) is dimmed
         | (if $numbered then "" else "\u001b[2m" end) as $dim
-        | picture($r.state; $r.session_id; $frame) as [$pic0, $pic1, $pic2]
+        | picture($r.state; $r.session_id; $frame; $numbered | not) as [$pic0, $pic1, $pic2]
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
            (if $numbered then "\($n)" else "" end),
            (if $numbered and $r.tmux_pane == $cur then "1" else "" end),
