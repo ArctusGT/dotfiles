@@ -372,11 +372,12 @@ attach() { # $1 session id
   echo "$pane"
 }
 
-# a jump moving the right pane's client, marked by $cache/moving.<pid> from
-# before it moves to once it has (on a host, once its ssh is back); then a
-# new value in $cache/jumped, written whole. A gather keeps the value it
-# began with, and `serve` takes the cursor to the session on show only if
-# that value still stands and no jump is moving, however slow the host
+# a jump moving the right pane's client: $cache/moving.<pid> before it moves;
+# once it has (on a host, once its ssh is back), a new value in
+# $cache/jumped, written whole, and only then the mark goes. A gather keeps
+# the value it began with, and `serve` takes the cursor to the session on
+# show only if that value still stands and no jump is moving, however slow
+# the host
 moving() { [[ -d $cache ]] && : >"$cache/moving.$$"; return 0; }
 moved() {
   [[ -d $cache ]] || return 0
@@ -622,17 +623,16 @@ serve() {
       fzf_has_rows=true
     fi
     # the cursor moves once fzf has the rows its position is counted in, and
-    # not for a gather a jump came after, or while one moves
+    # not for a gather a jump came after, or while one moves: checked last,
+    # just before the post, so a pick cannot land in between
     if [[ $check_shown == true && $fzf_has_rows == true ]]; then
       check_shown=false
-      read -r jumped <"$cache/jumped"
-      if [[ $jumped == "$since" ]] && ! compgen -G "$cache/moving.*" >/dev/null; then
-        shown=$(position 6 1)
-      else
-        shown=""
-      fi
+      shown=$(position 6 1)
       if [[ -n $shown && $shown != "$last_shown" ]]; then
-        fzf_do "pos($shown)" && last_shown=$shown
+        read -r jumped <"$cache/jumped"
+        if [[ $jumped == "$since" ]] && ! compgen -G "$cache/moving.*" >/dev/null; then
+          fzf_do "pos($shown)" && last_shown=$shown
+        fi
       fi
     fi
   done

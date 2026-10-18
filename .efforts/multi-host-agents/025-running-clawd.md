@@ -108,8 +108,8 @@ the right pane's client, and once the move has landed, after the ssh for
 a host, writes a new value to `$cache/jumped`; `serve` moves the cursor
 only for a gather that began under the value still standing, with no jump
 moving. The probe now stands in a fake host behind a stub ssh with a set
-round trip; numbers in the commit. The brief had the jump counted before
-it moves; counted only then, a gather that starts after the count but
+round trip; numbers in the commit. The Maintainer asked for the jump to
+be counted before it moves; counted only then, a gather that starts after the count but
 reads the host before its ssh lands still matches, so the count also
 moves once the move is done, and the mark covers the time between.
 
@@ -122,3 +122,10 @@ active pane over ssh; while the previous jump's ssh is still in flight
 that is the old pane, so `step` picks from the old entry. If the recheck
 still bounces, fzf's cursor polled as before beside the sidebar's posts
 would tell the two apart.
+
+From review, left open: two host jumps whose ssh calls land out of order
+leave the host on the earlier pick, the same 9, 7, 9, 7 to the eye; a
+jump killed between its mark and its move leaves `moving.<pid>`, which
+stops the cursor following until the sidebar restarts; and a pick does
+not tell `serve` where it put the cursor, so switching back by hand to
+the session `serve` last posted does not move it.
