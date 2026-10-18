@@ -48,7 +48,7 @@ The Maintainer accepted all four from 032's review notes.
       `claude-sessions` spawn on the Mac
 - [x] Rows byte-identical to 032's over the shipped row comparison's
       fixtures
-- [ ] Respawning a sidebar with `respawn-pane -k` in a throwaway tmux,
+- [x] Respawning a sidebar with `respawn-pane -k` in a throwaway tmux,
       ten times, leaves a working sidebar every time; a second sidebar
       started and stopped beside a running one leaves the running one
       updating

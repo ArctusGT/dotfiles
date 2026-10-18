@@ -9,8 +9,13 @@
 # runs the sidebar as the frame's left pane: a jump moves the frame's right
 # pane, and fzf's cursor follows the session on show there however it changed.
 # Run elsewhere, a jump moves the usual tmux's most recent client.
-# Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the background loop's
-# errors in ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the list.
+# Keeps its cache in a directory of its own, ${TMPDIR:-/tmp}/claude-sidebar.PID,
+# which ${TMPDIR:-/tmp}/claude-sidebar links to once the sidebar's fzf listens,
+# for `pick`, `kick`, `jump` and `edge` to find the running sidebar by. A
+# sidebar starting or exiting beside another so never touches the other's
+# files, and the last to start is the one the link names. The background
+# loop's errors go to ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the
+# list.
 #   rows              print the list once, as fzf reads it
 #   pick N            jump to the entry numbered N (the frame's M-1..9), as
 #                     the running sidebar shows it
@@ -161,6 +166,19 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
   [[ -n $host ]] || kick
 }
 
+# in the background of a starting sidebar: points the link at its cache once
+# its fzf listens, which a sidebar whose fzf fails to start never does, so the
+# last to start is the one the link names; and again whenever the link is gone,
+# as another sidebar's exit takes it. A real directory at the link, which an
+# older sidebar kept there, is its own to remove on exit
+claim() {
+  until [[ -S $cache/fzf.sock ]]; do sleep 0.1; done
+  [[ -L $link || ! -e $link ]] && ln -sfn "$cache" "$link"
+  while sleep 2; do
+    [[ -d $link ]] || ln -sfn "$cache" "$link"
+  done
+}
+
 # wake a running sidebar's gathering through the fifo $cache/kick, opened
 # read and write, so a sidebar gone and its fifo left behind cannot hang a
 # tmux hook on the open
@@ -245,14 +263,15 @@ pick() { # $1 entry number, as the rows number the entries
   local host pane relay id
   # the running sidebar's list, so N is the number on screen; with none
   # running, a gather of its own
-  local rows=$cache/rows.0
-  [[ -f $rows ]] || { mkdir -p "$cache"; rows=$cache/once; claude-sidebar-loop rows >"$rows"; }
+  local rows=$cache/rows.0 once=
+  [[ -f $rows ]] || { once=$(mktemp) && rows=$once && claude-sidebar-loop rows >"$rows"; }
   # the host, pane, relay and session id (fields 1 to 4) of the item whose
   # entry number (field 5) is N; joined by \x1f, as read would run empty tab
   # fields together
   IFS=$'\x1f' read -r host pane relay id < <(perl -0ne 'BEGIN { $n = shift }
     chomp; @f = split /\t/, $_, -1;
     if ($f[4] ne "" && $f[4] eq $n) { print join("\x1f", @f[0 .. 3]), "\n"; exit }' "$1" "$rows")
+  [[ -z $once ]] || rm -f "$once"
   [[ -n $pane ]] || return 0
   jump "$host" "$pane" "$relay" "$id"
   [[ -S $cache/fzf.sock ]] && fzf_do "pos($(position 5 "$1"))"
@@ -266,14 +285,22 @@ case $1 in
   jump) jump "$2" "$3" "$4" "$5" ;;
   attach) attach "$2" ;;
   "")
+    link=$cache
+    cache=$link.$$
+    # the directories of sidebars that died without their exit trap
+    for dead in "$link".*; do
+      [[ -d $dead ]] && ! kill -0 "${dead##*.}" 2>/dev/null && rm -rf "$dead"
+    done
     # a first gather's rows as rows.0, for fzf to start on before
     # claude-sidebar-loop has written any
-    mkdir -p "$cache" && rm -f "$cache/kick" "$cache"/moving.* &&
-      mkfifo "$cache/kick" && moved && claude-sidebar-loop rows >"$cache/rows.0"
+    mkdir "$cache" && mkfifo "$cache/kick" && moved && claude-sidebar-loop rows >"$cache/rows.0"
     # errors to a log: written to the pane, they stay over fzf until it redraws
     claude-sidebar-loop "$cache" 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
     loop=$!
-    trap 'kill $loop 2>/dev/null; rm -rf "$cache"' EXIT
+    claim &
+    claimer=$!
+    # the link goes only if it is still this sidebar's
+    trap 'kill $loop $claimer 2>/dev/null; [[ $(readlink "$link") == "$cache" ]] && rm -f "$link"; rm -rf "$cache"' EXIT
     # no --track: it holds back cursor moves while it finds the item again
     # after each reload, and the list's order is stable without it. Esc and
     # ctrl-c clear the query rather than closing the sidebar
