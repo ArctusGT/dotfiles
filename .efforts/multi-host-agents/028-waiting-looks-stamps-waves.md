@@ -41,12 +41,12 @@ cell.
   48 frames, against 12 today
 
 **Acceptance criteria:**
-- [ ] A waiting session with no subagents looks about, stamps and waves
+- [x] A waiting session with no subagents looks about, stamps and waves
       in that order, once a loop; when it stops waiting its Clawd takes
       the new state's pose within about a second
-- [ ] Working, squatting, idle and waiting-with-subagents entries behave
+- [x] Working, squatting, idle and waiting-with-subagents entries behave
       as before
-- [ ] Every waiting pose keeps each cell to two colours at most, by a
+- [x] Every waiting pose keeps each cell to two colours at most, by a
       count script
 - [ ] With nothing working, squatting or waiting, `reload-sync` posts no
       more often than once a second
