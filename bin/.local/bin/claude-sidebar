@@ -13,8 +13,8 @@
 # which ${TMPDIR:-/tmp}/claude-sidebar links to once the sidebar's fzf listens,
 # for `pick`, `kick`, `jump` and `edge` to find the running sidebar by. A
 # sidebar starting or exiting beside another never removes the other's
-# files, and the last to start is the one the link names; a `jump` from an
-# older one's fzf acts on that one's cache. The background
+# files. The link names the last to start, so a `jump` from the fzf of an
+# earlier one acts on the cache of the one the link names. The background
 # loop's errors go to ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the
 # list.
 #   rows              print the list once, as fzf reads it
@@ -34,9 +34,11 @@
 #                     is shown through the Mac's SESSION, its ssh-tmux relay.
 #                     With no PANE, opens background Claude session ID first
 #   attach ID         print the pane showing background Claude session ID on
-#                     this host (needs claude-sidebar-loop installed), opening it with `claude attach`, tagged
+#                     this host, opening it with `claude attach`, tagged
 #                     @claude_attach, if none does: in a new window of the tmux
-#                     session named for its repo, created if absent
+#                     session named for its repo, created if absent. Reads the
+#                     sessions through claude-sidebar-loop, which must be
+#                     installed
 # CLAUDE_CTX_WARN     context percentage an entry's context line turns red at
 #                     (default 50)
 # SESH_CONFIG         sesh config the hosts come from
@@ -87,8 +89,8 @@ attach() { # $1 session id
   local row pane cwd job tmux_session open
   # the sessions now, not the cached rows, so a second select before the
   # next refresh finds the first window by its tag, and a tagged pane since
-  # switched to another session is not reused. Read by the binary: on a host
-  # with the sidebar, claude-sessions is no second reader of these rules
+  # switched to another session is not reused. Read through the binary, the
+  # sidebar's one reader of the rules for which sessions are live
   row=$(claude-sidebar-loop sessions | jq -c --arg s "$1" 'select(.session_id == $s)')
   pane=$(jq -r '.tmux_pane // empty' <<<"$row")
   if [[ -z $pane ]]; then
@@ -167,11 +169,11 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
   [[ -n $host ]] || kick
 }
 
-# in the background of a starting sidebar: points the link at its cache once
-# its fzf listens, which a sidebar whose fzf fails to start never does, so the
-# last to start is the one the link names; and again whenever the link is gone,
-# as another sidebar's exit takes it. A real directory at the link, which an
-# older sidebar kept there, is its own to remove on exit
+# runs in the background of a starting sidebar: points the link at its cache
+# once its fzf listens, so a sidebar whose fzf fails to start never takes the
+# link; and again whenever the link is gone, as another sidebar's exit takes
+# it. A real directory at the link, which a sidebar of an earlier version kept
+# there as its cache, is left to that sidebar to remove on exit
 claim() {
   until [[ -S $cache/fzf.sock ]]; do sleep 0.1; done
   [[ -L $link || ! -e $link ]] && ln -sfn "$cache" "$link"
@@ -288,7 +290,8 @@ case $1 in
   "")
     link=$cache
     cache=$link.$$
-    # the directories of sidebars that died without their exit trap
+    # the caches of sidebars that died without their exit trap, by the pid
+    # in the name
     for dead in "$link".*; do
       [[ -d $dead ]] && ! kill -0 "${dead##*.}" 2>/dev/null && rm -rf "$dead"
     done

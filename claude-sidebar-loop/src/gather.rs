@@ -242,7 +242,7 @@ fn poll(remote: &Remote, on_show: &OnShow) -> Host {
     host
 }
 
-/// a host's `sessions`, as `claude-sessions` prints them, as the sidebar
+/// a host's `sessions` (the objects `claude-sessions` prints) as the sidebar
 /// lists them: those with a pane first, desktop app sessions left out unless
 /// one has a pane. One that does not parse is logged and left out
 fn listed(sessions: Vec<Value>) -> Vec<Session> {

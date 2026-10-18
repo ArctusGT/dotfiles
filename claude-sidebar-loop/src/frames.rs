@@ -268,7 +268,7 @@ fn faded(sgr: &str) -> String {
 /// percentage label at its end: the used share a heavy rule, each cell
 /// coloured by how far along the bar it sits, green to red as a full context
 /// is the bad end. The rest a light dashed rule in terminal_black. All red at
-/// `view.warn`. No record (`pct` null): the whole line terminal_black, with
+/// `view.warn`. No record (`pct` none): the whole line terminal_black, with
 /// no label
 fn context_line(pct: Option<&Number>, view: &View) -> String {
     let Some(Number { text, value: share }) = pct else {

@@ -1,6 +1,6 @@
 //! A session as the sidebar draws it, parsed once from the JSON object
-//! `claude-sessions` prints (`sessions` here), so what the renderer reads is
-//! typed rather than looked up and defaulted at each use. A session the
+//! `claude-sessions` prints (`claude-sidebar-loop sessions` here), so what
+//! the renderer reads is typed rather than looked up and defaulted at each use. A session the
 //! hooks wrote parses whole; one that does not, because a field is missing
 //! or the wrong type, is an error the gather logs and leaves out.
 
@@ -44,7 +44,8 @@ pub struct Number {
 }
 
 impl Number {
-    /// `value`, which is a number or null; null is none
+    /// `value`, which is a number or null; null is none, anything else an
+    /// error
     fn optional(value: &Value) -> Result<Option<Number>, String> {
         match value {
             Value::Null => Ok(None),
@@ -63,6 +64,7 @@ impl Number {
     }
 }
 
+/// one session of a host, as the sidebar lists and draws it
 #[derive(Clone, Debug, PartialEq)]
 pub struct Session {
     pub id: String,
@@ -91,6 +93,8 @@ impl Session {
         self.subagents.value > 0.0
     }
 
+    /// the session `object` describes, or why it is none: a field missing
+    /// where one is required, or of the wrong type
     pub fn parse(object: &Value) -> Result<Session, String> {
         let field = |key: &str| object.get(key);
         let text = |key: &str| match field(key) {

@@ -10,8 +10,9 @@ Both are built (cargo, release, into their own temporary target directories),
 then each runs in a throwaway tmux server (-L chkrows), in a pane 2 columns
 wider than the rows, with a copy of the same fixture: local sessions in
 every state (state files with context and subagents, one a background job
-with no pane, one a desktop app session with none), a stub tmux (those panes, and a frame whose right pane shows
-one of two things) and a stub ssh answering for three sesh hosts: mgmt
+with no pane, one a desktop app session with none), a stub tmux (those panes,
+and a frame whose right pane shows one of two things) and a stub ssh
+answering for three sesh hosts: mgmt
 (sessions in every state, numbers written 1e2, 42.50 and 2.0, a desktop app
 session with and without a pane), lab (ssh fails: unreachable) and empty (no
 sessions). Compares all 48 rows.N the loop writes and the `rows` it prints,
