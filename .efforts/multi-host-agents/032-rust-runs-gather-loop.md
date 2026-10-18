@@ -83,10 +83,10 @@ from the binary, and `pick` reading `rows.0` so the tagged file goes.
   `compare-rows.py`, `e2e-032.sh`, `profile-032.sh`) are scratchpad
   files, like 030's and 031's. Say if they should be shipped.
 - In 26 end-to-end starts, once the cursor did not move to the entry on
-  show when the sidebar started (it did at the next change of the right
-  pane), under load right after a build. Not reproduced since; possibly
-  the first gather, now far quicker, posting `pos` before fzf has loaded
-  its first rows.
+  show when the sidebar started, under load right after a build; the
+  same run's later checks, from the first jump on, passed. Not
+  reproduced since; possibly the first gather, now far quicker, posting
+  `pos` before fzf has loaded its first rows.
 - mgmt-1 built and tested the crate offline (cargo 1.92) from a `git
   archive`, and its `sessions` matched that revision's `claude-sessions`
   byte for byte over a fixture there. mgmt-1 needs the binary after
