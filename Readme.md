@@ -100,8 +100,9 @@ This creates symlinks like:
 - `~/.config/nvim -> ~/dotfiles/nvim/.config/nvim`
 - `~/.local/bin/espidf-index -> ~/dotfiles/bin/.local/bin/espidf-index`
 
-The sidebar's loop, `claude-sidebar-loop`, is a Rust binary built from the
-crate in `claude-sidebar-loop/` rather than stowed. Build it and install it
+The sidebar's loop, `claude-sidebar-loop`, which renders the sidebar's
+frames and shows them, is a Rust binary built from the crate in
+`claude-sidebar-loop/` rather than stowed. Build it and install it
 into `~/.local/bin`, beside the sidebar, and again whenever the crate changes:
 
 ```bash

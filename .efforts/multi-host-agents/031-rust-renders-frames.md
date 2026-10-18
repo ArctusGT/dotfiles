@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's frames are rendered inside the Rust binary from the gathered sessions, in place of `format`'s jq and `draw`'s perl split, byte-identical to today's rows
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** [multi-host-agents/030-rust-posts-frames-to-fzf]
 
 **Current behavior:**
@@ -59,6 +59,14 @@ and 1.0% of a core, plus a jq and a perl spawn each second.
   `above_zero` over every type), as byte-identity was measured against
   jq. Once 032 builds sessions natively, a typed `Session` and `State`
   parsed once at the boundary removes most of that.
+- From the spec review, for 032: the rows print `used_pct` and
+  `subagents` as `tagged` writes them, which matches `format` because
+  `tag`'s jq writes them in jq's number format. Sessions gathered
+  without jq must write numbers the same way, or a `1e2` shows as is.
+- From the spec review: a gather whose `tagged` cannot be rendered is
+  logged and skipped, where `draw` failing still announced it, so the
+  cursor does not follow that one gather. Left as is, as `collect`
+  writes `tagged` with jq.
 - The second criterion's "each distinct pose is drawn once a render"
   is, as in `format`'s `pictures`, once per session a render: each
   session has its own bandana.
@@ -66,3 +74,9 @@ and 1.0% of a core, plus a jq and a perl spawn each second.
   (`profile-031.sh`) are scratchpad scripts, so the numbers in 3783cac
   and be9260a cannot be re-taken from the repo. Say if they should be
   shipped.
+- The Mac has the binary installed from this slice's last code commit;
+  the live sidebar picks it up on its next restart. The new
+  `claude-sidebar` needs it: with 030's binary, `claude-sidebar-loop
+  rows` is taken for a cache directory and the sidebar starts empty.
+  mgmt-1 needs it after pulling (`Readme.md`, from `~/dotfiles`):
+  `cargo install --locked --path claude-sidebar-loop --root ~/.local`.
