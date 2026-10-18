@@ -188,8 +188,8 @@ format() { # $@ animation frames, counting from 0 (default 0)
                    [".....B.B....B.B.", "................"],
                    [".....B.B....B.B.", ".......B......B."],
                    [".....B.B....B.B.", "................"]];
-    def run_eyes: ["....BB..BBBB..BB", "....BBB..BBBB..B",
-                   "....BB..BBBB..BB", "....B..BBBB..BBB"];
+    def run_eyes: ["....BBB..BBBB..B", "....BBBB..BBBB..",
+                   "....BBB..BBBB..B", "....BB..BBBB..BB"];
     def run($k):
       [range(4) as $y | ribbons[$k][$y] + run_body[$y][4:]]
       + [run_eyes[$k]] + run_body[5:] + run_feet[$k];
