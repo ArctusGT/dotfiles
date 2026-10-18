@@ -145,8 +145,8 @@ entry reaches through `ssh-tmux`, under one heading per host. Each entry shows
 Clawd, Claude Code's mascot, beside its number, repo, name, then state, time in
 that state and running subagents (`+N`). Clawd is orange and runs while the
 session works, yellow while it waits on you, looking about, stamping and
-waving every few seconds unless its subagents still work, and grey while it
-is idle, squatting over and over while its subagents still work. He wears a bandana
+waving every few seconds, and squatting too while its subagents work, and
+grey while it is idle, squatting over and over while its subagents still work. He wears a bandana
 in the session's own colours, the same on every refresh. The entry ends in a
 line across the sidebar showing its context use: filled up to
 the share used, green over its first quarter, then yellow, orange and red, with

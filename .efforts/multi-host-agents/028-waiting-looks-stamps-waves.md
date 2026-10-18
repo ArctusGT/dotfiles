@@ -1,7 +1,7 @@
 ## Clawd looks about, stamps and waves while his session waits
 
 **Category:** enhancement
-**Summary:** A waiting session with no subagents running shows its Clawd looking left and right, stamping, then waving, once every 6 seconds; between them he stands still
+**Summary:** A waiting session shows its Clawd looking left and right, stamping, then waving, once every 6 seconds, and squatting after the wave while its subagents run; between them he stands still
 **Status:** ready-for-human
 **blocked-by:**
 
@@ -17,8 +17,14 @@ idle one with subagents running squats (026); everything else stands.
   for the rest of the loop
 - Each waiting entry plays at its own phase, from its session id as the
   squat does, so waiting entries do not move in step
-- Working, squatting and still entries behave as before; a waiting
-  session with subagents running stands, as today
+- While a session is `waiting` with subagents running, the same loop
+  squats in its last rest, a frame after the wave: crouch, down, down,
+  crouch, the squat's own poses
+- Working, squatting and still entries behave as before
+
+Watching the first build, the Maintainer asked for the waiting session
+with subagents to mix the waves and the squat in turn, rather than
+stand as first drafted.
 
 The Maintainer chose these three motions, and running them one after
 another over running them at once, by eye from the prototype
@@ -44,8 +50,9 @@ cell.
 - [x] A waiting session with no subagents looks about, stamps and waves
       in that order, once a loop; when it stops waiting its Clawd takes
       the new state's pose within about a second
-- [x] Working, squatting, idle and waiting-with-subagents entries behave
-      as before
+- [x] A waiting session with subagents running plays the same loop with a
+      squat in its last rest
+- [x] Working, squatting and idle entries behave as before
 - [x] Every waiting pose keeps each cell to two colours at most, by a
       count script
 - [x] With nothing working, squatting or waiting, `reload-sync` posts no
