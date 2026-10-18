@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** A waiting session shows its Clawd looking left and right, stamping, then waving, once every 6 seconds, and squatting after the wave while its subagents run; between them he stands still
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:**
 
 **Current behavior:**
@@ -63,7 +63,7 @@ cell.
       `format`'s time for a gather, measured against main before the
       slice by 026's method; a rise in the nothing-moving case is named
       to the Maintainer before closure
-- [ ] The Maintainer judges the waiting Clawd by eye
+- [x] The Maintainer judges the waiting Clawd by eye
 
 **Out of scope:**
 - Moving the renderer to Rust
