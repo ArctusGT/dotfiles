@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Four follow-ups from 030 to 032 the Maintainer accepted: `attach` reads sessions through the binary, the renderer parses each session into a typed `Session`, a sidebar removes only the cache it created, and the comparison and end-to-end checks ship in the repo
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** [multi-host-agents/032-rust-runs-gather-loop]
 
 **Current behavior:**
@@ -60,3 +60,26 @@ The Maintainer accepted all four from 032's review notes.
 **Out of scope:**
 - Replacing `claude-sessions` on remote hosts
 - New sidebar behaviour
+
+**For the Maintainer:**
+- A session with no `cwd` in its state file now shows a blank repo where it
+  showed `null`; `claude-session-state` writes `cwd: null` only when neither
+  the hook input nor the old state has one. The row fixtures all carry a cwd.
+- A session missing `since`, `subagents` or a valid `state` is now left out
+  of the list with a line in `claude-sidebar.log` each gather, where it was
+  drawn with defaults. A remote host's `claude-session-state` older than the
+  fields would lose its sessions from the sidebar. Not measured.
+- `claude-sidebar`'s link to the running sidebar's cache is taken once its
+  fzf listens and made again within 2 s if another sidebar's exit takes it,
+  so for up to about 2 s after a restart `pick`, `kick` and `jump` find no
+  cache. With two sidebars alive the link names the last to start, and a
+  `jump` from the other's fzf acts on that one's cache. The first start
+  after this commit, against a running sidebar that still keeps a real
+  directory at the link, takes the link only once that sidebar's exit has
+  removed the directory.
+- A sidebar that dies without its exit trap (SIGKILL) leaves its
+  `claude-sidebar.PID` directory behind; nothing sweeps them.
+- `attach` now needs `claude-sidebar-loop` on every host a jump reaches
+  over ssh. mgmt-1 has it.
+- The comparison's first-pass respawn case did not fail unloaded on the old
+  script; only with the old exit trap made 0.5 s slower, as under load.

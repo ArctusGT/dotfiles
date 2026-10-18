@@ -290,11 +290,6 @@ case $1 in
   "")
     link=$cache
     cache=$link.$$
-    # the caches of sidebars that died without their exit trap, by the pid
-    # in the name
-    for dead in "$link".*; do
-      [[ -d $dead ]] && ! kill -0 "${dead##*.}" 2>/dev/null && rm -rf "$dead"
-    done
     # a first gather's rows as rows.0, for fzf to start on before
     # claude-sidebar-loop has written any
     mkdir "$cache" && mkfifo "$cache/kick" && moved && claude-sidebar-loop rows >"$cache/rows.0"

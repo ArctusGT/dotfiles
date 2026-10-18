@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Check that a sidebar keeps working when another starts or goes beside it:
 # `respawn-pane -k` on the sidebar ten times, each leaving a working sidebar,
-# and a second sidebar started and stopped beside a running one, which keeps
-# updating.
+# a second sidebar started and stopped beside a running one, and a second
+# whose fzf fails to start, each leaving the running one updating.
 #   respawn.sh [N]    respawns (default 10); SIDEBAR and BINARY choose what
 #                     runs, as in lib.sh; SETTLE the seconds waited after
 #                     each respawn (default 1.5)
@@ -25,7 +25,10 @@ pane=$(tmux_on chkrespawn new-session -d -P -F '#{pane_id}' -s work -x 120 -y 40
 id=aaaaaaaa-0000-4000-8000-000000000001
 state $id "$pane" idle
 # the sidebar's command in a pane: the scratch environment, then the script
-start="env PATH='$run/bin:$PATH' TMPDIR='$run/' HOME='$run/home' XDG_STATE_HOME='$run/state' SESH_CONFIG=/dev/null '$SIDEBAR'"
+sidebar_command() { # $1 directories, each then a colon, to put first on its PATH
+  echo "env PATH='$1$run/bin:$PATH' TMPDIR='$run/' HOME='$run/home' XDG_STATE_HOME='$run/state' SESH_CONFIG=/dev/null '$SIDEBAR'"
+}
+start=$(sidebar_command)
 sidebar() { # $1 the name of its own tmux session
   tmux_on chkrespawn new-session -d -P -F '#{pane_id}' -s "$1" -x 44 -y 30 "$start"
 }
@@ -54,6 +57,14 @@ for ((i = 1; i <= n; i++)); do
   check "respawn $i: the pane lives, with one fzf" is "$(panes_of side) $(fzfs)" "1 1"
   check "respawn $i: rows update" shows "${states[i % 3]}"
 done
+
+# a second sidebar whose fzf exits at once, as one finding fzf's socket taken would
+mkdir "$run/failing"
+printf '#!/bin/sh\nexit 1\n' >"$run/failing/fzf"
+chmod +x "$run/failing/fzf"
+tmux_on chkrespawn new-session -d -s failing -x 44 -y 30 "$(sidebar_command "$run/failing:")"
+sleep 3
+check "after a second sidebar whose fzf failed, the first's rows still update" shows waiting
 
 # a second sidebar, on the same TMPDIR, started and stopped beside the first
 sidebar second >/dev/null

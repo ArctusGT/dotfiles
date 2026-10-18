@@ -1,8 +1,6 @@
 //! A session as the sidebar draws it, parsed once from the JSON object
-//! `claude-sessions` prints (`claude-sidebar-loop sessions` here), so what
-//! the renderer reads is typed rather than looked up and defaulted at each use. A session the
-//! hooks wrote parses whole; one that does not, because a field is missing
-//! or the wrong type, is an error the gather logs and leaves out.
+//! `claude-sessions` prints. One the hooks wrote parses whole; one with a
+//! field missing or of the wrong type is an error the gather logs and leaves out.
 
 use crate::json::Value;
 
