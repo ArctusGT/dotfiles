@@ -218,6 +218,9 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # head cannot drop one row alone, as the top cell row would hold the
     # empty row, the head-top and the bandana
     def crouch: stand[:10] + ["..BBBBBBBBBBBB..", "..B.B......B.B.."];
+    # the poses of a run, and of a squat: standing a while, then down and back
+    def running: [range(4) as $k | run($k)];
+    def squatting: [range(8) | stand] + [crouch, squat, squat, crouch];
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
@@ -294,13 +297,11 @@ format() { # $@ animation frames, counting from 0 (default 0)
         else paint($ink; $background) end;
     # the poses session $r cycles through, a pose a frame, and its phase
     # into them. Working, he runs; idle with subagents running, he squats,
-    # standing a while then down and back, each session at its own phase
-    # from its id; otherwise he stands
+    # each session at its own phase from its id; otherwise he stands
     def animation($r):
-      if $r.state == "working" then {poses: [range(4) as $k | run($k)], phase: 0}
-      elif $r.state == "idle" and $r.subagents > 0 then
-        {poses: [range(8) | stand] + [crouch, squat, squat, crouch],
-         phase: ($r.session_id | djb)}
+      if $r.state == "working" then {poses: running, phase: 0}
+      elif $r.state == "idle" and $r.subagents > 0
+      then {poses: squatting, phase: ($r.session_id | djb)}
       else {poses: [stand], phase: 0} end;
     # Clawd for session $r, wearing its bandana, as three lines, his body in
     # the colour for its state: working orange, waiting yellow, idle grey,
@@ -587,13 +588,14 @@ draw() {
   for ((k = 0; k < frame_count; k++)); do frames+=("$k"); done
   format "${frames[@]}" <"$cache/tagged" >"$cache/frames.new" &&
     perl -0 -e '($dir, $count) = @ARGV; @items = <STDIN>; @items or exit 1;
-      $n = @items / $count;
+      $n = @items / $count; $first = join "", @items[0 .. $n - 1];
       for $k (0 .. $count - 1) {
+        @rows = @items[$k * $n .. ($k + 1) * $n - 1];
         open my $f, ">", "$dir/rows.$k.new" or die;
-        print $f @items[$k * $n .. ($k + 1) * $n - 1];
+        print $f @rows;
         close $f or die;
         rename "$dir/rows.$k.new", "$dir/rows.$k" or die;
-        $moves ||= join("", @items[$k * $n .. ($k + 1) * $n - 1]) ne join("", @items[0 .. $n - 1]) }
+        $moves ||= join("", @rows) ne $first }
       if ($moves) { open my $f, ">", "$dir/moves" or die } else { unlink "$dir/moves" }' \
       "$cache" "$frame_count" <"$cache/frames.new"
 }
