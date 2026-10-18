@@ -2,12 +2,12 @@
 # claude-sidebar [rows|pick N|kick|edge|jump|attach]: list every Claude session on this host and
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
-# A background loop rebuilds the list into a cache every second, so fzf never
-# waits on a host, and redraws it 8 times a second while a session works, so
-# its Clawd runs. `tmux-frame` runs it as the frame's left pane: a jump moves
-# the frame's right pane, and fzf's cursor follows the session on show there
-# however it changed. Run elsewhere, a jump moves the usual tmux's most recent
-# client.
+# Two background loops keep the list in a cache: one gathers it every second,
+# so fzf never waits on a host, and one redraws it, 8 times a second while a
+# session works, so its Clawd runs. `tmux-frame` runs it as the frame's left
+# pane: a jump moves the frame's right pane, and fzf's cursor follows the
+# session on show there however it changed. Run elsewhere, a jump moves the
+# usual tmux's most recent client.
 # Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the background loops'
 # errors in ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the list.
 #   rows              print the list once, as fzf reads it
@@ -175,14 +175,14 @@ format() { # $1 animation frame, counting from 0 (default 0)
     def ribbons: [["..", "x.", ".x", ".x"], [".x", "x.", "x.", ".."],
                   ["..", ".x", "xx", ".."], ["x.", ".x", ".x", "x."]];
     def ribbon_colours: ["1", "2", "3", "2"];
-    def feet: [["....B.B.....B.B.", "....B.......B..."],
-               ["....B.B.....B.B.", "................"],
-               ["....B.B.....B.B.", "......B.......B."],
-               ["....B.B.....B.B.", "................"]];
+    def run_feet: [["....B.B.....B.B.", "....B.......B..."],
+                   ["....B.B.....B.B.", "................"],
+                   ["....B.B.....B.B.", "......B.......B."],
+                   ["....B.B.....B.B.", "................"]];
     def run($k):
       ribbon_colours[$k] as $colour
       | [range(4) as $y | (ribbons[$k][$y] | gsub("x"; $colour)) + run_body[$y][2:]]
-        + run_body[4:] + feet[$k];
+        + run_body[4:] + run_feet[$k];
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
@@ -483,26 +483,28 @@ gathering() {
   done
 }
 
-# wait for `serve`, in its locals: for the next gather on fd $gathered, or,
-# while a session is $working, for that or the tick at $next (microseconds),
-# moving $next on by $tick. Succeeds if a gather came. The waits are read
-# timeouts, with no sleep to fork
+# wait for `serve`, reading and moving its locals: for the next gather on fd
+# $gathered, or, while a session is $working, for that or the tick at
+# $next_tick_us, then moving it on by $tick_us. Succeeds if a gather came,
+# fails at a tick. The waits are read timeouts, with no sleep to fork
 await_gather() {
+  # times in microseconds: EPOCHREALTIME without its decimal separator, a
+  # point or a comma by locale
   local now delay
   if [[ $working != true ]]; then
     read -r -u "$gathered" || return
-    next=$((${EPOCHREALTIME/[.,]/} + tick))
+    next_tick_us=$((${EPOCHREALTIME/[.,]/} + tick_us))
     return 0
   fi
-  delay=$((next - ${EPOCHREALTIME/[.,]/}))
+  delay=$((next_tick_us - ${EPOCHREALTIME/[.,]/}))
   if ((delay > 0)); then
     printf -v delay '0.%06d' "$delay"
     read -r -t "$delay" -u "$gathered" && return 0
   fi
   now=${EPOCHREALTIME/[.,]/}
-  next=$((next + tick))
+  next_tick_us=$((next_tick_us + tick_us))
   # behind: drop the missed ticks
-  ((next > now)) || next=$((now + tick))
+  ((next_tick_us > now)) || next_tick_us=$((now + tick_us))
   return 1
 }
 
@@ -514,7 +516,7 @@ await_gather() {
 serve() {
   local frame=0 working=false check_shown=false sum last_sum="" shown last_shown=""
   # ticks kept to a schedule, so a slow draw does not slow the frame rate
-  local tick=125000 next gathered
+  local tick_us=125000 next_tick_us gathered
   # read and write, so the fifo always has a reader and a writer, and `read`
   # waits for a line rather than seeing end of file
   exec {gathered}<>"$cache/gathered"
