@@ -40,7 +40,7 @@ most of its CPU in process spawns.
 - Where the binary is installed, and how the sidebar finds it
 
 **Acceptance criteria:**
-- [ ] The build command builds and installs the binary on the Mac and on
+- [x] The build command builds and installs the binary on the Mac and on
       mgmt-1 from a clean checkout
 - [ ] With nothing moving, `reload-sync` posts no more often than once a
       second; with a Clawd moving, at 8 a second with no tick skipped

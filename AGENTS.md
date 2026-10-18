@@ -20,6 +20,8 @@ Not stow packages, and never stowed:
   *on* the dotfiles. Easy to confuse with `claude/.claude/`, which is the
   stow package holding the user-level `~/.claude/settings.json`.
 - `docs/` — effort-tracker docs the kit's skills read.
+- `claude-sidebar-loop/` — the Rust crate for the sidebar's loop, built and
+  installed with `cargo install` (`Readme.md`), not stowed.
 
 Most rules under `.claude/rules/` and every skill under `.claude/skills/` are
 symlinks into `.agents/`, the shared kit. Editing one edits the kit and changes

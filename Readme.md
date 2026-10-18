@@ -15,7 +15,7 @@ This repo uses **GNU Stow** to symlink configs into place.
 sudo dnf install lazygit`
 - `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
 - `jq` (`claude-sessions` and the Claude sessions sidebar), plus `fzf` 0.74 or
-  later, `curl`, `perl` and bash 5 for the sidebar
+  later, `curl`, `perl`, bash 5 and `cargo` 1.92 or later for the sidebar
 - `tectonic` (`cargo install tectonic`)
 - `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
 - `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)
@@ -99,6 +99,14 @@ This creates symlinks like:
 - `~/.tmux.conf -> ~/dotfiles/tmux/.tmux.conf`
 - `~/.config/nvim -> ~/dotfiles/nvim/.config/nvim`
 - `~/.local/bin/espidf-index -> ~/dotfiles/bin/.local/bin/espidf-index`
+
+The sidebar's loop, `claude-sidebar-loop`, is a Rust binary built from the
+crate in `claude-sidebar-loop/` rather than stowed. Build it and install it
+into `~/.local/bin`, beside the sidebar, and again whenever the crate changes:
+
+```bash
+cargo install --locked --path claude-sidebar-loop --root ~/.local
+```
 
 `zsh` also links `~/.zshenv`, which every zsh reads, including the one
 `ssh host '<cmd>'` runs. Stow refuses to replace a real file, so on a host
