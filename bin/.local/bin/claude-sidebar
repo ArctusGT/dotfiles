@@ -608,22 +608,26 @@ gather() { collect >"$cache/tagged.new" && mv "$cache/tagged.new" "$cache/tagged
 # the rows fzf shows, one file for each frame of the cycle, rows.0 on: all
 # formatted from the tagged lines in one jq run, then each replaced whole, as
 # `step` and `position` read rows.0 too. Every frame has the same items, so
-# the output splits into equal parts. $cache/moves is there while any frame
-# differs from rows.0, so `serve` knows a Clawd moves without reading them
+# the output splits into equal parts. $cache/repeats holds, for each frame,
+# 1 if it is the same as the frame before it (rows.0 after the last), else
+# 0, so `serve` knows whether a Clawd moves, and which ticks change nothing,
+# without reading the rows
 draw() {
   local frames=()
   for ((k = 0; k < frame_count; k++)); do frames+=("$k"); done
   format "${frames[@]}" <"$cache/tagged" >"$cache/frames.new" &&
     perl -0 -e '($dir, $count) = @ARGV; @items = <STDIN>; @items or exit 1;
-      $n = @items / $count; $rows0 = join "", @items[0 .. $n - 1];
+      $n = @items / $count;
       for $k (0 .. $count - 1) {
-        @rows = @items[$k * $n .. ($k + 1) * $n - 1];
+        $frame[$k] = join "", @items[$k * $n .. ($k + 1) * $n - 1];
         open my $f, ">", "$dir/rows.$k.new" or die;
-        print $f @rows;
+        print $f $frame[$k];
         close $f or die;
-        rename "$dir/rows.$k.new", "$dir/rows.$k" or die;
-        $moves ||= join("", @rows) ne $rows0 }
-      if ($moves) { open my $f, ">", "$dir/moves" or die } else { unlink "$dir/moves" }' \
+        rename "$dir/rows.$k.new", "$dir/rows.$k" or die }
+      open my $f, ">", "$dir/repeats.new" or die;
+      print $f join(" ", map { $frame[$_] eq $frame[$_ - 1] ? 1 : 0 } 0 .. $count - 1), "\n";
+      close $f or die;
+      rename "$dir/repeats.new", "$dir/repeats" or die' \
       "$cache" "$frame_count" <"$cache/frames.new"
 }
 
@@ -686,12 +690,13 @@ await_gather() {
 # show the frames `gathering` draws: after each gather the same frame of the
 # new rows, and at every tick, 8 a second, the next frame while one differs
 # from another, so a Clawd runs or squats; with none moving it sleeps until the
-# next gather, so the rows change no more than once a second. With none
-# moving, fzf reloads only when the rows on show changed; while one moves, at
-# every tick. Its cursor moves only when the right pane's session did, so it
-# is not taken from an entry being browsed to
+# next gather, so the rows change no more than once a second. fzf reloads only
+# when the rows on show changed: with none moving, by their sum; with one, at
+# a tick, unless the frame repeats the one before it and fzf already has this
+# gather's rows. Its cursor moves only when the right pane's session did, so
+# it is not taken from an entry being browsed to
 serve() {
-  local frame=0 animating=false check_shown=false fzf_has_rows gathered_line since jumped sum last_sum="" shown last_shown=""
+  local frame=0 animating=false check_shown=false fzf_has_rows gathered_line since jumped sum last_sum="" shown last_shown="" repeats
   # ticks kept to a schedule, so a slow reload does not slow the frame rate
   local tick_us=125000 next_tick_us gathered
   # read and write, so the fifo always has a reader and a writer, and `read`
@@ -699,8 +704,10 @@ serve() {
   exec {gathered}<>"$cache/gathered"
   while :; do
     if await_gather; then
-      # whether anything moves is whatever `picture` draws differently
-      if [[ -e $cache/moves ]]; then animating=true; else animating=false; fi
+      # whether anything moves is whatever `picture` draws differently: a
+      # frame not repeating the one before it
+      read -ra repeats <"$cache/repeats"
+      if [[ " ${repeats[*]} " == *" 0 "* ]]; then animating=true; else animating=false; fi
       # the value $cache/jumped had when the gather began. A gather a kick
       # overtook may have seen the session on show before a jump, and would
       # take the cursor back from where the jump put it
@@ -717,9 +724,11 @@ serve() {
         fzf_has_rows=false
       fi
     else
-      # a tick: the next frame
+      # a tick: the next frame, if it changes what fzf shows
       frame=$(((frame + 1) % frame_count))
-      fzf_do "reload-sync(cat '$cache/rows.$frame')"
+      if [[ $fzf_has_rows == false || ${repeats[frame]} == 0 ]]; then
+        fzf_do "reload-sync(cat '$cache/rows.$frame')"
+      fi
       last_sum=""
       fzf_has_rows=true
     fi
