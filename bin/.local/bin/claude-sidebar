@@ -163,8 +163,8 @@ format() { # $@ animation frames, counting from 0 (default 0)
     ];
     # Clawd running, frame $k of 4: body two columns right, slit eyes, both
     # arms swept left, the stripes at the far end of the bandana. Columns 0
-    # to 3 of rows 0 to 3, two octant cells, hold the ribbon streaming left
-    # as ribbons draws it, each cell in one stripe colour that changes each frame.
+    # to 3 of rows 0 to 3, two octant cells, hold the ribbon streaming left,
+    # ribbons[$k], each cell in one stripe colour that changes each frame.
     # The feet step left pair down, all up, right pair down, all up. Same
     # rule as stand: two colours to a cell, empty counting as one
     def run_body: [
@@ -185,7 +185,9 @@ format() { # $@ animation frames, counting from 0 (default 0)
                    [".....B.B....B.B.", "................"],
                    [".....B.B....B.B.", ".......B......B."],
                    [".....B.B....B.B.", "................"]];
-    def run($k): [range(4) as $y | ribbons[$k][$y] + run_body[$y][4:]] + run_body[4:] + run_feet[$k];
+    def run($k):
+      [range(4) as $y | ribbons[$k][$y] + run_body[$y][4:]]
+      + run_body[4:] + run_feet[$k];
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
@@ -224,11 +226,15 @@ format() { # $@ animation frames, counting from 0 (default 0)
          (.left | length) as $n | (.hash % $n) as $i
          | {hash: (.hash / $n | floor), left: (.left | del(.[$i])), pick: .left[$i]};
          .pick)];
-    # the background twin of foreground $sgr: 3x as 4x, 9x as 10x, 38;2 as 48;2
-    def under: if startswith("38;") then "48" + .[2:] else tonumber + 10 | tostring end;
-    # . in the colour $fg on the background $bg, then back to the defaults
-    def paint($fg; $bg): "\u001b[\($fg);\($bg | under)m" + . + "\u001b[39;49m";
-    # foreground $sgr halfway to the background, #1a1b26, as Ghostty draws a
+    # foreground . as the same colour for the background: 3x as 4x, 9x as
+    # 10x, 38;2 as 48;2
+    def as_background:
+      if startswith("38;") then "48" + .[2:] else tonumber + 10 | tostring end;
+    # . in the foreground $fg on the background $bg, both given as
+    # foregrounds, then back to the default colours
+    def paint($fg; $bg):
+      "\u001b[\($fg);\($bg | as_background)m" + . + "\u001b[39;49m";
+    # foreground . halfway to the background, #1a1b26, as Ghostty draws a
     # faint (SGR 2) foreground at its faint-opacity of 0.5; the palette
     # shades as TokyoNight Night sets them
     def faded:
@@ -240,18 +246,22 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # a cell of 8 pixels (colours or null, left to right, top to bottom) as
     # its octant: the first lit pixel is the ink and lights the glyph, and a
     # second colour filling the rest of the cell is its background, closed
-    # again (49) so it stops at the cell. Faint dims only a foreground, so
-    # where $faint, such a cell leaves faint off and draws both colours faded
+    # again (49) so it stops at the cell. A second colour in a cell that is
+    # not full is not drawn. Faint dims only a foreground, so where $faint,
+    # a cell with a background turns faint off (22) and draws both colours
+    # faded, then turns faint back on
     def octant($faint):
       map(values) as $lit
       | $lit[0] as $ink
-      | (if ($lit | length) == 8 then $lit - [$ink] | first else null end) as $back
+      | (if ($lit | length) == 8 then $lit - [$ink] | first else null end)
+          as $background
       | ([range(8) as $k | select(.[$k] != null and .[$k] == $ink) | pow(2; $k)] | add // 0) as $bits
       | octants[$bits:$bits + 1]
       | if $ink == null then .
-        elif $back == null then paint($ink)
-        elif $faint then "\u001b[22m" + paint($ink | faded; $back | faded) + "\u001b[2m"
-        else paint($ink; $back) end;
+        elif $background == null then paint($ink)
+        elif $faint then
+          "\u001b[22m" + paint($ink | faded; $background | faded) + "\u001b[2m"
+        else paint($ink; $background) end;
     # Clawd wearing the bandana of session $id, as three lines, his body in
     # the colour for $state: working orange, waiting yellow, idle grey,
     # the only states claude-session-state writes. Working, he runs, in
