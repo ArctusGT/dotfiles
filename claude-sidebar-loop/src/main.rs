@@ -8,7 +8,7 @@ mod serve;
 mod sessions;
 
 use frames::{FRAME_COUNT, View};
-use json::Value;
+use gather::Host;
 use serve::{Gather, Serve, Sidebar};
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
@@ -88,9 +88,8 @@ fn run(cache: Cache) {
     serve(Serve::new(cache), &gathers, &dir);
 }
 
-/// the first `count` frames of the tagged records `tagged`, for this
-/// terminal, now
-fn render(tagged: &[Value], count: usize) -> Result<Vec<Vec<u8>>, String> {
+/// the first `count` frames of a gather's `hosts`, for this terminal, now
+fn render(hosts: &[Host], count: usize) -> Result<Vec<Vec<u8>>, String> {
     let view = View {
         width: line_width(),
         warn: warn_level()?,
@@ -98,7 +97,7 @@ fn render(tagged: &[Value], count: usize) -> Result<Vec<Vec<u8>>, String> {
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs() as i64),
     };
-    Ok(frames::render(tagged, &view, count)
+    Ok(frames::render(hosts, &view, count)
         .into_iter()
         .map(String::into_bytes)
         .collect())
@@ -381,11 +380,15 @@ mod tests {
     #[test]
     fn writes_a_rows_file_a_frame() {
         let dir = tempdir::Dir::new();
-        let tagged = json::parse_stream(
-            "{\"header\":true,\"label\":\"local\",\"down\":false,\"current\":\"\"}\n",
-        )
-        .unwrap();
-        let frames = render(&tagged, FRAME_COUNT).unwrap();
+        let hosts = [Host {
+            label: "local".into(),
+            ssh_host: String::new(),
+            relay: String::new(),
+            down: false,
+            on_show: None,
+            sessions: Vec::new(),
+        }];
+        let frames = render(&hosts, FRAME_COUNT).unwrap();
         write_rows(dir.path(), &frames).unwrap();
         assert_eq!(frames.len(), FRAME_COUNT);
         for (k, rows) in frames.iter().enumerate() {

@@ -1,5 +1,5 @@
-//! The sidebar's frames, rendered from a gather's tagged records (`gather`):
-//! one NUL-terminated fzf item per header or session, the same items in
+//! The sidebar's frames, rendered from a gather's hosts (`gather`): one
+//! NUL-terminated fzf item per host heading or session, the same items in
 //! every frame but for Clawd's pose.
 //!
 //! A session's item is its tab fields: ssh host, pane, relay session,
@@ -10,6 +10,7 @@
 //! Times are in whole minutes, so the rows change only when a session does,
 //! or with the frame while a Clawd moves.
 
+use crate::gather::Host;
 use crate::json::Value;
 
 /// the frames a gather renders: every animation (running, squatting,
@@ -57,58 +58,64 @@ const BACKGROUND: [u32; 3] = [26, 27, 38];
 const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 
-/// every frame of `tagged`'s items, frame 0 to `frames - 1`, each frame's
+/// every frame of `hosts`' items, frame 0 to `frames - 1`, each frame's
 /// items one after another
-pub fn render(tagged: &[Value], view: &View, frames: usize) -> Vec<String> {
+pub fn render(hosts: &[Host], view: &View, frames: usize) -> Vec<String> {
     let clawd = Clawd::new();
     let mut out = vec![String::new(); frames];
     let mut number = 0;
-    // the pane the frame's right pane shows on the host under the latest
-    // heading
-    let mut pane_on_show = Value::String(String::new());
-    for record in tagged {
-        if record.get("header").truthy() {
-            pane_on_show = record.get("current").clone();
-            let item = header(record);
-            for frame in &mut out {
-                frame.push_str(&item);
+    for host in hosts {
+        let item = header(host);
+        for frame in &mut out {
+            frame.push_str(&item);
+        }
+        for session in &host.sessions {
+            let numbered = session.get("tmux_pane") != &Value::Null;
+            if numbered {
+                number += 1;
             }
-            continue;
-        }
-        let session = record;
-        let pane = session.get("tmux_pane");
-        let numbered = pane != &Value::Null;
-        if numbered {
-            number += 1;
-        }
-        let entry = Entry::new(
-            session,
-            numbered.then_some(number),
-            pane == &pane_on_show,
-            view,
-        );
-        let (animation, phase) = clawd.animation(session);
-        let palette = Palette::new(session);
-        // each distinct pose drawn once, as most repeat across the frames
-        // or, standing, are the same in all of them
-        let mut drawn: Vec<Option<[String; 3]>> = vec![None; clawd.poses.len()];
-        for (k, frame) in out.iter_mut().enumerate() {
-            let pose_id = animation[(phase + k) % animation.len()];
-            let picture = drawn[pose_id]
-                .get_or_insert_with(|| picture(&clawd.poses[pose_id], &palette, !numbered));
-            entry.write(frame, picture);
+            let number = numbered.then_some(number);
+            render_session(session, host, number, view, &clawd, &mut out);
         }
     }
     out
 }
 
+/// appends `session`'s item, entry `number` if it has one, to each of
+/// `frames`
+fn render_session(
+    session: &Value,
+    host: &Host,
+    number: Option<usize>,
+    view: &View,
+    clawd: &Clawd,
+    frames: &mut [String],
+) {
+    let pane = session.get("tmux_pane");
+    let on_show = host.on_show.is_some() && pane.as_str() == host.on_show.as_deref();
+    let entry = Entry::new(session, host, number, on_show, view);
+    let (animation, phase) = clawd.animation(session);
+    let palette = Palette::new(session);
+    // each distinct pose drawn once, as most repeat across the frames
+    // or, standing, are the same in all of them
+    let mut drawn: Vec<Option<[String; 3]>> = vec![None; clawd.poses.len()];
+    for (k, frame) in frames.iter_mut().enumerate() {
+        let pose_id = animation[(phase + k) % animation.len()];
+        let picture = drawn[pose_id]
+            .get_or_insert_with(|| picture(&clawd.poses[pose_id], &palette, number.is_none()));
+        entry.write(frame, picture);
+    }
+}
+
 /// a host's heading: its label, `unreachable` if it did not answer, then a
 /// blank second line, so the heading stands apart from the entries
-fn header(heading: &Value) -> String {
-    let label = heading.get("label").as_str().unwrap_or_default();
+fn header(host: &Host) -> String {
     // paint closes only the colour, so the reset ends the bold
-    let mut item = format!("\t\t\t\t\t\t{}{RESET}", paint(label, &format!("1;{BLUE}")));
-    if heading.get("down").truthy() {
+    let mut item = format!(
+        "\t\t\t\t\t\t{}{RESET}",
+        paint(&host.label, &format!("1;{BLUE}"))
+    );
+    if host.down {
         item += &format!("  {}", paint("unreachable", RED));
     }
     // a braille blank (U+2800), since fzf drops a trailing line of spaces
@@ -128,17 +135,23 @@ struct Entry {
 }
 
 impl Entry {
-    fn new(session: &Value, number: Option<usize>, on_show: bool, view: &View) -> Entry {
+    fn new(
+        session: &Value,
+        host: &Host,
+        number: Option<usize>,
+        on_show: bool,
+        view: &View,
+    ) -> Entry {
         let pane = session.get("tmux_pane");
         let number_text = number.map(|n| n.to_string());
         let fields = [
-            joined(session.get("host")),
+            host.ssh_host.clone(),
             if pane.truthy() {
                 joined(pane)
             } else {
                 String::new()
             },
-            joined(session.get("relay")),
+            host.relay.clone(),
             joined(session.get("session_id")),
             number_text.clone().unwrap_or_default(),
             if number.is_some() && on_show { "1" } else { "" }.to_string(),

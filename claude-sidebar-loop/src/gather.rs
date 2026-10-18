@@ -1,14 +1,7 @@
-//! One gather: every host's sessions, tagged with where they came from,
-//! this host's read in-process (`sessions`), each remote host's from its
-//! own `claude-sessions` over ssh, all hosts at once, so an unreachable one
-//! costs one ssh ConnectTimeout, not more.
-//!
-//! The tagged records are what `frames::render` draws: for each host, a
-//! header, `{header: true, label, down, current}`, `down` when the host did
-//! not answer and `current` the host's pane on show in the frame's right
-//! pane, if any; then its sessions with a pane first, desktop app sessions
-//! left out unless one has a pane, each with `host` (its ssh host, empty
-//! for this one) and `relay` (the Mac's tmux session showing that host).
+//! One gather: every host's sessions, this host's read in-process
+//! (`sessions`), each remote host's from its own `claude-sessions` over ssh,
+//! all hosts at once, so an unreachable one costs one ssh ConnectTimeout,
+//! not more.
 
 use crate::json::{self, Value};
 use crate::sessions::{self, Sources};
@@ -37,6 +30,24 @@ const SSH_OPTS: [&str; 10] = [
 const REMOTE_COMMAND: &str = "claude-sessions; printf '\\036'; \
     tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{pane_id}' | head -1";
 
+/// A host's part of a gather, as the sidebar lists it.
+pub struct Host {
+    /// its heading: `local`, or its sesh session's name
+    pub label: String,
+    /// its ssh host; empty for this one
+    pub ssh_host: String,
+    /// the Mac's tmux session showing it, its sesh session; empty for this
+    /// one
+    pub relay: String,
+    /// whether it did not answer
+    pub down: bool,
+    /// its pane the frame's right pane shows, if any
+    pub on_show: Option<String>,
+    /// its sessions as `claude-sessions` prints them, those with a pane
+    /// first, desktop app sessions left out unless one has a pane
+    pub sessions: Vec<Value>,
+}
+
 /// A host a sesh entry reaches through `ssh-tmux`.
 struct Remote {
     /// the sesh session's name: the host's heading and its relay session
@@ -44,35 +55,50 @@ struct Remote {
     ssh_host: String,
 }
 
-/// every host's tagged records, this host's first
-pub fn gather() -> Vec<Value> {
-    let (shown, relay_host) = on_show();
+/// What the frame's right pane shows.
+#[derive(Default)]
+enum OnShow {
+    /// nothing: no frame, or tmux did not say
+    #[default]
+    Nothing,
+    /// a pane of the usual tmux on this host
+    Local(String),
+    /// a host's relay window, by its ssh host
+    Relay(String),
+}
+
+/// every host, this one first
+pub fn gather() -> Vec<Host> {
+    let on_show = on_show();
     let remotes = remotes();
     thread::scope(|scope| {
         let polls: Vec<_> = remotes
             .iter()
-            .map(|remote| scope.spawn(|| poll(remote, &relay_host)))
+            .map(|remote| (remote, scope.spawn(|| poll(remote, &on_show))))
             .collect();
-        let local_shown = if relay_host.is_empty() {
-            shown
-        } else {
-            String::new()
-        };
-        let mut tagged = vec![header("local", false, local_shown)];
-        tagged.extend(tag(sessions::read(&Sources::from_env()), "", ""));
-        for poll in polls {
-            tagged.extend(poll.join().unwrap_or_default());
+        let mut hosts = vec![Host {
+            label: "local".into(),
+            ssh_host: String::new(),
+            relay: String::new(),
+            down: false,
+            on_show: match &on_show {
+                OnShow::Local(pane) => Some(pane.clone()),
+                _ => None,
+            },
+            sessions: listed(sessions::read(&Sources::from_env())),
+        }];
+        for (remote, poll) in polls {
+            hosts.push(poll.join().unwrap_or_else(|_| remote.host(true)));
         }
-        tagged
+        hosts
     })
 }
 
-/// what the frame's right pane shows: its pane on the usual tmux, and the
-/// ssh host whose relay window that is, if one is; both empty outside the
-/// frame
-fn on_show() -> (String, String) {
+/// what the frame's right pane shows, from its pane on the usual tmux and
+/// the ssh host its window relays, if it does
+fn on_show() -> OnShow {
     let Some(tty) = frame_main_tty() else {
-        return Default::default();
+        return OnShow::Nothing;
     };
     let shown = output(
         Command::new("tmux")
@@ -81,9 +107,11 @@ fn on_show() -> (String, String) {
             .env_remove("TMUX_PANE"),
     );
     let line = shown.lines().next().unwrap_or_default().trim();
-    match line.split_once([' ', '\t']) {
-        Some((pane, host)) => (pane.to_string(), host.trim().to_string()),
-        None => (line.to_string(), String::new()),
+    let (pane, host) = line.split_once([' ', '\t']).unwrap_or((line, ""));
+    match (pane, host.trim()) {
+        ("", _) => OnShow::Nothing,
+        (pane, "") => OnShow::Local(pane.to_string()),
+        (_, host) => OnShow::Relay(host.to_string()),
     }
 }
 
@@ -164,11 +192,24 @@ fn assignment<'a>(line: &'a str, key: &str) -> Option<&'a str> {
     Some(rest.strip_prefix('=')?.trim_start_matches(' '))
 }
 
-/// `remote`'s tagged records: its sessions, and its pane on show where the
-/// frame's right pane shows its relay window (`relay_host`); its header
-/// marked down if ssh failed. One master connection per host, so a poll is
-/// not a login
-fn poll(remote: &Remote, relay_host: &str) -> Vec<Value> {
+impl Remote {
+    /// the host, with no sessions
+    fn host(&self, down: bool) -> Host {
+        Host {
+            label: self.name.clone(),
+            ssh_host: self.ssh_host.clone(),
+            relay: self.name.clone(),
+            down,
+            on_show: None,
+            sessions: Vec::new(),
+        }
+    }
+}
+
+/// `remote` as it answers: its sessions, and its pane on show where the
+/// frame's right pane shows its relay window; down if ssh failed. One master
+/// connection per host, so a poll is not a login
+fn poll(remote: &Remote, on_show: &OnShow) -> Host {
     let answer = Command::new("ssh")
         .args(SSH_OPTS)
         .args(["-o", "ControlMaster=auto", "-o", "ControlPersist=60"])
@@ -178,48 +219,32 @@ fn poll(remote: &Remote, relay_host: &str) -> Vec<Value> {
         .output();
     let out = match answer {
         Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).into_owned(),
-        _ => return vec![header(&remote.name, true, String::new())],
+        _ => return remote.host(true),
     };
     let (sessions, client_pane) = out.split_once('\u{1e}').unwrap_or((&out, &out));
-    let shown = if relay_host == remote.ssh_host {
-        client_pane.replace('\n', "")
-    } else {
-        String::new()
-    };
-    let mut tagged = vec![header(&remote.name, false, shown)];
+    let mut host = remote.host(false);
+    if matches!(on_show, OnShow::Relay(h) if *h == remote.ssh_host) {
+        host.on_show = Some(client_pane.replace('\n', "")).filter(|p| !p.is_empty());
+    }
     // an answer that is not all JSON shows as a host with no sessions
     if let Ok(sessions) = json::parse_stream(sessions) {
-        tagged.extend(tag(sessions, &remote.ssh_host, &remote.name));
+        host.sessions = listed(sessions);
     }
-    tagged
-}
-
-fn header(label: &str, down: bool, current: String) -> Value {
-    Value::Object(vec![
-        ("header".into(), Value::Bool(true)),
-        ("label".into(), Value::String(label.into())),
-        ("down".into(), Value::Bool(down)),
-        ("current".into(), Value::String(current)),
-    ])
+    host
 }
 
 /// a host's `sessions` as the sidebar lists them: those with a pane first,
-/// desktop app sessions left out unless one has a pane, each tagged with
-/// its ssh host and relay session
-fn tag(sessions: Vec<Value>, host: &str, relay: &str) -> Vec<Value> {
-    let mut tagged: Vec<Value> = sessions
+/// desktop app sessions left out unless one has a pane
+fn listed(sessions: Vec<Value>) -> Vec<Value> {
+    let mut listed: Vec<Value> = sessions
         .into_iter()
         .filter(|s| {
             s.get("entrypoint").as_str() != Some("claude-desktop")
                 || s.get("tmux_pane") != &Value::Null
         })
         .collect();
-    tagged.sort_by_key(|s| s.get("tmux_pane") == &Value::Null);
-    for session in &mut tagged {
-        session.set("host", Value::String(host.into()));
-        session.set("relay", Value::String(relay.into()));
-    }
-    tagged
+    listed.sort_by_key(|s| s.get("tmux_pane") == &Value::Null);
+    listed
 }
 
 #[cfg(test)]
@@ -242,7 +267,7 @@ mod tests {
     }
 
     #[test]
-    fn tags_sessions_with_a_pane_first_and_no_paneless_desktop_ones() {
+    fn lists_sessions_with_a_pane_first_and_no_paneless_desktop_ones() {
         let sessions = json::parse_stream(
             "{\"session_id\":\"a\",\"tmux_pane\":null,\"entrypoint\":\"cli\"}\
              {\"session_id\":\"b\",\"tmux_pane\":null,\"entrypoint\":\"claude-desktop\"}\
@@ -250,17 +275,11 @@ mod tests {
              {\"session_id\":\"d\",\"tmux_pane\":\"%2\",\"entrypoint\":\"cli\"}",
         )
         .unwrap();
-        let tagged: Vec<String> = tag(sessions, "h", "r")
+        let listed = listed(sessions);
+        let ids: Vec<&str> = listed
             .iter()
-            .map(Value::to_string)
+            .map(|s| s.get("session_id").as_str().unwrap_or_default())
             .collect();
-        assert_eq!(
-            tagged,
-            [
-                "{\"session_id\":\"c\",\"tmux_pane\":\"%1\",\"entrypoint\":\"claude-desktop\",\"host\":\"h\",\"relay\":\"r\"}",
-                "{\"session_id\":\"d\",\"tmux_pane\":\"%2\",\"entrypoint\":\"cli\",\"host\":\"h\",\"relay\":\"r\"}",
-                "{\"session_id\":\"a\",\"tmux_pane\":null,\"entrypoint\":\"cli\",\"host\":\"h\",\"relay\":\"r\"}",
-            ]
-        );
+        assert_eq!(ids, ["c", "d", "a"]);
     }
 }
