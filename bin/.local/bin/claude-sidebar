@@ -238,12 +238,13 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # and empty alone; the right arm stays down, as above it the ribbon
     # shares its cells
     def wait:
-      ({eyes: "centre", feet: "down", arm: 0} + .) as $p
-      | ([[6, 7], [5, 6], [4, 5], [2, 3]][$p.arm]) as $arm_rows
+      ({eyes: "centre", feet: "down", arm: 0} + .) as $step
+      | ([[6, 7], [5, 6], [4, 5], [2, 3]][$step.arm]) as $arm_rows
       | stand
-      | .[4] = {centre: "..BB..BBBB..BB22", left: "..B..BBBB..BBB22", right: "..BBB..BBBB..B22"}[$p.eyes]
-      | .[11] = {down: .[11], left: "...........B.B..", right: "..B.B..........."}[$p.feet]
-      # the left arm, at rows 6 and 7 as he stands, moved to $arm_rows
+      | .[4] = {centre: "..BB..BBBB..BB22", left: "..B..BBBB..BBB22", right: "..BBB..BBBB..B22"}[$step.eyes]
+      | .[11] = {down: .[11], left: "...........B.B..", right: "..B.B..........."}[$step.feet]
+      # the left arm, at rows 6 and 7 as he stands, moved to $arm_rows; last,
+      # as the eyes above set all of row 4
       | .[6, 7] |= ".." + .[2:]
       | .[$arm_rows[]] |= "BB" + .[2:];
     # the poses of a run, of a squat: standing a while, then down and back,
