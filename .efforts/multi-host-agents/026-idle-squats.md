@@ -3,7 +3,7 @@
 **Category:** enhancement
 **Summary:** An idle session's Clawd now and then squats, standing to down and back, at moments of his own, using 025's animation loop only while a squat plays
 **Status:** ready-for-agent
-**blocked-by:** [multi-host-agents/025-running-clawd]
+**blocked-by:** [multi-host-agents/027-bandana-one-row-lower]
 
 **Current behavior:**
 After 025, an idle Clawd stands still.
@@ -19,7 +19,9 @@ The Maintainer drew the squat in two poses. Drawn so no cell holds three
 colours, the squat is two frames, stand and down (`SQUAT_DOWN` in
 `prototype-clawd-run.py`, branch `prototype/clawd-bandana`, c7a2438): the
 halfway pose puts the bandana across a cell boundary over the eyes. A third
-frame is welcome if one can be drawn within that rule.
+frame is welcome if one can be drawn within that rule. The squat is to be
+redrawn to 027's lower bandana (head-top, bandana, eyes on whole blocks),
+which SQUAT_DOWN predates.
 
 **Key interfaces:**
 - 025's animation loop, and whatever tells it an entry is animating
