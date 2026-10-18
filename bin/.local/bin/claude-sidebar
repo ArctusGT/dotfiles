@@ -143,8 +143,8 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # eyes and arms down, redrawn 16 pixels wide and 12 tall with a bandana
     # below his head-top: B body, m the bandana, 1 2 3 its stripes, the
     # ribbon a tail at its end and a drop beside the eyes. Two rows each for
-    # head-top, bandana, arms, body and feet; the eyes one pixel, under the
-    # bandana. Drawn as octant cells 2 pixels wide and 4 tall, from rows 0, 4
+    # head-top, bandana, arms, body and feet; the eyes slits one row tall,
+    # under the bandana. Drawn as octant cells 2 pixels wide and 4 tall, from rows 0, 4
     # and 8, so keep each cell to two colours, the empty background
     # counting as one: octant draws a cell as one colour and empty, or as
     # two colours and full
@@ -153,7 +153,7 @@ format() { # $@ animation frames, counting from 0 (default 0)
       "..BBBBBBBBBBBB..",
       "..112233mmmmmm3.",
       "..112233mmmmmm3.",
-      "..BB.BBBBBB.BB22",
+      "..BB..BBBB..BB22",
       "..BBBBBBBBBBBB22",
       "BBBBBBBBBBBBBBBB",
       "BBBBBBBBBBBBBBBB",
@@ -166,8 +166,10 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # arms swept left, the stripes at the far end of the bandana. Columns 0
     # to 3 of rows 0 to 3, two octant cells, hold the ribbon streaming left,
     # ribbons[$k], each cell in one stripe colour that changes each frame.
-    # The feet step left pair down, all up, right pair down, all up. Same
-    # rule as stand: two colours to a cell, empty counting as one
+    # The eyes glance with the head, run_eyes[$k]: centre, a pixel right,
+    # centre, a pixel left. The feet step left pair down, all up, right pair
+    # down, all up. Same rule as stand: two colours to a cell, empty
+    # counting as one
     def run_body: [
       "....BBBBBBBBBBBB",
       "....BBBBBBBBBBBB",
@@ -186,9 +188,11 @@ format() { # $@ animation frames, counting from 0 (default 0)
                    [".....B.B....B.B.", "................"],
                    [".....B.B....B.B.", ".......B......B."],
                    [".....B.B....B.B.", "................"]];
+    def run_eyes: ["....BB..BBBB..BB", "....BBB..BBBB..B",
+                   "....BB..BBBB..BB", "....B..BBBB..BBB"];
     def run($k):
       [range(4) as $y | ribbons[$k][$y] + run_body[$y][4:]]
-      + run_body[4:] + run_feet[$k];
+      + [run_eyes[$k]] + run_body[5:] + run_feet[$k];
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
