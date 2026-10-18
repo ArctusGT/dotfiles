@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** An idle session with subagents running (`+N`) shows its Clawd squatting, standing to down and back, as its wait-for-subagents animation; an idle session without subagents stands still
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** [multi-host-agents/027-bandana-one-row-lower]
 
 **Current behavior:**
@@ -48,3 +48,31 @@ background counting as one, which 027's renderer draws.
 - The waiting animations (arms, stamping, blinking, eyes looking around),
   prototyped before they get a slice
 - Moving the renderer to Rust, considered once the look settles
+
+## Comments
+
+For the Maintainer, from implementation and review. Numbers are 228d432's
+(scratch copy logging fzf posts and its loops' bash `times`, 11 stubbed
+sessions, throwaway tmux server, 60 s).
+
+- The cost of 12 frames a gather, paid every second even with nothing
+  moving: loops 13.3% of a core against 10.3% before, `format` 68 ms
+  against 27 ms. About 90% of `format` is `picture`, run per entry per
+  frame although most entries draw the same picture in every frame
+  (12 frames with `picture` stubbed: 11 ms). Two ways back, not taken:
+  - render each entry's distinct pictures once and reuse them across
+    the frames, a change to `format`'s main body; a still sidebar
+    would then cost about one frame's worth, below today's
+  - or a shorter cycle: 8 frames (stand 4, crouch, down 2, crouch)
+    measured 48 ms, a squat every second rather than every 1.5 s
+- `serve` posts `reload-sync` on every tick while anything moves, so one
+  squatting session reloads fzf 8 times a second though 8 of its 12
+  frames are the same standing pose (471 posts a minute). `draw` already
+  compares frames, and could mark which ones repeat the last for `serve`
+  to skip.
+- "the eyes narrow to slits" traces to the prototype, where the standing
+  eyes were two rows and the squat's one. 027 made the standing eyes
+  one-row slits, so the squat's eyes match them and only move down.
+- The crouch (feet one row shorter) is the Agent's halfway pose: a
+  halfway with the head one row down puts the empty row, head-top and
+  bandana in one cell row.
