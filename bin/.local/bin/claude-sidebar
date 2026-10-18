@@ -231,34 +231,32 @@ format() { # $@ animation frames, counting from 0 (default 0)
       "..BBBBBBBBBBBB..",
       "..B.B......B.B.."
     ];
-    # Clawd waiting: standing, the eye slits $eyes (centre, or a pixel left
-    # or right), $feet (down, or the left or right pair lifted a row) and
-    # the left arm at $arm: 0 down, 1 half up, 2 up beside the eyes, 3 high
-    # beside the bandana. Each moves within cells of body and empty alone;
-    # the right arm stays down, as above it the ribbon shares its cells
-    def wait($eyes; $feet; $arm):
-      ([[6, 7], [5, 6], [4, 5], [2, 3]][$arm]) as $arm_rows
+    # Clawd waiting: standing, with what . changes from that: eyes, the
+    # slits centre or a pixel left or right; feet, down or the left or right
+    # pair lifted a row; arm, the left one 0 down, 1 half up, 2 up beside
+    # the eyes, 3 high beside the bandana. Each moves within cells of body
+    # and empty alone; the right arm stays down, as above it the ribbon
+    # shares its cells
+    def wait:
+      ({eyes: "centre", feet: "down", arm: 0} + .) as $p
+      | ([[6, 7], [5, 6], [4, 5], [2, 3]][$p.arm]) as $arm_rows
       | stand
-      | .[4] = {centre: "..BB..BBBB..BB22", left: "..B..BBBB..BBB22", right: "..BBB..BBBB..B22"}[$eyes]
-      | .[11] = {down: .[11], left: "...........B.B..", right: "..B.B..........."}[$feet]
-      | [to_entries[] | .key as $y
-         | if $y >= 2 and $y <= 7
-           then (if $y | IN($arm_rows[]) then "BB" else ".." end) + .value[2:]
-           else .value end];
+      | .[4] = {centre: "..BB..BBBB..BB22", left: "..B..BBBB..BBB22", right: "..BBB..BBBB..B22"}[$p.eyes]
+      | .[11] = {down: .[11], left: "...........B.B..", right: "..B.B..........."}[$p.feet]
+      # columns 0 and 1 of rows 2 to 7 hold the arm
+      | reduce range(2; 8) as $y (.; .[$y] |= (if $y | IN($arm_rows[]) then "BB" else ".." end) + .[2:]);
     # the poses of a run, of a squat: standing a while, then down and back,
     # and of a wait, 6 s at 8 frames a second: looking left and right, a
-    # stamp, a wave, then standing. Each wait pose with its count of frames
+    # stamp, a wave, then standing. Each wait step held n frames, 1 if not
+    # given; the steps add up to 48
     def running: [range(4) as $k | run($k)];
     def squatting: [range(8) | stand] + [crouch, squat, squat, crouch];
     def waiting:
-      [[[4, "centre", "down", 0], [6, "left", "down", 0], [2, "centre", "down", 0],
-        [6, "right", "down", 0], [2, "centre", "down", 0], [1, "centre", "left", 0],
-        [2, "centre", "down", 0], [1, "centre", "right", 0], [6, "centre", "down", 0],
-        [1, "centre", "down", 1], [1, "centre", "down", 2], [1, "centre", "down", 3],
-        [1, "centre", "down", 2], [1, "centre", "down", 3], [1, "centre", "down", 2],
-        [1, "centre", "down", 3], [1, "centre", "down", 2], [1, "centre", "down", 1],
-        [9, "centre", "down", 0]][] as [$n, $eyes, $feet, $arm]
-       | wait($eyes; $feet; $arm) as $pose | range($n) | $pose];
+      [[{n: 4}, {n: 6, eyes: "left"}, {n: 2}, {n: 6, eyes: "right"}, {n: 2},
+        {feet: "left"}, {n: 2}, {feet: "right"}, {n: 6},
+        {arm: 1}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 1},
+        {n: 9}][]
+       | wait as $pose | range(.n // 1) | $pose];
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits

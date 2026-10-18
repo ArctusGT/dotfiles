@@ -81,4 +81,4 @@ with the sidebar stopped. Main is 207dbb4's parent.
 - 48 frames cost `format` almost nothing over 12: each distinct pose is
   drawn once and the frames repeat it, so 12 and 48 frames time within a
   few ms of each other in every fixture. The waiting fixture's extra
-  22 ms is its 10 distinct poses.
+  22 ms is its 8 distinct poses.
