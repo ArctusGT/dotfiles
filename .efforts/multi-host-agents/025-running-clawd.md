@@ -78,3 +78,32 @@ server, 60 s.
   before a jump shows; up to 325 ms while a session works, since a gather
   then waits for the next tick. A second fifo, opened read-write by
   `kick` so a stale one cannot hang a tmux hook, would end the polling.
+
+---
+
+2026-10-18: after the Maintainer's look in the frame (cursor lag, and a
+jump-back after Cmd+Up/Down), 8f75ee4 took the first note above and the
+kick fifo from the second: frames are drawn once a gather, and a gather a
+kick overtook no longer moves the cursor. Numbers and the race probe are
+in its message; the idle sidebar is back to 11.5% of a core against 11.3%
+before 025.
+
+For 026: the frames are one cycle shared by every entry, `frame_count`
+files a gather, with a session's pose picked from the frame number. Idle
+squats, a 15-frame cycle per session with its own phase in the prototype,
+would need `frame_count` raised to the longest cycle (or a common multiple
+of the cycles) and a per-session offset into it, so a gather would format
+that many frames: on 11 stubbed sessions one jq run takes 20 ms for 1
+frame, 46 ms for 4 and 131 ms for 15 (`format` timed 20 times each), so 15
+frames would cost about 13% of a core at one gather a second. "Something
+moves" as rows.0 against rows.1 would also miss a squat that starts later
+in the cycle; comparing rows.0 with each other frame, or the files' count
+of distinct sums, would cover it.
+
+What the moved mark leaves open: a jump whose `switch-client` lands after
+a gather read the session on show, but whose kick arrives only after that
+gather finished, still gets one `pos()` for the old entry; the kick's own
+gather puts it back within a gather. Closing it would take a jump sequence
+`serve` compares when it posts, rather than a mark from `gathering`. A
+host's jump now kicks only once its ssh has moved the client there, which
+no probe here exercises: it needs an ssh-tmux host.

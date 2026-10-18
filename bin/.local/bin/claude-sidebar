@@ -3,11 +3,11 @@
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
 # Two background loops keep the list in a cache: one gathers it every second,
-# so fzf never waits on a host, and one redraws it, 8 times a second while a
-# session works, so its Clawd runs. `tmux-frame` runs it as the frame's left
-# pane: a jump moves the frame's right pane, and fzf's cursor follows the
-# session on show there however it changed. Run elsewhere, a jump moves the
-# usual tmux's most recent client.
+# or at once on a kick, so fzf never waits on a host, and draws its frames;
+# the other shows them in fzf, 8 a second while a Clawd runs. `tmux-frame`
+# runs it as the frame's left pane: a jump moves the frame's right pane, and
+# fzf's cursor follows the session on show there however it changed. Run
+# elsewhere, a jump moves the usual tmux's most recent client.
 # Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the background loops'
 # errors in ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the list.
 #   rows              print the list once, as fzf reads it
@@ -237,13 +237,13 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # the colour for $state: working orange, waiting yellow, idle grey,
     # the only states claude-session-state writes. Working, he runs, in
     # the run frame for animation frame $frame; otherwise he stands. `serve`
-    # ticks only while a session is working, so a pose for another state
-    # that moves needs it there too
+    # ticks while frame 0 and frame 1 differ, so a pose that moves changes
+    # by frame 1 and repeats within frame_count frames
     def picture($state; $id; $frame):
       (bandana($id) as [$main, $s1, $s2, $s3]
         | {B: {working: orange, waiting: yellow, idle: dark5}[$state],
            m: $main, "1": $s1, "2": $s2, "3": $s3}) as $palette
-      | (if $state == "working" then run($frame % 4) else stand end
+      | (if $state == "working" then run($frame) else stand end
          | map(split("") | map($palette[.]))) as $pixels
       | [range(3) as $line
           | [range(8) as $cell
@@ -389,17 +389,23 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
     [[ -n $window ]] || { tmux display-message "open $relay first (prefix f)"; return; }
     work switch-client "${client[@]}" -t "$window" \; select-window -t "$window"
     # the host's client from the Mac moves, in the background, so a slow link
-    # does not hold up the caller, which for a click is fzf itself
-    ssh "${ssh_opts[@]}" "$host" "
+    # does not hold up the caller, which for a click is fzf itself. The kick
+    # waits for it, or the gather it brings could see the host's old session
+    # on show and take the cursor back
+    {
+      ssh "${ssh_opts[@]}" "$host" "
       client=\$($relay_client -F '#{client_name}' | head -1)
       [ -n \"\$client\" ] || exit
       pane='$pane'
       [ -n \"\$pane\" ] || pane=\$(claude-sidebar attach '$id') || exit
-      tmux switch-client -c \"\$client\" -t \"\$pane\" \\; select-window -t \"\$pane\" \\; select-pane -t \"\$pane\"" \
-      </dev/null >/dev/null 2>&1 &
+      tmux switch-client -c \"\$client\" -t \"\$pane\" \\; select-window -t \"\$pane\" \\; select-pane -t \"\$pane\""
+      kick
+    } </dev/null >/dev/null 2>&1 &
   fi
   [[ -n $main ]] && tmux select-pane -t "${main%% *}"
-  kick # rebuild now, so the list shows the move
+  # rebuild now, so the list shows the move; a host's jump kicks above, once
+  # its client there has moved
+  [[ -n $host ]] || kick
 }
 
 # wake a running sidebar's gathering through the fifo $cache/kick, opened
@@ -563,7 +569,7 @@ await_gather() {
 # the rows on show changed, and its cursor moves only when the right pane's
 # session did, so it is not taken from an entry being browsed to
 serve() {
-  local frame=0 animating=false check_shown=false note sum last_sum="" shown last_shown=""
+  local frame=0 animating=false check_shown=false fzf_has_rows note sum last_sum="" shown last_shown=""
   # ticks kept to a schedule, so a slow reload does not slow the frame rate
   local tick_us=125000 next_tick_us gathered
   # read and write, so the fifo always has a reader and a writer, and `read`
@@ -582,14 +588,19 @@ serve() {
       if [[ $animating == false ]]; then
         sum=$(perl -0pe 's/^((?:[^\t]*\t){5})[^\t]*/$1/' "$cache/rows.$frame" | cksum)
         [[ $sum != "$last_sum" ]] && fzf_do "reload-sync(cat '$cache/rows.$frame')" && last_sum=$sum
+        fzf_has_rows=true
+      else
+        fzf_has_rows=false
       fi
     else
       # a tick: the next frame, which differs from the last
       frame=$(((frame + 1) % frame_count))
       fzf_do "reload-sync(cat '$cache/rows.$frame')"
       last_sum=""
+      fzf_has_rows=true
     fi
-    if [[ $check_shown == true ]]; then
+    # the cursor moves once fzf has the rows its position is counted in
+    if [[ $check_shown == true && $fzf_has_rows == true ]]; then
       check_shown=false
       shown=$(position 6 1)
       if [[ -n $shown && $shown != "$last_shown" ]]; then
