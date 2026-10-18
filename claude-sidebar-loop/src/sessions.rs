@@ -2,6 +2,14 @@
 //! which stays the reference and the remote hosts' source: the same
 //! sessions, the same left out, the same pane for each, and the same JSON
 //! for each, field for field. Change one, change both.
+//!
+//! They part only over files the hooks never write, where `claude-sessions`'
+//! jq fails and this reads on: an unparsable context file, a state with no
+//! `session_id`, or a state that is no object, where the jq prints nothing
+//! or stops checking the files after it, are each passed over here. A state
+//! file holding several JSON values is listed once per value here, and
+//! more often by the jq. State files are taken in byte order, where bash
+//! collates: the two agree on the UUIDs they are named for.
 
 use crate::gather;
 use crate::json::{self, Value};
