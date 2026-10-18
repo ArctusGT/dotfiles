@@ -40,11 +40,11 @@ that put process spawns, not the jq render, at most of its cost.
 - `--help` keeps answering as today
 
 **Acceptance criteria:**
-- [ ] On the Mac and on mgmt-1, today's and the new `claude-sessions`
+- [x] On the Mac and on mgmt-1, today's and the new `claude-sessions`
       print identical output over the same inputs, by a script that runs
       both against copies of the state directory, including a dead
       session, a spare and a background job
-- [ ] A dead session's state, context and agents files are removed, as
+- [x] A dead session's state, context and agents files are removed, as
       today
 - [ ] CPU a call measured before and after on the Mac with 7 or more
       sessions, by bash `time` over 50 calls, and stated in the closing
