@@ -38,32 +38,34 @@ records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
   jq -sc 'map({(.sessionId): {name, spare, kind, jobId, pid}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
 
-state_files=() sids=()
+state_files=()
 for state_file in "$dir"/*.json; do
-  [[ $state_file == *.context.json ]] && continue
-  state_files+=("$state_file")
-  sid=${state_file##*/} sids+=("${sid%.json}")
+  [[ $state_file == *.context.json ]] || state_files+=("$state_file")
 done
 ((${#state_files[@]})) || exit 0
 
-# each session's pid, a line apiece and empty for none: the record's where
-# there are records, since a background job's hooks run under the `claude
-# daemon`, so its state file can hold the daemon's pid, which outlives the
-# job. A session missing from the records has ended. Without records, a
-# state file jq cannot read ends the list, and it and the rest are skipped
-if [[ $records != '{}' ]]; then
-  mapfile -t pids < <(jq -rn --argjson records "$records" \
-    '$ARGS.positional[] | $records[.].pid // ""' --args "${sids[@]}")
-else
-  mapfile -t pids < <(jq -r '.pid // ""' "${state_files[@]}" 2>/dev/null)
-fi
+# each session's id and pid, a tab-separated line apiece, the pid empty for
+# none: the record's where there are records, since a background job's hooks
+# run under the `claude daemon`, so its state file can hold the daemon's
+# pid, which outlives the job. A session missing from the records has ended.
+# Without records, a state file jq cannot read gets no line, nor do the ones
+# after it, and a session with no line is skipped
+session_pids() {
+  if [[ $records != '{}' ]]; then
+    jq -rn --argjson records "$records" '$ARGS.positional[] | sub(".*/"; "") | sub("\\.json$"; "")
+      | [., ($records[.].pid // "")] | @tsv' --args "${state_files[@]}"
+  else
+    jq -r '[(input_filename | sub(".*/"; "") | sub("\\.json$"; "")), .pid // ""] | @tsv' \
+      "${state_files[@]}" 2>/dev/null
+  fi
+}
 
 # the live sessions' state and context files, for the one pass below, and
-# {session id: running subagents}; a dead session's files are removed
-live_files=() subagents=
-for i in "${!state_files[@]}"; do
-  [[ -v pids[i] ]] || continue
-  state_file=${state_files[i]} sid=${sids[i]} pid=${pids[i]}
+# each one's id and count of running subagents; a dead session's files are
+# removed
+live_files=() subagents=()
+while IFS=$'\t' read -r sid pid; do
+  state_file=$dir/$sid.json
   if [[ -z $pid ]] || ! kill -0 "$pid" 2>/dev/null; then
     rm -rf "$state_file" "$dir/$sid.context.json" "$dir/$sid.agents"
     continue
@@ -71,14 +73,17 @@ for i in "${!state_files[@]}"; do
   live_files+=("$state_file")
   [[ -f $dir/$sid.context.json ]] && live_files+=("$dir/$sid.context.json")
   agents=("$dir/$sid.agents"/*)
-  subagents+="${subagents:+,}\"$sid\":${#agents[@]}"
-done
+  subagents+=("$sid" "${#agents[@]}")
+done < <(session_pids)
 ((${#live_files[@]})) || exit 0
 
-jq -nc --argjson panes "$panes" --argjson records "$records" --argjson subagents "{$subagents}" '
+jq -nc --argjson panes "$panes" --argjson records "$records" '
+  # {session id: running subagents}, from the id and count pairs after --args
+  ($ARGS.positional as $pairs
+   | reduce range(0; $pairs | length; 2) as $i ({}; .[$pairs[$i]] = ($pairs[$i + 1] | tonumber))) as $subagents
   # the state files in order, each with its session id from its name, and
   # {session id: context} from the context files among them
-  (reduce inputs as $doc ({states: [], contexts: {}};
+  | (reduce inputs as $doc ({states: [], contexts: {}};
      (input_filename | sub(".*/"; "")) as $file
      | if $file | endswith(".context.json")
        then .contexts[$file | sub("\\.context\\.json$"; "")] = $doc
@@ -122,4 +127,4 @@ jq -nc --argjson panes "$panes" --argjson records "$records" --argjson subagents
   | select($records[$s].kind != "interactive" or ($shows[.tmux_pane // ""] // $s) == $s)
   # the first pane showing it, its recorded one first; null when none does
   | .tmux_pane = ([.tmux_pane, $panes[].id] | map(select(. != null and $shows[.] == $s)) | .[0])' \
-  "${live_files[@]}"
+  "${live_files[@]}" --args "${subagents[@]}"
