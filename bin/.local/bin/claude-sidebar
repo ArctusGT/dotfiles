@@ -43,8 +43,8 @@ sesh_config=${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ServerAliveInterval=2
   -o ServerAliveCountMax=2 -o ControlPath=/tmp/claude-sidebar-%C)
 cache=${TMPDIR:-/tmp}/claude-sidebar
-# the frames of an animation cycle: a squat, as `squat_cycle` in format
-# draws it, and three runs of four
+# the frames a gather draws: every animation in format loops within them, as
+# each one's length divides it (a squat 12, a run 4)
 frame_count=12
 # a host's one client from the Mac, which runs inside the Mac's tmux (tmux*
 # term), as a command run on the host; add -F
@@ -218,12 +218,6 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # head cannot drop one row alone, as the top cell row would hold the
     # empty row, the head-top and the bandana
     def crouch: stand[:10] + ["..BBBBBBBBBBBB..", "..B.B......B.B.."];
-    # the squat, a pose a frame: s stand, c crouch, d down. As long as
-    # frame_count, or a divisor of it, so it loops without a jump
-    def squat_cycle: "sssssssscddc";
-    def squat_pose($k):
-      squat_cycle[$k % (squat_cycle | length):][:1]
-      | if . == "d" then squat elif . == "c" then crouch else stand end;
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
@@ -298,22 +292,26 @@ format() { # $@ animation frames, counting from 0 (default 0)
         elif $faint then
           "\u001b[22m" + paint($ink | faded; $background | faded) + "\u001b[2m"
         else paint($ink; $background) end;
+    # the poses session $r cycles through, a pose a frame, and its phase
+    # into them. Working, he runs; idle with subagents running, he squats,
+    # standing a while then down and back, each session at its own phase
+    # from its id; otherwise he stands
+    def animation($r):
+      if $r.state == "working" then {poses: [range(4) as $k | run($k)], phase: 0}
+      elif $r.state == "idle" and $r.subagents > 0 then
+        {poses: [range(8) | stand] + [crouch, squat, squat, crouch],
+         phase: ($r.session_id | djb)}
+      else {poses: [stand], phase: 0} end;
     # Clawd for session $r, wearing its bandana, as three lines, his body in
     # the colour for its state: working orange, waiting yellow, idle grey,
-    # the only states claude-session-state writes. Working, he runs, in the
-    # run frame for animation frame $frame; idle with subagents running, he
-    # squats, each session at its own phase of the cycle, from its id;
-    # otherwise he stands. `serve` ticks while any frame differs from frame
-    # 0, so a pose that moves repeats within frame_count frames. $faint as
-    # in octant
+    # the only states claude-session-state writes. In the pose of its
+    # animation for frame $frame. `serve` ticks while any frame differs from
+    # frame 0. $faint as in octant
     def picture($r; $frame; $faint):
       (bandana($r.session_id) as [$main, $s1, $s2, $s3]
         | {B: {working: orange, waiting: yellow, idle: dark5}[$r.state],
            m: $main, "1": $s1, "2": $s2, "3": $s3}) as $palette
-      | (if $r.state == "working" then run($frame % 4)
-         elif $r.state == "idle" and $r.subagents > 0
-         then squat_pose($frame + ($r.session_id | djb))
-         else stand end
+      | (animation($r) | .poses[(.phase + $frame) % (.poses | length)]
          | map(split("") | map($palette[.]))) as $pixels
       | [range(3) as $line
           | [range(8) as $cell
@@ -689,7 +687,7 @@ serve() {
         fzf_has_rows=false
       fi
     else
-      # a tick: the next frame, which differs from the last
+      # a tick: the next frame
       frame=$(((frame + 1) % frame_count))
       fzf_do "reload-sync(cat '$cache/rows.$frame')"
       last_sum=""
