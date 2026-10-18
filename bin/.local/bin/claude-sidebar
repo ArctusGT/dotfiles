@@ -4,7 +4,8 @@
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
 # Two background loops keep the list in a cache: one gathers it every second,
 # or at once on a kick, so fzf never waits on a host, and draws its frames;
-# the other shows them in fzf, 8 a second while a Clawd moves. `tmux-frame`
+# the other, `claude-sidebar-loop`, built from the repo's crate of that name,
+# shows them in fzf, 8 a second while a Clawd moves. `tmux-frame`
 # runs it as the frame's left pane: a jump moves the frame's right pane, and
 # fzf's cursor follows the session on show there however it changed. Run
 # elsewhere, a jump moves the usual tmux's most recent client.
@@ -507,9 +508,9 @@ attach() { # $1 session id
 # a jump moving the right pane's client: $cache/moving.<pid> before it moves;
 # once it has (on a host, once its ssh is back), a new value in
 # $cache/jumped, written whole, and only then the mark goes. A gather keeps
-# the value it began with, and `serve` takes the cursor to the session on
-# show only if that value still stands and no jump is moving, however slow
-# the host
+# the value it began with, and claude-sidebar-loop takes the cursor to the
+# session on show only if that value still stands and no jump is moving,
+# however slow the host
 moving() { [[ -d $cache ]] && : >"$cache/moving.$$"; return 0; }
 moved() {
   [[ -d $cache ]] || return 0
@@ -646,8 +647,8 @@ gather() { collect >"$cache/tagged.new" && mv "$cache/tagged.new" "$cache/tagged
 # `step` and `position` read rows.0 too. Every frame has the same items, so
 # the output splits into equal parts. $cache/repeats holds, for each frame,
 # 1 if it is the same as the frame before it (rows.0 after the last), else
-# 0, so `serve` knows whether a Clawd moves, and which ticks change nothing,
-# without reading the rows
+# 0, so claude-sidebar-loop knows whether a Clawd moves, and which ticks
+# change nothing, without reading the rows
 draw() {
   local frames=()
   for ((k = 0; k < frame_count; k++)); do frames+=("$k"); done
@@ -675,10 +676,10 @@ drained() {
 }
 
 # gather and draw every second, or as soon as a kick comes through the fifo
-# $cache/kick, then wake `serve` with a line to the fifo $cache/gathered: the
-# value $cache/jumped had when the gather began, then "moved" when a kick came
-# during it, so what it saw on show in the frame may already be gone, and
-# gather again at once
+# $cache/kick, then wake claude-sidebar-loop with a line to the fifo
+# $cache/gathered: the value $cache/jumped had when the gather began, then
+# "moved" when a kick came during it, so what it saw on show in the frame may
+# already be gone, and gather again at once
 gathering() {
   local kicks since
   exec {kicks}<>"$cache/kick"
@@ -692,95 +693,6 @@ gathering() {
     fi
     echo "$since" >"$cache/gathered"
     read -r -t 1 -u "$kicks"
-  done
-}
-
-# wait for `serve`, reading and moving its locals: for the next gather on fd
-# $gathered, its line in $gathered_line, or, while a Clawd is $animating,
-# for that or the tick at $next_tick_us, then moving it on by $tick_us.
-# Succeeds if a gather came, fails at a tick. The waits are read timeouts,
-# with no sleep to fork; a read that times out still sets its variable, so
-# the line goes to $gathered_line only once read
-await_gather() {
-  # times in microseconds: EPOCHREALTIME without its decimal separator, a
-  # point or a comma by locale
-  local now delay line
-  if [[ $animating != true ]]; then
-    read -r -u "$gathered" line || return
-    gathered_line=$line
-    next_tick_us=$((${EPOCHREALTIME/[.,]/} + tick_us))
-    return 0
-  fi
-  delay=$((next_tick_us - ${EPOCHREALTIME/[.,]/}))
-  if ((delay > 0)); then
-    printf -v delay '0.%06d' "$delay"
-    read -r -t "$delay" -u "$gathered" line && gathered_line=$line && return 0
-  fi
-  now=${EPOCHREALTIME/[.,]/}
-  next_tick_us=$((next_tick_us + tick_us))
-  # behind: drop the missed ticks
-  ((next_tick_us > now)) || next_tick_us=$((now + tick_us))
-  return 1
-}
-
-# show the frames `gathering` draws: after each gather the same frame of the
-# new rows, and at every tick, 8 a second, the next frame while one differs
-# from another, so a Clawd moves; with none moving it sleeps until the
-# next gather, so the rows change no more than once a second. fzf reloads only
-# when the rows on show changed: with none moving, by their sum; with one, at
-# a tick, unless the frame repeats the one before it and fzf already has this
-# gather's rows. Its cursor moves only when the right pane's session did, so
-# it is not taken from an entry being browsed to
-serve() {
-  local frame=0 animating=false check_shown=false fzf_has_rows gathered_line since jumped sum last_sum="" shown last_shown="" repeats
-  # ticks kept to a schedule, so a slow reload does not slow the frame rate
-  local tick_us=125000 next_tick_us gathered
-  # read and write, so the fifo always has a reader and a writer, and `read`
-  # waits for a line rather than seeing end of file
-  exec {gathered}<>"$cache/gathered"
-  while :; do
-    if await_gather; then
-      # whether anything moves is whatever `picture` draws differently: a
-      # frame not repeating the one before it
-      read -ra repeats <"$cache/repeats"
-      if [[ " ${repeats[*]} " == *" 0 "* ]]; then animating=true; else animating=false; fi
-      # the value $cache/jumped had when the gather began. A gather a kick
-      # overtook may have seen the session on show before a jump, and would
-      # take the cursor back from where the jump put it
-      since=${gathered_line%% *}
-      if [[ $gathered_line == *" moved" ]]; then check_shown=false; else check_shown=true; fi
-      # with none moving, the new rows if they changed; with one, the next
-      # tick shows them, so the frames stay evenly spaced. The sum is without
-      # field 6, the session on show, which moves the cursor, not the rows
-      if [[ $animating == false ]]; then
-        sum=$(perl -0pe 's/^((?:[^\t]*\t){5})[^\t]*/$1/' "$cache/rows.$frame" | cksum)
-        [[ $sum != "$last_sum" ]] && fzf_do "reload-sync(cat '$cache/rows.$frame')" && last_sum=$sum
-        fzf_has_rows=true
-      else
-        fzf_has_rows=false
-      fi
-    else
-      # a tick: the next frame, if it changes what fzf shows
-      frame=$(((frame + 1) % frame_count))
-      if [[ $fzf_has_rows == false || ${repeats[frame]} == 0 ]]; then
-        fzf_do "reload-sync(cat '$cache/rows.$frame')"
-      fi
-      last_sum=""
-      fzf_has_rows=true
-    fi
-    # the cursor moves once fzf has the rows its position is counted in, and
-    # not for a gather a jump came after, or while one moves: checked last,
-    # just before the post, so a pick cannot land in between
-    if [[ $check_shown == true && $fzf_has_rows == true ]]; then
-      check_shown=false
-      shown=$(position 6 1)
-      if [[ -n $shown && $shown != "$last_shown" ]]; then
-        read -r jumped <"$cache/jumped"
-        if [[ $jumped == "$since" ]] && ! compgen -G "$cache/moving.*" >/dev/null; then
-          fzf_do "pos($shown)" && last_shown=$shown
-        fi
-      fi
-    fi
   done
 }
 
@@ -811,7 +723,7 @@ case $1 in
     # errors to a log: written to the pane, they stay over fzf until it redraws
     gathering 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
     loops=$!
-    serve 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
+    claude-sidebar-loop "$cache" 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
     loops+=" $!"
     trap 'kill $loops 2>/dev/null; rm -rf "$cache"' EXIT
     # no --track: it holds back cursor moves while it finds the item again

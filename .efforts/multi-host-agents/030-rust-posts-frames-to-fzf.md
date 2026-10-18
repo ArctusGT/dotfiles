@@ -42,10 +42,10 @@ most of its CPU in process spawns.
 **Acceptance criteria:**
 - [x] The build command builds and installs the binary on the Mac and on
       mgmt-1 from a clean checkout
-- [ ] With nothing moving, `reload-sync` posts no more often than once a
+- [x] With nothing moving, `reload-sync` posts no more often than once a
       second; with a Clawd moving, at 8 a second with no tick skipped
       for a slow post, as today
-- [ ] The cursor follows a jump in the frame as today, and does not jump
+- [x] The cursor follows a jump in the frame as today, and does not jump
       back to an entry being browsed to
 - [ ] The live loops' CPU measured before and after by the stage
       profile, 60 s, nothing moving and one working; the post stage
