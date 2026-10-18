@@ -142,10 +142,10 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # Clawd standing, as Claude Code 2.1.292 draws him in its banner, open
     # eyes and arms down, redrawn 16 pixels wide and 12 tall with a bandana
     # below his head-top: B body, m the bandana, 1 2 3 its stripes, the
-    # ribbon a tail at its end and a drop beside the eyes. Every feature
-    # takes two rows, head-top, bandana, eyes, arms, body, feet. Drawn as
-    # octant cells 2 pixels wide and 4 tall, from rows 0, 4 and 8, so keep
-    # each cell to two colours, the empty background counting as one: octant
+    # ribbon a tail at its end and a drop beside the eyes. Two rows each for
+    # head-top, bandana, arms, body and feet; the eyes one pixel, under the
+    # bandana. Drawn as octant cells 2 pixels wide and 4 tall, from rows 0, 4
+    # and 8, so keep each cell to two colours, the empty background counting as one: octant
     # draws a cell as one colour and empty, or as two colours and full
     def stand: [
       "..BBBBBBBBBBBB..",
@@ -153,7 +153,7 @@ format() { # $@ animation frames, counting from 0 (default 0)
       "..112233mmmmmm3.",
       "..112233mmmmmm3.",
       "..BB.BBBBBB.BB22",
-      "..BB.BBBBBB.BB22",
+      "..BBBBBBBBBBBB22",
       "BBBBBBBBBBBBBBBB",
       "BBBBBBBBBBBBBBBB",
       "..BBBBBBBBBBBB..",
