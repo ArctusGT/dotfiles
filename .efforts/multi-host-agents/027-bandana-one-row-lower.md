@@ -22,7 +22,10 @@ the left, in one colour a frame.
   changing each frame
 - Every frame keeps each 2x4 cell to two colours at most, the background
   counting as one
-- Nothing else changes: colours, the animation loop, the entry's four lines
+- A cell lit in two colours is drawn as the prototype draws it: one as the
+  glyph's colour, the other as the cell's background colour
+- Nothing else changes: the colours a session wears, the animation loop,
+  the entry's four lines
 
 The frames are `LOW_STAND`, `LOW_RUN`, `RIBBON_L`, `RIBBON_R`,
 `RIBBON_COLOURS` and `LOW_FEET` in `prototype-clawd-low.py` on the branch
@@ -30,8 +33,8 @@ The frames are `LOW_STAND`, `LOW_RUN`, `RIBBON_L`, `RIBBON_R`,
 own mock trimmed to 12 rows is the same standing frame pixel for pixel.
 
 **Key interfaces:**
-- `claude-sidebar`'s jq frame defs (`stand`, `run` and its parts) and
-  `picture`
+- `claude-sidebar`'s jq frame defs (`stand`, `run` and its parts),
+  `octant` and `picture`
 
 **Acceptance criteria:**
 - [x] The standing and the four run frames match the prototype's, row for
@@ -41,35 +44,36 @@ own mock trimmed to 12 rows is the same standing frame pixel for pixel.
 
 **Out of scope:**
 - The squat (026), redrawn to this head on its own slice
-- Any change to the animation loop or the colours
+- Any change to the animation loop or to the colours a session wears
 
 ## Comments
 
-**Structural review: the bandana does not show in the sidebar.** The
-frames match the prototype row for row, but the two renderers differ.
-The prototype's `render` draws a fully lit two-colour cell with a
-foreground and a background colour. claude-sidebar's `octant` lights
-every lit pixel in one foreground, the colour of the first lit pixel,
-with no background. Every feature now takes two rows, so the head-top
-and the bandana share cell row 0, and the bandana's cells come out as
-solid body-colour blocks, standing and running. Only the ribbon cells
-keep their colour. A cell probe over the jq defs (`stand`, cell row 0:
-`1B>B 2B>B 3B>B Bm>B Bm>B Bm>B`, letters then the colour painted)
-shows it.
+**How `octant` draws a cell.** The prototype's renderer draws a cell lit
+in two colours with a foreground and a background colour, and these
+frames need that: the head-top and the bandana share each cell of the top
+row. The Maintainer chose to teach `octant` the same. A cell lit in two
+colours draws its first lit pixel's colour as the glyph and the other as
+the cell's background, then resets the background at the end of the cell.
+A cell in one colour draws as before.
 
-Criterion 2's rule ("two colours, the background counting as one")
-comes from the prototype's renderer, not from `octant`. The rule
-`octant` needs is the one the comment above `stand` states: one colour
-a cell besides the background. The old frames met it because the rows
-above the bandana were empty, and these frames cannot meet it.
+What remains for the Maintainer to see by eye, beside criterion 3:
 
-The Maintainer decides:
-- **`octant` paints a second colour as the background** (`48;2;…` or
-  `4x`/`10x`), the way the prototype does. This changes the renderer
-  that "nothing else changes" holds fixed, and puts background SGR into
-  fzf rows. How that looks on the cursor line and under the dim for
-  background entries is untested.
-- **or the frames change** to one colour a cell, which is a different
-  design from the one chosen.
+- **The cursor line.** fzf draws its highlight (`bg+`, the background of
+  the line under the cursor) again after each cell, so it carries on for
+  the ribbon tail and the text. The bandana cells are full, so they keep
+  their own colours, and fzf keeps its bold across them. Method: fzf
+  0.74.5 with the sidebar's flags, on rows formatted from a live collect,
+  in a `tmux -L` server, captured with `capture-pane -e` with the cursor
+  on a working entry and then on a dimmed one.
+- **Dimmed entries.** A background entry is dimmed with SGR 2 (Select
+  Graphic Rendition 2, faint), which Ghostty applies to the text colour
+  only (`faint-opacity`, "the opacity level of the faint text", 0.5). A
+  dimmed cell with a background therefore turns faint off and draws both
+  colours halfway to the terminal background, the shade faint text takes.
+  `faded` holds Ghostty's TokyoNight Night shades for the palette colours
+  and its background, #1a1b26.
 
-The method, documentation and code reviews wait on this choice.
+**Open for the Maintainer**: the dim could instead fade the whole palette
+in `picture` and drop SGR 2 from the picture. That keeps it in one place
+rather than two, but one-colour cells would then follow `faded`'s table
+rather than the terminal's own faint.
