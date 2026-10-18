@@ -100,8 +100,8 @@ This creates symlinks like:
 - `~/.config/nvim -> ~/dotfiles/nvim/.config/nvim`
 - `~/.local/bin/espidf-index -> ~/dotfiles/bin/.local/bin/espidf-index`
 
-The sidebar's loop, `claude-sidebar-loop`, which renders the sidebar's
-frames and shows them, is a Rust binary built from the crate in
+The sidebar's loop, `claude-sidebar-loop`, which gathers the sidebar's
+sessions, renders its frames and shows them, is a Rust binary built from the crate in
 `claude-sidebar-loop/` rather than stowed. Build it and install it
 into `~/.local/bin`, beside the sidebar, and again whenever the crate changes:
 
@@ -163,7 +163,8 @@ the percentage at its end, and all grey before the session reports any. At or
 past `CLAUDE_CTX_WARN` percent (default 50) the filled part and percentage turn
 red, the cue to hand off and clear. A host that does not answer shows
 `unreachable` beside its heading. The list comes from `claude-sessions` on each
-host, rebuilt every second, and at once when a tmux client changes session or
+remote host, and from the same session files read in-process on the Mac,
+rebuilt every second, and at once when a tmux client changes session or
 window, over one shared ssh connection per host.
 
 | key | does |

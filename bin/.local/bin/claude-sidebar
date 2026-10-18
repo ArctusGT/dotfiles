@@ -2,14 +2,14 @@
 # claude-sidebar [rows|pick N|kick|edge|jump|attach]: list every Claude session on this host and
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
-# Two background loops keep the list in a cache: one gathers it every second,
-# or at once on a kick, so fzf never waits on a host; the other,
-# `claude-sidebar-loop`, built from the repo's crate of that name, renders its
-# frames and shows them in fzf, 8 a second while a Clawd moves. `tmux-frame`
+# A background loop, `claude-sidebar-loop`, built from the repo's crate of
+# that name, keeps the list in a cache: it gathers it every second, or at once
+# on a kick, so fzf never waits on a host, renders its frames and shows them
+# in fzf, 8 a second while a Clawd moves. `tmux-frame`
 # runs the sidebar as the frame's left pane: a jump moves the frame's right
 # pane, and fzf's cursor follows the session on show there however it changed.
 # Run elsewhere, a jump moves the usual tmux's most recent client.
-# Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the background loops'
+# Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the background loop's
 # errors in ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the list.
 #   rows              print the list once, as fzf reads it
 #   pick N            jump to the entry numbered N (the frame's M-1..9), as
@@ -37,9 +37,9 @@
 #                     (default ~/.config/sesh/sesh.toml)
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-sesh_config=${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}
 # ServerAlive drops a master connection to a host gone quiet within 4s, where
-# ConnectTimeout does not reach a call made over an existing master
+# ConnectTimeout does not reach a call made over an existing master. As
+# claude-sidebar-loop polls the hosts, so a jump shares its master connection
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ServerAliveInterval=2
   -o ServerAliveCountMax=2 -o ControlPath=/tmp/claude-sidebar-%C)
 cache=${TMPDIR:-/tmp}/claude-sidebar
@@ -53,59 +53,6 @@ work() { env -u TMUX -u TMUX_PANE tmux "$@"; }
 # "<pane id> <pane tty>" of the frame's right pane; empty outside the frame
 frame_main() {
   tmux list-panes -s -F '#{@frame_main} #{pane_id} #{pane_tty}' 2>/dev/null | awk '$1 == 1 {print $2, $3; exit}'
-}
-
-# "<session name>\t<ssh host>" for each sesh entry started by ssh-tmux
-remote_hosts() {
-  [[ -f $sesh_config ]] || return 0
-  awk '/^\[\[session\]\]/ {name=""}
-       /^name *=/ {name=$0; sub(/^name *= *"/, "", name); sub(/".*/, "", name)}
-       /^startup_command *=.*ssh-tmux / {
-         host=$0; sub(/.*ssh-tmux +/, "", host); sub(/[ "].*/, "", host)
-         print name "\t" host }' "$sesh_config"
-}
-
-# claude-sessions' lines on stdin, tagged with where they came from, sessions
-# with a pane first, and desktop app sessions left out unless one has a pane; a
-# header line before them, so every host shows even with no sessions. The
-# header carries the host's pane on show in the frame, if any
-tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5 pane on show
-  jq -nc --arg label "$1" --arg down "$4" --arg current "$5" \
-    '{header: true, $label, down: ($down != ""), $current}'
-  [[ -n $4 ]] || jq -sc --arg host "$2" --arg relay "$3" \
-    'map(select(.entrypoint != "claude-desktop" or .tmux_pane != null))
-     | sort_by(.tmux_pane == null)[] + {$host, $relay}'
-}
-
-# every host's tagged lines, local first
-collect() {
-  local tmp; tmp=$(mktemp -d) || return
-  # what the frame's right pane shows: a local pane, or a host's relay window
-  local main shown="" relay_host=""
-  main=$(frame_main)
-  [[ -n $main ]] && read -r shown relay_host < <(work display -p -c "${main#* }" '#{pane_id} #{@ssh_tmux}')
-  # hosts in parallel, so an unreachable one costs one ConnectTimeout, not more
-  { claude-sessions | tag local "" "" "" "$([[ -z $relay_host ]] && echo "$shown")" >"$tmp/0"; } &
-  local i=0 name host
-  while IFS=$'\t' read -r name host; do
-    i=$((i + 1))
-    {
-      # one master connection per host, so a refresh is not a login. After
-      # the sessions, \036 and the pane the Mac's client there is on
-      if out=$(ssh "${ssh_opts[@]}" -o ControlMaster=auto -o ControlPersist=60 "$host" \
-        "claude-sessions; printf '\036'; $relay_client -F '#{pane_id}' | head -1" \
-        2>/dev/null); then
-        local remote_shown=""
-        [[ $relay_host == "$host" ]] && remote_shown=${out#*$'\036'}
-        tag "$name" "$host" "$name" "" "${remote_shown//$'\n'/}" <<<"${out%%$'\036'*}"
-      else
-        tag "$name" "$host" "$name" unreachable "" </dev/null
-      fi >"$tmp/$i"
-    } &
-  done < <(remote_hosts)
-  wait
-  cat "$tmp"/* | grep -v '^$'
-  rm -rf "$tmp"
 }
 
 # the tmux session for directory $1: named for the repo holding it, so a
@@ -293,72 +240,38 @@ position() {
 # run fzf actions in the running sidebar
 fzf_do() { curl -sf --unix-socket "$cache/fzf.sock" -X POST http://localhost -d "$1"; }
 
-# the tagged lines claude-sidebar-loop renders and `pick` reads, collected from
-# every host and replaced whole, so a reader never sees half of them
-gather() { collect >"$cache/tagged.new" && mv "$cache/tagged.new" "$cache/tagged"; }
-
-# empty fd $1 of the lines waiting on it; succeeds if there were any
-drained() {
-  local any=1
-  while read -r -t 0 -u "$1" && read -r -u "$1"; do any=0; done
-  return "$any"
-}
-
-# gather every second, or as soon as a kick comes through the fifo
-# $cache/kick, then wake claude-sidebar-loop to render the gather with a line
-# to the fifo $cache/gathered: the value $cache/jumped had when the gather
-# began, then "moved" when a kick came during it, so what it saw on show in
-# the frame may already be gone, and gather again at once
-gathering() {
-  local kicks since
-  exec {kicks}<>"$cache/kick"
-  while :; do
-    drained "$kicks" # the kicks this gather answers
-    read -r since <"$cache/jumped"
-    gather
-    if drained "$kicks"; then
-      echo "$since moved" >"$cache/gathered"
-      continue
-    fi
-    echo "$since" >"$cache/gathered"
-    read -r -t 1 -u "$kicks"
-  done
-}
-
 pick() { # $1 entry number, as the rows number the entries
-  (( $1 >= 1 )) || return 0 # jq would count 0 and below from the end
   local host pane relay id
-  # the running sidebar's list, so N is the number on screen; counted as
-  # claude-sidebar-loop numbers the entries, which the two must keep alike
-  local tagged=$cache/tagged
-  [[ -f $tagged ]] || { mkdir -p "$cache"; collect >"$cache/once"; tagged=$cache/once; }
-  IFS=$'\x1f' read -r host pane relay id < <(jq -sr --argjson n "$1" '
-    [.[] | select((.header | not) and .tmux_pane != null)][$n - 1] // empty
-    | [.host, .tmux_pane, .relay, .session_id] | join("\u001f")' "$tagged")
+  # the running sidebar's list, so N is the number on screen; with none
+  # running, a gather of its own
+  local rows=$cache/rows.0
+  [[ -f $rows ]] || { mkdir -p "$cache"; rows=$cache/once; claude-sidebar-loop rows >"$rows"; }
+  # fields 1 to 4 of the entry numbered N, field 5; \x1f apart, as read
+  # would run empty tab fields together
+  IFS=$'\x1f' read -r host pane relay id < <(perl -0ne 'BEGIN { $n = shift }
+    chomp; @f = split /\t/, $_, -1;
+    if ($f[4] ne "" && $f[4] eq $n) { print join("\x1f", @f[0 .. 3]), "\n"; exit }' "$1" "$rows")
   [[ -n $pane ]] || return 0
   jump "$host" "$pane" "$relay" "$id"
   [[ -S $cache/fzf.sock ]] && fzf_do "pos($(position 5 "$1"))"
 }
 
 case $1 in
-  rows) collect | claude-sidebar-loop rows ;;
+  rows) claude-sidebar-loop rows ;;
   pick) pick "$2" ;;
   kick) kick ;;
   edge) edge "$2" "$3" "$4" "$5" ;;
   jump) jump "$2" "$3" "$4" "$5" ;;
   attach) attach "$2" ;;
   "")
-    # the first gather's frame 0 as rows.0, for fzf to start on before
-    # claude-sidebar-loop has written any rows
-    mkdir -p "$cache" && rm -f "$cache/gathered" "$cache/kick" "$cache"/moving.* &&
-      mkfifo "$cache/gathered" "$cache/kick" && moved && gather &&
-      claude-sidebar-loop rows <"$cache/tagged" >"$cache/rows.0"
+    # a first gather's rows as rows.0, for fzf to start on before
+    # claude-sidebar-loop has written any
+    mkdir -p "$cache" && rm -f "$cache/kick" "$cache"/moving.* &&
+      mkfifo "$cache/kick" && moved && claude-sidebar-loop rows >"$cache/rows.0"
     # errors to a log: written to the pane, they stay over fzf until it redraws
-    gathering 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
-    loops=$!
     claude-sidebar-loop "$cache" 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
-    loops+=" $!"
-    trap 'kill $loops 2>/dev/null; rm -rf "$cache"' EXIT
+    loop=$!
+    trap 'kill $loop 2>/dev/null; rm -rf "$cache"' EXIT
     # no --track: it holds back cursor moves while it finds the item again
     # after each reload, and the list's order is stable without it. Esc and
     # ctrl-c clear the query rather than closing the sidebar

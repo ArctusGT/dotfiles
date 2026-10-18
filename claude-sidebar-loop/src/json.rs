@@ -1,5 +1,5 @@
-//! Just enough JSON to read the tagged-session lines `claude-sidebar`
-//! gathers, and to print a value the way jq does in a string.
+//! Just enough JSON to read the sessions' files and `claude-sessions`'
+//! lines, and to print a value the way jq does.
 
 use std::fmt;
 
@@ -7,8 +7,8 @@ use std::fmt;
 pub enum Value {
     Null,
     Bool(bool),
-    /// kept as written, since jq prints a number it has not changed as its
-    /// literal: `42.0` stays `42.0`
+    /// as jq prints a number it has not changed: its literal, in decimal
+    /// notation (`42.50` stays `42.50`, `1e2` is `1E+2`); see `jq_number`
     Number(String),
     String(String),
     Array(Vec<Value>),
@@ -18,16 +18,25 @@ pub enum Value {
 static NULL: Value = Value::Null;
 
 impl Value {
-    /// field `key`, null when absent or not an object, as jq's `.key`; the
-    /// last of a repeated key, as jq keeps
+    /// field `key`, null when absent or not an object, as jq's `.key`
     pub fn get(&self, key: &str) -> &Value {
         match self {
             Value::Object(fields) => fields
                 .iter()
-                .rev()
                 .find(|(k, _)| k == key)
                 .map_or(&NULL, |(_, v)| v),
             _ => &NULL,
+        }
+    }
+
+    /// sets field `key` of an object, in its place if present, else last,
+    /// as jq's `.key = value`; nothing on any other value
+    pub fn set(&mut self, key: &str, value: Value) {
+        if let Value::Object(fields) = self {
+            match fields.iter_mut().find(|(k, _)| k == key) {
+                Some((_, v)) => *v = value,
+                None => fields.push((key.to_string(), value)),
+            }
         }
     }
 
@@ -204,7 +213,13 @@ impl Parser<'_> {
             if self.next() != Some(b':') {
                 return self.fail("expected :");
             }
-            fields.push((key, self.value()?));
+            // a repeated key keeps its first place and its last value, as
+            // jq reads it
+            let value = self.value()?;
+            match fields.iter_mut().find(|(k, _)| *k == key) {
+                Some((_, v)) => *v = value,
+                None => fields.push((key, value)),
+            }
             self.skip_space();
             match self.next() {
                 Some(b',') => {}
@@ -243,10 +258,10 @@ impl Parser<'_> {
             self.at += 1;
         }
         let literal = std::str::from_utf8(&self.bytes[start..self.at]).unwrap_or_default();
-        if literal.parse::<f64>().is_err() {
-            return self.fail("bad number");
+        match jq_number(literal) {
+            Some(number) => Ok(Value::Number(number)),
+            None => self.fail("bad number"),
         }
-        Ok(Value::Number(literal.to_string()))
     }
 
     fn string(&mut self) -> Result<String, String> {
@@ -309,6 +324,53 @@ impl Parser<'_> {
     }
 }
 
+/// number `literal` as jq 1.8 prints it unchanged: its decimal digits and
+/// exponent as written, in the General Decimal Arithmetic's scientific
+/// string (`to-sci-string`), so `0.1e1` is `1` and `12e3` is `1.2E+4`.
+/// None if it is no number
+fn jq_number(literal: &str) -> Option<String> {
+    literal.parse::<f64>().ok()?;
+    let (sign, unsigned) = match literal.strip_prefix('-') {
+        Some(rest) => ("-", rest),
+        None => ("", literal),
+    };
+    let (mantissa, exponent) = match unsigned.find(['e', 'E']) {
+        Some(at) => (&unsigned[..at], unsigned[at + 1..].parse::<i64>().ok()?),
+        None => (unsigned, 0),
+    };
+    let (whole, fraction) = mantissa.split_once('.').unwrap_or((mantissa, ""));
+    let digits = format!("{whole}{fraction}");
+    let digits = match digits.trim_start_matches('0') {
+        "" => "0",
+        significant => significant,
+    };
+    let exponent = exponent - fraction.len() as i64;
+    let adjusted = exponent + digits.len() as i64 - 1;
+    let text = if exponent <= 0 && adjusted >= -6 {
+        let point = digits.len() as i64 + exponent;
+        if exponent == 0 {
+            digits.to_string()
+        } else if point > 0 {
+            format!(
+                "{}.{}",
+                &digits[..point as usize],
+                &digits[point as usize..]
+            )
+        } else {
+            format!("0.{}{digits}", "0".repeat(-point as usize))
+        }
+    } else {
+        let (first, rest) = digits.split_at(1);
+        let point = if rest.is_empty() { "" } else { "." };
+        format!(
+            "{first}{point}{rest}E{}{}",
+            if adjusted < 0 { "-" } else { "+" },
+            adjusted.abs()
+        )
+    };
+    Some(format!("{sign}{text}"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -345,6 +407,47 @@ mod tests {
         let values = parse_stream("null false true 0 2 -1 \"x\"").unwrap();
         let above: Vec<bool> = values.iter().map(Value::above_zero).collect();
         assert_eq!(above, [false, false, false, false, true, false, true]);
+    }
+
+    #[test]
+    fn prints_numbers_as_jq_does() {
+        let jq = [
+            ("1e2", "1E+2"),
+            ("1.0", "1.0"),
+            ("42.50", "42.50"),
+            ("-0", "-0"),
+            ("-0.0", "-0.0"),
+            ("0.1e1", "1"),
+            ("0.0000001", "1E-7"),
+            ("0.000001", "0.000001"),
+            ("1.23e-5", "0.0000123"),
+            ("12e3", "1.2E+4"),
+            ("0e5", "0E+5"),
+            ("-1.5E-3", "-0.0015"),
+            ("1.5e300", "1.5E+300"),
+            ("00012", "12"),
+            ("0.00", "0.00"),
+            (
+                "123456789012345678901234567890",
+                "123456789012345678901234567890",
+            ),
+        ];
+        for (literal, printed) in jq {
+            assert_eq!(
+                parse_stream(literal).unwrap()[0].to_string(),
+                printed,
+                "{literal}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_repeated_key_keeps_its_place_and_last_value() {
+        let mut value = parse_stream("{\"a\":1,\"b\":2,\"a\":3}").unwrap().remove(0);
+        assert_eq!(value.to_string(), "{\"a\":3,\"b\":2}");
+        value.set("b", Value::Null);
+        value.set("c", Value::Bool(true));
+        assert_eq!(value.to_string(), "{\"a\":3,\"b\":null,\"c\":true}");
     }
 
     #[test]

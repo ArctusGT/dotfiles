@@ -2,32 +2,43 @@
 
 mod frames;
 mod fzf;
+mod gather;
 mod json;
 mod serve;
+mod sessions;
 
 use frames::{FRAME_COUNT, View};
+use json::Value;
 use serve::{Gather, Serve, Sidebar};
 use std::fs::{self, File, OpenOptions};
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
 const USAGE: &str = "\
-claude-sidebar-loop CACHE: render the sidebar's frames from the sessions
-claude-sidebar gathers into its cache directory CACHE, and show them in the
-sidebar's fzf, through fzf's socket CACHE/fzf.sock. After each gather's line
-on the fifo CACHE/gathered, renders CACHE/tagged into CACHE/rows.0 on, a file
-a frame; shows them 8 frames a second while a Clawd moves. claude-sidebar
-starts it; it runs until killed.
-claude-sidebar-loop rows: print the list once, as fzf reads it, from the
-sessions claude-sidebar gathers, read on stdin.
-Both draw the sidebar the width of their terminal, and colour a context line
-red at CLAUDE_CTX_WARN percent (default 50).";
+claude-sidebar-loop CACHE: gather the sidebar's sessions every second, or
+at once on a line through the fifo CACHE/kick, render each gather's frames
+into CACHE/rows.0 on, a file a frame, and show them in the sidebar's fzf,
+through fzf's socket CACHE/fzf.sock, 8 frames a second while a Clawd moves.
+claude-sidebar starts it; it runs until killed.
+claude-sidebar-loop rows: gather once and print the list, as fzf reads it.
+claude-sidebar-loop sessions: print this host's sessions, as claude-sessions
+does.
+A gather reads this host's sessions from the state files in
+${XDG_STATE_HOME:-~/.local/state}/claude-sessions, Claude Code's records in
+~/.claude/sessions and the default tmux server's panes, removing a dead
+session's files, as claude-sessions does, and runs claude-sessions over ssh
+on each host the sesh config SESH_CONFIG (default ~/.config/sesh/sesh.toml)
+reaches through ssh-tmux. The list is drawn the width of the terminal, a
+context line red at CLAUDE_CTX_WARN percent (default 50).";
 
 /// 8 frames a second
 const TICK: Duration = Duration::from_millis(125);
+
+/// how long a gather waits for a kick before the next
+const GATHER_EVERY: Duration = Duration::from_secs(1);
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -43,43 +54,43 @@ fn main() {
                 std::process::exit(1);
             }
         }
+        "sessions" => {
+            for session in sessions::read(&sessions::Sources::from_env()) {
+                println!("{session}");
+            }
+        }
         cache => run(Cache {
             dir: PathBuf::from(cache),
         }),
     }
 }
 
-/// renders frame 0 of the sessions on stdin to stdout
+/// renders frame 0 of a gather to stdout
 fn print_rows() -> Result<(), String> {
-    let mut tagged = String::new();
-    io::stdin()
-        .read_to_string(&mut tagged)
-        .map_err(|err| err.to_string())?;
-    let rows = render(&tagged, 1)?;
+    let rows = render(&gather::gather(), 1)?;
     io::stdout()
         .write_all(&rows[0])
         .map_err(|err| err.to_string())
 }
 
 fn run(cache: Cache) {
-    let gathers = match gathers(&cache.dir) {
-        Ok(gathers) => gathers,
+    let kicks = match kicks(&cache.dir) {
+        Ok(kicks) => kicks,
         Err(err) => {
-            eprintln!(
-                "claude-sidebar-loop: {}/gathered: {err}",
-                cache.dir.display()
-            );
+            eprintln!("claude-sidebar-loop: {}/kick: {err}", cache.dir.display());
             std::process::exit(1);
         }
     };
+    let (send, gathers) = mpsc::channel();
+    let gathering_cache = cache.clone();
+    thread::spawn(move || gathering(&gathering_cache, &kicks, &send));
     let dir = cache.dir.clone();
     serve(Serve::new(cache), &gathers, &dir);
 }
 
-/// the first `count` frames of the tagged sessions `tagged`, for this
+/// the first `count` frames of the tagged records `tagged`, for this
 /// terminal, now
-fn render(tagged: &str, count: usize) -> Result<Vec<Vec<u8>>, String> {
-    let tagged = json::parse_stream(tagged)?;
+fn render(tagged: &[Value], count: usize) -> Result<Vec<Vec<u8>>, String> {
     let view = View {
         width: line_width(),
         warn: warn_level()?,
@@ -87,7 +98,7 @@ fn render(tagged: &str, count: usize) -> Result<Vec<Vec<u8>>, String> {
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs() as i64),
     };
-    Ok(frames::render(&tagged, &view, count)
+    Ok(frames::render(tagged, &view, count)
         .into_iter()
         .map(String::into_bytes)
         .collect())
@@ -162,8 +173,8 @@ enum Event {
 /// at `next_tick`, then moves `next_tick` on: a tick after a gather while
 /// still, a tick after a tick. Ticks keep to a schedule, so a slow reload
 /// does not slow the frame rate; behind, the missed ones are dropped, and
-/// the tick comes before a gather waiting. None once the fifo cannot be
-/// read: `gathers` holds its write end, so it never ends while open
+/// the tick comes before a gather waiting. None once the gathering has
+/// stopped
 fn next_event(
     animating: bool,
     next_tick: &mut Instant,
@@ -190,53 +201,61 @@ fn next_event(
     Some(Event::Tick)
 }
 
-/// the gathers `claude-sidebar` announces on the fifo `gathered` in the
-/// cache `dir`, as they come, each rendered: a line each, the value `jumped`
-/// had when the gather began, then ` moved` if a kick came during it. Opened
-/// read and write, so the fifo always has a writer and a read waits for a
-/// line rather than seeing end of file. A gather whose sessions cannot be
-/// rendered is logged and passed over
-fn gathers(dir: &Path) -> io::Result<Receiver<Gather>> {
+/// the kicks `claude-sidebar kick` sends, a line each, through the fifo
+/// `kick` in the cache `dir`, as they come. Opened read and write, so the
+/// fifo always has a writer and a read waits for a line rather than seeing
+/// end of file
+fn kicks(dir: &Path) -> io::Result<Receiver<()>> {
     let file = OpenOptions::new()
         .read(true)
         .write(true)
-        .open(dir.join("gathered"))?;
-    let dir = dir.to_path_buf();
+        .open(dir.join("kick"))?;
     let (send, receive) = mpsc::channel();
     thread::spawn(move || {
         for line in BufReader::new(file).lines() {
-            let Ok(line) = line else { return };
-            match gather(&dir, &line) {
-                Ok(gather) => {
-                    if send.send(gather).is_err() {
-                        return;
-                    }
-                }
-                Err(err) => eprintln!("claude-sidebar-loop: {err}"),
+            if line.is_err() || send.send(()).is_err() {
+                return;
             }
         }
     });
     Ok(receive)
 }
 
-/// the gather `line` announces, rendered from `dir`/tagged
-fn gather(dir: &Path, line: &str) -> Result<Gather, String> {
-    let mut words = line.split_whitespace();
-    let since = words.next().unwrap_or_default().to_string();
-    let moved = words.next() == Some("moved");
-    Ok(Gather {
-        since,
-        moved,
-        frames: rendered(dir)?,
-    })
+/// gathers every second, or as soon as a kick comes, and hands each gather
+/// to `send`, rendered, with the value `jumped` had when it began, and
+/// whether a kick came during it, so what it saw on show in the frame may
+/// already be gone; then gathers again at once. Returns once nothing takes
+/// the gathers
+fn gathering(cache: &Cache, kicks: &Receiver<()>, send: &Sender<Gather>) {
+    loop {
+        drained(kicks); // the kicks this gather answers
+        let since = cache.jumped();
+        let frames = render(&gather::gather(), FRAME_COUNT);
+        let moved = drained(kicks);
+        match frames {
+            Ok(frames) => {
+                if send
+                    .send(Gather {
+                        since,
+                        moved,
+                        frames,
+                    })
+                    .is_err()
+                {
+                    return;
+                }
+            }
+            Err(err) => eprintln!("claude-sidebar-loop: {err}"),
+        }
+        if !moved && kicks.recv_timeout(GATHER_EVERY) == Err(RecvTimeoutError::Disconnected) {
+            return;
+        }
+    }
 }
 
-/// every frame of the sessions in `dir`/tagged
-fn rendered(dir: &Path) -> Result<Vec<Vec<u8>>, String> {
-    let tagged_path = dir.join("tagged");
-    let tagged = fs::read_to_string(&tagged_path)
-        .map_err(|err| format!("{}: {err}", tagged_path.display()))?;
-    render(&tagged, FRAME_COUNT)
+/// empties `kicks` of the kicks waiting; true if there were any
+fn drained(kicks: &Receiver<()>) -> bool {
+    kicks.try_iter().count() > 0
 }
 
 /// each of `frames` to its `rows.N` in `dir`, replaced whole, as
@@ -264,9 +283,10 @@ fn read_logged(path: &Path) -> Vec<u8> {
     })
 }
 
-/// the sidebar's cache directory, where `claude-sidebar` leaves the tagged
-/// sessions, `jumped`, the `moving.*` marks and fzf's socket, and this
-/// leaves the rows
+/// the sidebar's cache directory, where `claude-sidebar` leaves the kick
+/// fifo, `jumped`, the `moving.*` marks and fzf's socket, and this leaves
+/// the rows
+#[derive(Clone)]
 struct Cache {
     dir: PathBuf,
 }
@@ -361,17 +381,26 @@ mod tests {
     #[test]
     fn writes_a_rows_file_a_frame() {
         let dir = tempdir::Dir::new();
-        fs::write(
-            dir.path().join("tagged"),
+        let tagged = json::parse_stream(
             "{\"header\":true,\"label\":\"local\",\"down\":false,\"current\":\"\"}\n",
         )
         .unwrap();
-        let frames = rendered(dir.path()).unwrap();
+        let frames = render(&tagged, FRAME_COUNT).unwrap();
         write_rows(dir.path(), &frames).unwrap();
         assert_eq!(frames.len(), FRAME_COUNT);
         for (k, rows) in frames.iter().enumerate() {
             assert_eq!(&fs::read(rows_path(dir.path(), k)).unwrap(), rows);
         }
         assert!(String::from_utf8_lossy(&frames[0]).contains("local"));
+    }
+
+    #[test]
+    fn a_kick_during_a_gather_is_drained_and_reported() {
+        let (send, kicks) = mpsc::channel();
+        assert!(!drained(&kicks));
+        send.send(()).unwrap();
+        send.send(()).unwrap();
+        assert!(drained(&kicks));
+        assert!(!drained(&kicks));
     }
 }

@@ -43,16 +43,16 @@ from the binary, and `pick` reading `rows.0` so the tagged file goes.
   after `\036`
 
 **Acceptance criteria:**
-- [ ] The binary's local sessions equal `claude-sessions`' output over
+- [x] The binary's local sessions equal `claude-sessions`' output over
       the same state, records and panes, by a script, including a dead
       session, a spare, a background job and a pane showing another
       session
-- [ ] A kick gathers at once; a jump during a gather does not take the
+- [x] A kick gathers at once; a jump during a gather does not take the
       cursor back, as today
-- [ ] `pick N` jumps to the entry numbered N on screen, for a local and a
+- [x] `pick N` jumps to the entry numbered N on screen, for a local and a
       remote entry, with no tagged file in the cache; and with no
       sidebar running, as today
-- [ ] An unreachable host shows `unreachable` within one ssh
+- [x] An unreachable host shows `unreachable` within one ssh
       ConnectTimeout, and the others keep updating
 - [ ] The live loops' CPU measured before and after by the stage
       profile, nothing moving and one working; the target is about 3 to

@@ -1,13 +1,12 @@
-//! The sidebar's frames, rendered from the tagged sessions `claude-sidebar`
-//! gathers: one NUL-terminated fzf item per header or session, the same
-//! items in every frame but for Clawd's pose.
+//! The sidebar's frames, rendered from a gather's tagged records (`gather`):
+//! one NUL-terminated fzf item per header or session, the same items in
+//! every frame but for Clawd's pose.
 //!
 //! A session's item is its tab fields: ssh host, pane, relay session,
 //! session id (empty only on a header, which is how `jump` tells one), entry
 //! number, 1 if the frame's right pane shows it, then its display lines.
-//! Sessions with a pane are numbered in order across hosts, for `pick`,
-//! whose jq over `tagged` counts them again by the same rule: change one,
-//! change both, or `pick N` jumps to another entry than the one numbered N.
+//! Sessions with a pane are numbered in order across hosts; `pick N` finds
+//! entry N by its number field in `rows.0`.
 //! Times are in whole minutes, so the rows change only when a session does,
 //! or with the frame while a Clawd moves.
 
