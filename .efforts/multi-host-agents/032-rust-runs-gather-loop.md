@@ -54,7 +54,7 @@ from the binary, and `pick` reading `rows.0` so the tagged file goes.
       sidebar running, as today
 - [x] An unreachable host shows `unreachable` within one ssh
       ConnectTimeout, and the others keep updating
-- [ ] The live loops' CPU measured before and after by the stage
+- [x] The live loops' CPU measured before and after by the stage
       profile, nothing moving and one working; the target is about 3 to
       4% of a core, measured against 18.2% before 029
 - [ ] The Maintainer uses the sidebar for a session of work, jumping
