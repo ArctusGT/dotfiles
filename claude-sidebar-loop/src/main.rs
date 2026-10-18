@@ -191,11 +191,11 @@ fn next_event(
 }
 
 /// the gathers `claude-sidebar` announces on the fifo `gathered` in the
-/// cache `dir`, as they come, each rendered: a line
-/// each, the value `jumped` had when the gather began, then ` moved` if a
-/// kick came during it. Opened read and write, so the fifo always has a
-/// writer and a read waits for a line rather than seeing end of file. A
-/// gather whose sessions cannot be rendered is logged and passed over
+/// cache `dir`, as they come, each rendered: a line each, the value `jumped`
+/// had when the gather began, then ` moved` if a kick came during it. Opened
+/// read and write, so the fifo always has a writer and a read waits for a
+/// line rather than seeing end of file. A gather whose sessions cannot be
+/// rendered is logged and passed over
 fn gathers(dir: &Path) -> io::Result<Receiver<Gather>> {
     let file = OpenOptions::new()
         .read(true)

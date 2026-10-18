@@ -293,8 +293,8 @@ position() {
 # run fzf actions in the running sidebar
 fzf_do() { curl -sf --unix-socket "$cache/fzf.sock" -X POST http://localhost -d "$1"; }
 
-# the tagged lines `pick` reads, collected from every host and replaced whole,
-# so a reader never sees half of them
+# the tagged lines claude-sidebar-loop renders and `pick` reads, collected from
+# every host and replaced whole, so a reader never sees half of them
 gather() { collect >"$cache/tagged.new" && mv "$cache/tagged.new" "$cache/tagged"; }
 
 # empty fd $1 of the lines waiting on it; succeeds if there were any
@@ -328,7 +328,8 @@ gathering() {
 pick() { # $1 entry number, as the rows number the entries
   (( $1 >= 1 )) || return 0 # jq would count 0 and below from the end
   local host pane relay id
-  # the running sidebar's list, so N is the number on screen
+  # the running sidebar's list, so N is the number on screen; counted as
+  # claude-sidebar-loop numbers the entries, which the two must keep alike
   local tagged=$cache/tagged
   [[ -f $tagged ]] || { mkdir -p "$cache"; collect >"$cache/once"; tagged=$cache/once; }
   IFS=$'\x1f' read -r host pane relay id < <(jq -sr --argjson n "$1" '
@@ -347,6 +348,8 @@ case $1 in
   jump) jump "$2" "$3" "$4" "$5" ;;
   attach) attach "$2" ;;
   "")
+    # the first gather's frame 0 as rows.0, for fzf to start on before
+    # claude-sidebar-loop has written any rows
     mkdir -p "$cache" && rm -f "$cache/gathered" "$cache/kick" "$cache"/moving.* &&
       mkfifo "$cache/gathered" "$cache/kick" && moved && gather &&
       claude-sidebar-loop rows <"$cache/tagged" >"$cache/rows.0"

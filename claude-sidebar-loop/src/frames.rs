@@ -5,7 +5,9 @@
 //! A session's item is its tab fields: ssh host, pane, relay session,
 //! session id (empty only on a header, which is how `jump` tells one), entry
 //! number, 1 if the frame's right pane shows it, then its display lines.
-//! Sessions with a pane are numbered in order across hosts, for `pick`.
+//! Sessions with a pane are numbered in order across hosts, for `pick`,
+//! whose jq over `tagged` counts them again by the same rule: change one,
+//! change both, or `pick N` jumps to another entry than the one numbered N.
 //! Times are in whole minutes, so the rows change only when a session does,
 //! or with the frame while a Clawd moves.
 
@@ -62,31 +64,39 @@ pub fn render(tagged: &[Value], view: &View, frames: usize) -> Vec<String> {
     let clawd = Clawd::new();
     let mut out = vec![String::new(); frames];
     let mut number = 0;
-    let mut on_show = Value::String(String::new());
-    for r in tagged {
-        if r.get("header").truthy() {
-            on_show = r.get("current").clone();
-            let item = header(r);
+    // the pane the frame's right pane shows on the host under the latest
+    // heading
+    let mut pane_on_show = Value::String(String::new());
+    for record in tagged {
+        if record.get("header").truthy() {
+            pane_on_show = record.get("current").clone();
+            let item = header(record);
             for frame in &mut out {
                 frame.push_str(&item);
             }
             continue;
         }
-        let pane = r.get("tmux_pane");
+        let session = record;
+        let pane = session.get("tmux_pane");
         let numbered = pane != &Value::Null;
         if numbered {
             number += 1;
         }
-        let entry = Entry::new(r, numbered.then_some(number), pane == &on_show, view);
-        let (poses, phase) = clawd.animation(r);
-        let palette = Palette::new(r);
+        let entry = Entry::new(
+            session,
+            numbered.then_some(number),
+            pane == &pane_on_show,
+            view,
+        );
+        let (animation, phase) = clawd.animation(session);
+        let palette = Palette::new(session);
         // each distinct pose drawn once, as most repeat across the frames
         // or, standing, are the same in all of them
         let mut drawn: Vec<Option<[String; 3]>> = vec![None; clawd.poses.len()];
         for (k, frame) in out.iter_mut().enumerate() {
-            let pose = poses[(phase + k) % poses.len()];
-            let picture =
-                drawn[pose].get_or_insert_with(|| picture(&clawd.poses[pose], &palette, !numbered));
+            let pose_id = animation[(phase + k) % animation.len()];
+            let picture = drawn[pose_id]
+                .get_or_insert_with(|| picture(&clawd.poses[pose_id], &palette, !numbered));
             entry.write(frame, picture);
         }
     }
@@ -95,11 +105,11 @@ pub fn render(tagged: &[Value], view: &View, frames: usize) -> Vec<String> {
 
 /// a host's heading: its label, `unreachable` if it did not answer, then a
 /// blank second line, so the heading stands apart from the entries
-fn header(r: &Value) -> String {
-    let label = r.get("label").as_str().unwrap_or_default();
+fn header(heading: &Value) -> String {
+    let label = heading.get("label").as_str().unwrap_or_default();
     // paint closes only the colour, so the reset ends the bold
     let mut item = format!("\t\t\t\t\t\t{}{RESET}", paint(label, &format!("1;{BLUE}")));
-    if r.get("down").truthy() {
+    if heading.get("down").truthy() {
         item += &format!("  {}", paint("unreachable", RED));
     }
     // a braille blank (U+2800), since fzf drops a trailing line of spaces
@@ -109,67 +119,71 @@ fn header(r: &Value) -> String {
 /// a session's item, less the picture: what goes before and right of each
 /// of its three lines
 struct Entry {
+    /// the tab fields, through the tab before the display lines
     fields: String,
     /// dims each line of a session with no pane (a --bg one, or a daemon)
     dim: &'static str,
+    /// right of the picture on each line: number and repo, name, then
+    /// status, the last line also carrying the context line below it
     texts: [String; 3],
 }
 
 impl Entry {
-    fn new(r: &Value, number: Option<usize>, on_show: bool, view: &View) -> Entry {
-        let pane = r.get("tmux_pane");
+    fn new(session: &Value, number: Option<usize>, on_show: bool, view: &View) -> Entry {
+        let pane = session.get("tmux_pane");
         let number_text = number.map(|n| n.to_string());
         let fields = [
-            joined(r.get("host")),
+            joined(session.get("host")),
             if pane.truthy() {
                 joined(pane)
             } else {
                 String::new()
             },
-            joined(r.get("relay")),
-            joined(r.get("session_id")),
+            joined(session.get("relay")),
+            joined(session.get("session_id")),
             number_text.clone().unwrap_or_default(),
             if number.is_some() && on_show { "1" } else { "" }.to_string(),
             String::new(),
         ]
         .join("\t");
         let dim = if number.is_some() { "" } else { DIM };
-        let text0 = format!(
+        let repo_text = format!(
             " {} {}\n",
             number_text.as_deref().unwrap_or(" "),
-            last_part(r.get("cwd"))
+            last_part(session.get("cwd"))
         );
-        let name = r.get("name");
-        let text1 = format!(
+        let name = session.get("name");
+        let name_text = format!(
             "   {}\n",
             if name.truthy() {
                 name.text()
             } else {
-                short_id(r.get("session_id"))
+                short_id(session.get("session_id"))
             }
         );
-        let state = r.get("state").text();
-        let age = ago(view.now as f64 - r.get("since").as_f64().unwrap_or_default());
+        let state = session.get("state").text();
+        let age = ago(view.now as f64 - session.get("since").as_f64().unwrap_or_default());
         // running subagents in the working colour, so an idle session whose
         // subagents are still at work stands out
-        let subagents = r.get("subagents");
-        let busy = if subagents.above_zero() {
+        let subagents = session.get("subagents");
+        let subagents_label = if subagents.above_zero() {
             format!("  {}", paint(&format!("+{}", subagents.text()), ORANGE))
         } else {
             String::new()
         };
-        let background = match number {
+        let background_label = match number {
             Some(_) => String::new(),
             None => format!("  {DIM}background{RESET}"),
         };
-        let ctx = ctxline(r.get("context").get("used_pct"), view);
+        let context = context_line(session.get("context").get("used_pct"), view);
         // reset at the end, or the dim of a background entry leaks into the
         // entries fzf draws after it
-        let text2 = format!("   {state} {age}{busy}{background}\n{dim}{ctx}{RESET}");
+        let status_text =
+            format!("   {state} {age}{subagents_label}{background_label}\n{dim}{context}{RESET}");
         Entry {
             fields,
             dim,
-            texts: [text0, text1, text2],
+            texts: [repo_text, name_text, status_text],
         }
     }
 
@@ -276,7 +290,7 @@ fn faded(sgr: &str) -> String {
 /// is the bad end. The rest a light dashed rule in terminal_black. All red at
 /// `view.warn`. No record (`pct` null): the whole line terminal_black, with
 /// no label
-fn ctxline(pct: &Value, view: &View) -> String {
+fn context_line(pct: &Value, view: &View) -> String {
     let Some(share) = pct.as_f64() else {
         return paint(&"┈".repeat(view.width.max(0) as usize), TERMINAL_BLACK);
     };
@@ -304,7 +318,7 @@ fn ctxline(pct: &Value, view: &View) -> String {
 }
 
 /// djb2 of a string, kept under 2^31 as jq, counting in doubles, kept it
-fn djb(s: &str) -> u64 {
+fn djb2(s: &str) -> u64 {
     s.chars()
         .fold(5381, |h, c| (h * 33 + c as u64) % 2147483647)
 }
@@ -323,14 +337,14 @@ struct Palette {
 }
 
 impl Palette {
-    fn new(r: &Value) -> Palette {
-        let body = match r.get("state").as_str() {
+    fn new(session: &Value) -> Palette {
+        let body = match session.get("state").as_str() {
             Some("working") => Some(ORANGE),
             Some("waiting") => Some(YELLOW),
             Some("idle") => Some(DARK5),
             _ => None,
         };
-        let mut hash = djb(r.get("session_id").as_str().unwrap_or_default());
+        let mut hash = djb2(session.get("session_id").as_str().unwrap_or_default());
         let mut left = BANDANA_COLOURS.to_vec();
         let bandana = std::array::from_fn(|_| {
             let n = left.len() as u64;
@@ -549,7 +563,7 @@ enum Side {
     Right,
 }
 
-/// a step of Clawd waiting, held `n` frames: standing, with his eyes, the
+/// a step of Clawd waiting, held `frames` frames: standing, with his eyes, the
 /// slits centre or a pixel left or right; his feet, down (`Centre`) or the
 /// left or right pair lifted a row; and his left arm, 0 down, 1 half up, 2
 /// up beside the eyes, 3 high beside the bandana. Each moves within cells of
@@ -557,14 +571,14 @@ enum Side {
 /// shares its cells
 #[derive(Clone, Copy)]
 struct Wait {
-    n: usize,
+    frames: usize,
     eyes: Side,
     feet: Side,
     arm: usize,
 }
 
 const STILL: Wait = Wait {
-    n: 1,
+    frames: 1,
     eyes: Side::Centre,
     feet: Side::Centre,
     arm: 0,
@@ -599,8 +613,12 @@ impl Wait {
 /// a wait, 6 s at 8 frames a second: looking left and right, a stamp, a
 /// wave, then standing. The steps add up to 48
 fn waiting() -> Vec<Pose> {
-    let held = |n| Wait { n, ..STILL };
-    let eyes = |n, eyes| Wait { n, eyes, ..STILL };
+    let held = |frames| Wait { frames, ..STILL };
+    let eyes = |frames, eyes| Wait {
+        frames,
+        eyes,
+        ..STILL
+    };
     let feet = |feet| Wait { feet, ..STILL };
     let arm = |arm| Wait { arm, ..STILL };
     [
@@ -625,7 +643,7 @@ fn waiting() -> Vec<Pose> {
         held(9),
     ]
     .iter()
-    .flat_map(|step| std::iter::repeat_n(step.pose(), step.n))
+    .flat_map(|step| std::iter::repeat_n(step.pose(), step.frames))
     .collect()
 }
 
@@ -648,7 +666,8 @@ struct Clawd {
 impl Clawd {
     fn new() -> Clawd {
         let mut poses = Vec::new();
-        let mut ids = |animation: Vec<Pose>| -> Vec<usize> {
+        // an animation's poses as ids into `poses`, adding the new ones
+        let mut pose_ids = |animation: Vec<Pose>| -> Vec<usize> {
             animation
                 .into_iter()
                 .map(|p| {
@@ -659,22 +678,24 @@ impl Clawd {
                 })
                 .collect()
         };
-        let running = ids((0..4).map(run).collect());
+        let running = pose_ids((0..4).map(run).collect());
         // standing a while, then down and back
-        let squatting = ids(std::iter::repeat_n(pose(STAND), 8)
-            .chain(squat_down())
-            .collect());
+        let squatting = pose_ids(
+            std::iter::repeat_n(pose(STAND), 8)
+                .chain(squat_down())
+                .collect(),
+        );
         let waiting_poses = waiting();
         // a wait with a squat in each of its three longest rests, before the
         // look, between the stamp and the wave, and after the wave, about one
         // every 2 s: for a session waiting while its subagents work
-        let mut on_subagents = waiting_poses.clone();
+        let mut on_subagents_poses = waiting_poses.clone();
         for at in [0, 25, 40] {
-            on_subagents[at..at + 4].copy_from_slice(&squat_down());
+            on_subagents_poses[at..at + 4].copy_from_slice(&squat_down());
         }
-        let waiting = ids(waiting_poses);
-        let waiting_on_subagents = ids(on_subagents);
-        let standing = ids(vec![pose(STAND)]);
+        let waiting = pose_ids(waiting_poses);
+        let waiting_on_subagents = pose_ids(on_subagents_poses);
+        let standing = pose_ids(vec![pose(STAND)]);
         Clawd {
             poses,
             running,
@@ -685,19 +706,20 @@ impl Clawd {
         }
     }
 
-    /// the poses session `r` cycles through, a pose a frame, and its phase
-    /// into them. Working, he runs; idle with subagents running, he squats;
+    /// the poses `session` cycles through, as ids into `poses`, a pose a
+    /// frame, and its phase into them. Working, he runs, every runner in
+    /// step; idle with subagents running, he squats;
     /// waiting, he looks about, stamps and waves, and squats too while
     /// subagents run; each squat and wait at its own phase from the session
     /// id; otherwise he stands
-    fn animation(&self, r: &Value) -> (&[usize], usize) {
-        let state = r.get("state").as_str();
-        let busy = r.get("subagents").above_zero();
-        let phase = || djb(r.get("session_id").as_str().unwrap_or_default()) as usize;
+    fn animation(&self, session: &Value) -> (&[usize], usize) {
+        let state = session.get("state").as_str();
+        let subagents_running = session.get("subagents").above_zero();
+        let phase = || djb2(session.get("session_id").as_str().unwrap_or_default()) as usize;
         match state {
             Some("working") => (&self.running, 0),
-            Some("idle") if busy => (&self.squatting, phase()),
-            Some("waiting") if busy => (&self.waiting_on_subagents, phase()),
+            Some("idle") if subagents_running => (&self.squatting, phase()),
+            Some("waiting") if subagents_running => (&self.waiting_on_subagents, phase()),
             Some("waiting") => (&self.waiting, phase()),
             _ => (&self.standing, 0),
         }
