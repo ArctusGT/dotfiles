@@ -15,7 +15,7 @@ This repo uses **GNU Stow** to symlink configs into place.
 sudo dnf install lazygit`
 - `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
 - `jq` (`claude-sessions` and the Claude sessions sidebar), plus `fzf` 0.74 or
-  later, `curl` and `perl` for the sidebar
+  later, `curl`, `perl` and bash 5 for the sidebar
 - `tectonic` (`cargo install tectonic`)
 - `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
 - `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)

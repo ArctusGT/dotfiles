@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** A working session's Clawd plays a four-frame run at 8 fps in the sidebar, the bandana ribbon streaming behind him, and nothing redraws while no entry animates
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** [multi-host-agents/024-bandana-per-session]
 
 **Current behavior:**
@@ -48,19 +48,33 @@ cursor at that rate, with `prototype-fzf-redraw.py` on the branch
 
 ## Comments
 
-For the Maintainer, from review, beyond what the slice asked:
+2026-10-18: for the Maintainer, from review, beyond what the slice asked.
+Measurements are 52f9ff9's: a scratch copy of the script logging each
+fzf post and its loops' CPU, 11 stubbed sessions, a throwaway tmux
+server, 60 s.
+
 - Render the frames at a gather, not at a tick. `serve` formats a whole
-  frame every tick: about 19 ms of jq, a `tmux display` fork for the
-  width, and every still picture rebuilt, which is most of its 31% of a
-  core while one session works. `gather` could write the four frames once
-  a second, as `rows.0` to `rows.3` from one jq run, and a tick would then
-  only post `reload-sync` on the next one. `serve` would lose most of its
-  flags, and "something animates" would become frame 0 differing from
-  frame 1, so `picture` would be the only place deciding what moves. The
-  brief asked for a format per tick with a frame counter; 026's squats, a
+  frame every tick: about 19 ms of jq (`format` timed 40 times on the
+  stubbed sessions), a `tmux display` fork for the width, and every still
+  picture rebuilt, which is most of its 31% of a core while one session
+  works. `gather` could write the four frames once a second, as `rows.0`
+  to `rows.3` from one jq run, and a tick would then only post
+  `reload-sync` on the next one. `serve` would lose most of its flags,
+  and "something animates" would become frame 0 differing from frame 1,
+  so `picture` would be the only place deciding what moves. The brief
+  asked for a format per tick with a frame counter; 026's squats, a
   15-frame cycle per session in the prototype, would weigh on how many
   frames a gather renders.
+
+---
+
+2026-10-18: also from review.
+
+- With nothing working the sidebar takes 12.6% of a core against 11.3%
+  before 025, on the same fixture. Not attributed; `serve` now runs a jq
+  per gather to see whether anything works.
 - `kick` still reaches `gathering` through a flag file polled 5 times a
   second, as it did before this slice: a sleep fork each, and up to 200 ms
-  before a jump shows. A second fifo, opened read-write by `kick` so a
-  stale one cannot hang a tmux hook, would end the polling.
+  before a jump shows; up to 325 ms while a session works, since a gather
+  then waits for the next tick. A second fifo, opened read-write by
+  `kick` so a stale one cannot hang a tmux hook, would end the polling.
