@@ -145,8 +145,9 @@ format() { # $@ animation frames, counting from 0 (default 0)
     # ribbon a tail at its end and a drop beside the eyes. Two rows each for
     # head-top, bandana, arms, body and feet; the eyes one pixel, under the
     # bandana. Drawn as octant cells 2 pixels wide and 4 tall, from rows 0, 4
-    # and 8, so keep each cell to two colours, the empty background counting as one: octant
-    # draws a cell as one colour and empty, or as two colours and full
+    # and 8, so keep each cell to two colours, the empty background
+    # counting as one: octant draws a cell as one colour and empty, or as
+    # two colours and full
     def stand: [
       "..BBBBBBBBBBBB..",
       "..BBBBBBBBBBBB..",
