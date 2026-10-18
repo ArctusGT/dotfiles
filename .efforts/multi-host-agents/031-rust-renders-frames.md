@@ -33,11 +33,11 @@ and 1.0% of a core, plus a jq and a perl spawn each second.
 - `CLAUDE_CTX_WARN` and the pane width
 
 **Acceptance criteria:**
-- [ ] Rows byte-identical to `format`'s over fixtures for every state:
+- [x] Rows byte-identical to `format`'s over fixtures for every state:
       idle, working, waiting, idle and waiting with subagents, a session
       with no pane, a host unreachable, no context record, context at
       and past the warn level, two widths
-- [ ] Every pose keeps each 2x4 cell to two colours, the background
+- [x] Every pose keeps each 2x4 cell to two colours, the background
       counting as one, by a count over the binary's poses
 - [ ] The live loops' CPU measured before and after by the stage profile
 - [ ] The Maintainer judges the sidebar unchanged by eye

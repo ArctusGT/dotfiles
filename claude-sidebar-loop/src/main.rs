@@ -1,39 +1,69 @@
 //! `claude-sidebar` starts this as one of its loops; see `USAGE`.
 
+mod frames;
 mod fzf;
+mod json;
 mod serve;
 
+use frames::{FRAME_COUNT, View};
 use serve::{Gather, Serve, Sidebar};
-use std::fs::{self, OpenOptions};
-use std::io::{self, BufRead, BufReader};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 const USAGE: &str = "\
-claude-sidebar-loop CACHE: show the frames claude-sidebar draws into its cache
-directory CACHE in the sidebar's fzf, through fzf's socket CACHE/fzf.sock:
-after each gather's line on the fifo CACHE/gathered, and 8 frames a second
-while a Clawd moves. claude-sidebar starts it; it runs until killed.";
+claude-sidebar-loop CACHE: render the sidebar's frames from the sessions
+claude-sidebar gathers into its cache directory CACHE, and show them in the
+sidebar's fzf, through fzf's socket CACHE/fzf.sock. After each gather's line
+on the fifo CACHE/gathered, renders CACHE/tagged into CACHE/rows.0 on, a file
+a frame; shows them 8 frames a second while a Clawd moves. claude-sidebar
+starts it; it runs until killed.
+claude-sidebar-loop rows: print the list once, as fzf reads it, from the
+sessions claude-sidebar gathers, read on stdin.
+Both draw the sidebar the width of their terminal, and colour a context line
+red at CLAUDE_CTX_WARN percent (default 50).";
 
 /// 8 frames a second
 const TICK: Duration = Duration::from_millis(125);
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    let [cache] = args.as_slice() else {
+    let [arg] = args.as_slice() else {
         eprintln!("{USAGE}");
         std::process::exit(2);
     };
-    if cache == "--help" {
-        println!("{USAGE}");
-        return;
+    match arg.as_str() {
+        "--help" => println!("{USAGE}"),
+        "rows" => print_rows(),
+        cache => run(Cache {
+            dir: PathBuf::from(cache),
+        }),
     }
-    let cache = Cache {
-        dir: PathBuf::from(cache),
-    };
-    let gathers = match gathers(&cache.dir.join("gathered")) {
+}
+
+/// renders frame 0 of the sessions on stdin to stdout
+fn print_rows() {
+    let mut tagged = String::new();
+    let rows = io::stdin()
+        .read_to_string(&mut tagged)
+        .map_err(|err| err.to_string())
+        .and_then(|_| render(&tagged, 1));
+    match rows {
+        Ok(rows) => {
+            let _ = io::stdout().write_all(&rows[0]);
+        }
+        Err(err) => {
+            eprintln!("claude-sidebar-loop: {err}");
+            std::process::exit(1);
+        }
+    }
+}
+
+fn run(cache: Cache) {
+    let gathers = match gathers(&cache) {
         Ok(gathers) => gathers,
         Err(err) => {
             eprintln!(
@@ -44,6 +74,59 @@ fn main() {
         }
     };
     serve(Serve::new(cache), &gathers);
+}
+
+/// the first `count` frames of the tagged sessions `tagged`, for this
+/// terminal, now
+fn render(tagged: &str, count: usize) -> Result<Vec<Vec<u8>>, String> {
+    let tagged = json::parse_stream(tagged)?;
+    let view = View {
+        width: line_width(),
+        warn: std::env::var("CLAUDE_CTX_WARN")
+            .ok()
+            .filter(|w| !w.is_empty())
+            .map_or(Ok(50.0), |w| w.parse())
+            .map_err(|_| "CLAUDE_CTX_WARN is not a number")?,
+        now: SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs() as i64),
+    };
+    Ok(frames::render(&tagged, &view, count)
+        .into_iter()
+        .map(String::into_bytes)
+        .collect())
+}
+
+/// the columns an fzf item's line has in this terminal, past the 2 of fzf's
+/// pointer and marker; read on each render, so the lines follow a resize.
+/// 80 columns with no terminal, as `tput cols` takes
+fn line_width() -> i64 {
+    terminal_columns().unwrap_or(80) as i64 - 2
+}
+
+/// the columns of this process's controlling terminal, as its pane has them
+fn terminal_columns() -> Option<u16> {
+    #[repr(C)]
+    #[derive(Default)]
+    struct Winsize {
+        rows: u16,
+        cols: u16,
+        x_pixels: u16,
+        y_pixels: u16,
+    }
+    unsafe extern "C" {
+        fn ioctl(fd: std::ffi::c_int, request: std::ffi::c_ulong, ...) -> std::ffi::c_int;
+    }
+    #[cfg(target_os = "macos")]
+    const TIOCGWINSZ: std::ffi::c_ulong = 0x40087468;
+    #[cfg(target_os = "linux")]
+    const TIOCGWINSZ: std::ffi::c_ulong = 0x5413;
+    use std::os::fd::AsRawFd;
+    let tty = File::open("/dev/tty").ok()?;
+    let mut size = Winsize::default();
+    // SAFETY: TIOCGWINSZ writes one winsize, which `size` is, to a live fd
+    let ok = unsafe { ioctl(tty.as_raw_fd(), TIOCGWINSZ, &mut size as *mut Winsize) } == 0;
+    (ok && size.cols > 0).then_some(size.cols)
 }
 
 /// hands `serve` each gather, and while a Clawd moves each tick between
@@ -95,12 +178,18 @@ fn next_event(
     Some(Event::Tick)
 }
 
-/// the gathers `claude-sidebar` announces on the fifo `fifo`, as they come:
-/// a line each, the value `jumped` had when the gather began, then ` moved`
-/// if a kick came during it. Opened read and write, so the fifo always has a
-/// writer and a read waits for a line rather than seeing end of file
-fn gathers(fifo: &Path) -> io::Result<Receiver<Gather>> {
-    let file = OpenOptions::new().read(true).write(true).open(fifo)?;
+/// the gathers `claude-sidebar` announces on the fifo `gathered` in
+/// `cache`, as they come, each rendered and written to the cache: a line
+/// each, the value `jumped` had when the gather began, then ` moved` if a
+/// kick came during it. Opened read and write, so the fifo always has a
+/// writer and a read waits for a line rather than seeing end of file. A
+/// gather whose sessions cannot be rendered is logged and passed over
+fn gathers(cache: &Cache) -> io::Result<Receiver<Gather>> {
+    let file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(cache.dir.join("gathered"))?;
+    let dir = cache.dir.clone();
     let (send, receive) = mpsc::channel();
     thread::spawn(move || {
         for line in BufReader::new(file).lines() {
@@ -108,12 +197,48 @@ fn gathers(fifo: &Path) -> io::Result<Receiver<Gather>> {
             let mut words = line.split_whitespace();
             let since = words.next().unwrap_or_default().to_string();
             let moved = words.next() == Some("moved");
-            if send.send(Gather { since, moved }).is_err() {
+            let frames = match rendered(&dir) {
+                Ok(frames) => frames,
+                Err(err) => {
+                    eprintln!("claude-sidebar-loop: {err}");
+                    continue;
+                }
+            };
+            if send
+                .send(Gather {
+                    since,
+                    moved,
+                    frames,
+                })
+                .is_err()
+            {
                 return;
             }
         }
     });
     Ok(receive)
+}
+
+/// every frame of the sessions in `dir`/tagged, each also written to its
+/// `rows.N` there, replaced whole, as `reload-sync` and `claude-sidebar`'s
+/// `step` and `position` read them
+fn rendered(dir: &Path) -> Result<Vec<Vec<u8>>, String> {
+    let tagged_path = dir.join("tagged");
+    let tagged = fs::read_to_string(&tagged_path)
+        .map_err(|err| format!("{}: {err}", tagged_path.display()))?;
+    let frames = render(&tagged, FRAME_COUNT)?;
+    for (k, rows) in frames.iter().enumerate() {
+        let path = rows_path(dir, k);
+        let new = path.with_extension(format!("{k}.new"));
+        fs::write(&new, rows)
+            .and_then(|_| fs::rename(&new, &path))
+            .map_err(|err| format!("{}: {err}", path.display()))?;
+    }
+    Ok(frames)
+}
+
+fn rows_path(dir: &Path, frame: usize) -> PathBuf {
+    dir.join(format!("rows.{frame}"))
 }
 
 /// the file at `path`, or nothing, with the error logged
@@ -124,17 +249,14 @@ fn read_logged(path: &Path) -> Vec<u8> {
     })
 }
 
-/// the sidebar's cache directory, where `claude-sidebar` leaves the rows,
-/// `repeats`, `jumped`, the `moving.*` marks and fzf's socket
+/// the sidebar's cache directory, where `claude-sidebar` leaves the tagged
+/// sessions, `jumped`, the `moving.*` marks and fzf's socket, and this
+/// leaves the rows
 struct Cache {
     dir: PathBuf,
 }
 
 impl Cache {
-    fn rows_path(&self, frame: usize) -> PathBuf {
-        self.dir.join(format!("rows.{frame}"))
-    }
-
     /// whether fzf took `action`; a sidebar starting before its fzf listens
     /// fails quietly, as the next gather tries again
     fn post(&self, action: &str) -> bool {
@@ -143,20 +265,6 @@ impl Cache {
 }
 
 impl Sidebar for Cache {
-    fn rows(&self, frame: usize) -> Vec<u8> {
-        read_logged(&self.rows_path(frame))
-    }
-
-    /// `repeats` holds a 1 or 0 for each frame, as `draw` writes it; a frame
-    /// differs only at a 0
-    fn repeats(&self) -> Vec<bool> {
-        let repeats = read_logged(&self.dir.join("repeats"));
-        String::from_utf8_lossy(&repeats)
-            .split_whitespace()
-            .map(|r| r != "0")
-            .collect()
-    }
-
     fn jumped(&self) -> String {
         let jumped = read_logged(&self.dir.join("jumped"));
         String::from_utf8_lossy(&jumped)
@@ -179,7 +287,7 @@ impl Sidebar for Cache {
     fn reload(&mut self, frame: usize) -> bool {
         self.post(&format!(
             "reload-sync(cat '{}')",
-            self.rows_path(frame).display()
+            rows_path(&self.dir, frame).display()
         ))
     }
 
@@ -228,12 +336,26 @@ mod tests {
         let cache = Cache {
             dir: dir.path().into(),
         };
-        fs::write(dir.path().join("repeats"), "1 0 1\n").unwrap();
         fs::write(dir.path().join("jumped"), "1760000000.123456-42\n").unwrap();
-        assert_eq!(cache.repeats(), [true, false, true]);
         assert_eq!(cache.jumped(), "1760000000.123456-42");
         assert!(!cache.moving());
         fs::write(dir.path().join("moving.42"), "").unwrap();
         assert!(cache.moving());
+    }
+
+    #[test]
+    fn writes_a_rows_file_a_frame() {
+        let dir = tempdir::Dir::new();
+        fs::write(
+            dir.path().join("tagged"),
+            "{\"header\":true,\"label\":\"local\",\"down\":false,\"current\":\"\"}\n",
+        )
+        .unwrap();
+        let frames = rendered(dir.path()).unwrap();
+        assert_eq!(frames.len(), FRAME_COUNT);
+        for (k, rows) in frames.iter().enumerate() {
+            assert_eq!(&fs::read(rows_path(dir.path(), k)).unwrap(), rows);
+        }
+        assert!(String::from_utf8_lossy(&frames[0]).contains("local"));
     }
 }

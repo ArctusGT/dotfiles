@@ -1,4 +1,4 @@
-//! What fzf shows of the frames `claude-sidebar` draws: after each gather
+//! What fzf shows of the frames each gather renders: after each gather
 //! the same frame of the new rows, and at every tick the next frame while
 //! one differs from another, so a Clawd moves. fzf reloads only when the
 //! rows on show change: with none moving, when the rows do; with one, at a
@@ -8,11 +8,6 @@
 
 /// The sidebar's cache, as `Serve` reads it, and its fzf.
 pub trait Sidebar {
-    /// the rows of frame `frame`: NUL-terminated fzf items of tab fields
-    fn rows(&self, frame: usize) -> Vec<u8>;
-    /// for each frame, whether it is the same as the frame before it
-    /// (frame 0 as the last)
-    fn repeats(&self) -> Vec<bool>;
     /// the value `jumped` holds, which each jump in the frame replaces
     fn jumped(&self) -> String;
     /// whether a jump is moving the right pane's client now
@@ -23,13 +18,15 @@ pub trait Sidebar {
     fn move_cursor(&mut self, position: usize) -> bool;
 }
 
-/// A gather that has drawn new rows.
+/// A gather, rendered.
 pub struct Gather {
     /// the value `jumped` had when the gather began
     pub since: String,
     /// whether a kick came during it, so what it saw on show may already be
     /// gone
     pub moved: bool,
+    /// the rows of each frame: NUL-terminated fzf items of tab fields
+    pub frames: Vec<Vec<u8>>,
 }
 
 /// the tab field (from 0) holding 1 on the item the frame's right pane shows
@@ -38,6 +35,10 @@ const SHOWN_FIELD: usize = 5;
 pub struct Serve<S> {
     sidebar: S,
     frame: usize,
+    /// the latest gather's frames
+    frames: Vec<Vec<u8>>,
+    /// for each frame, whether it is the same as the frame before it
+    /// (frame 0 as the last)
     repeats: Vec<bool>,
     /// whether fzf has rows of the latest gather
     fzf_has_rows: bool,
@@ -56,6 +57,7 @@ impl<S: Sidebar> Serve<S> {
         Serve {
             sidebar,
             frame: 0,
+            frames: Vec::new(),
             repeats: Vec::new(),
             fzf_has_rows: false,
             follow_pending: false,
@@ -70,9 +72,13 @@ impl<S: Sidebar> Serve<S> {
         self.repeats.contains(&false)
     }
 
-    /// shows what `gather` drew
+    /// shows what `gather` rendered
     pub fn gathered(&mut self, gather: Gather) {
-        self.repeats = self.sidebar.repeats();
+        let count = gather.frames.len();
+        self.repeats = (0..count)
+            .map(|k| gather.frames[k] == gather.frames[(k + count - 1) % count])
+            .collect();
+        self.frames = gather.frames;
         self.since = gather.since;
         self.follow_pending = !gather.moved;
         // with one moving, the next tick shows the new rows, so the frames
@@ -89,7 +95,7 @@ impl<S: Sidebar> Serve<S> {
     /// reloads fzf with the frame on show while none moves, if its rows
     /// changed other than in the session on show
     fn show_still_rows(&mut self) {
-        let rows = without_shown(&self.sidebar.rows(self.frame));
+        let rows = without_shown(&self.frames[self.frame]);
         if self.last_rows.as_ref() != Some(&rows) && self.sidebar.reload(self.frame) {
             self.last_rows = Some(rows);
         }
@@ -117,7 +123,7 @@ impl<S: Sidebar> Serve<S> {
             return;
         }
         self.follow_pending = false;
-        let Some(shown) = position(&self.sidebar.rows(0), SHOWN_FIELD, b"1") else {
+        let Some(shown) = position(&self.frames[0], SHOWN_FIELD, b"1") else {
             return;
         };
         if Some(shown) != self.last_shown
@@ -160,26 +166,19 @@ fn position(rows: &[u8], field: usize, value: &[u8]) -> Option<usize> {
 }
 
 #[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::*;
 
-    /// a sidebar of `items` per frame, recording what fzf is sent
+    /// a sidebar recording what fzf is sent
     #[derive(Default)]
     struct Fake {
-        frames: Vec<Vec<u8>>,
-        repeats: Vec<bool>,
         jumped: String,
         moving: bool,
         sent: Vec<String>,
     }
 
     impl Sidebar for Fake {
-        fn rows(&self, frame: usize) -> Vec<u8> {
-            self.frames[frame].clone()
-        }
-        fn repeats(&self) -> Vec<bool> {
-            self.repeats.clone()
-        }
         fn jumped(&self) -> String {
             self.jumped.clone()
         }
@@ -204,37 +203,43 @@ mod tests {
         )
     }
 
-    /// `count` frames of three items with the second on show; `moves`
-    /// gives frame k its own text, else every frame is the same
-    fn sidebar(count: usize, moves: bool) -> Fake {
-        let frames = (0..count)
+    /// three items with the second on show, its text `text`
+    fn rows(text: &str) -> Vec<u8> {
+        [
+            item(1, false, "a"),
+            item(2, true, text),
+            item(3, false, "c"),
+        ]
+        .concat()
+        .into_bytes()
+    }
+
+    /// `count` frames; `moves` gives frame k its own text, else every
+    /// frame is the same
+    fn frames(count: usize, moves: bool) -> Vec<Vec<u8>> {
+        (0..count)
             .map(|k| {
-                let text = if moves {
+                rows(&if moves {
                     format!("frame {k}")
                 } else {
                     "still".into()
-                };
-                [
-                    item(1, false, "a"),
-                    item(2, true, &text),
-                    item(3, false, "c"),
-                ]
-                .concat()
-                .into_bytes()
+                })
             })
-            .collect();
-        Fake {
-            frames,
-            repeats: vec![!moves; count],
-            jumped: "j1".into(),
-            ..Fake::default()
-        }
+            .collect()
     }
 
-    fn gather(since: &str) -> Gather {
+    fn sidebar() -> Serve<Fake> {
+        Serve::new(Fake {
+            jumped: "j1".into(),
+            ..Fake::default()
+        })
+    }
+
+    fn gather(since: &str, frames: Vec<Vec<u8>>) -> Gather {
         Gather {
             since: since.into(),
             moved: false,
+            frames,
         }
     }
 
@@ -244,37 +249,36 @@ mod tests {
 
     #[test]
     fn still_rows_reload_only_when_they_change() {
-        let mut serve = Serve::new(sidebar(4, false));
-        serve.gathered(gather("j1"));
+        let mut serve = sidebar();
+        serve.gathered(gather("j1", frames(4, false)));
         assert_eq!(sent(&mut serve), ["reload 0", "pos 2"]);
         assert!(!serve.animating());
-        serve.gathered(gather("j1"));
+        serve.gathered(gather("j1", frames(4, false)));
         assert!(sent(&mut serve).is_empty());
-        serve.sidebar.frames[0] = [item(1, false, "a"), item(2, true, "new")].concat().into();
-        serve.gathered(gather("j1"));
+        serve.gathered(gather("j1", vec![rows("new"); 4]));
         assert_eq!(sent(&mut serve), ["reload 0"]);
     }
 
     #[test]
     fn the_session_on_show_moves_the_cursor_not_the_rows() {
-        let mut serve = Serve::new(sidebar(1, false));
-        serve.gathered(gather("j1"));
+        let mut serve = sidebar();
+        serve.gathered(gather("j1", frames(1, false)));
         sent(&mut serve);
-        serve.sidebar.frames[0] = [
+        let moved = [
             item(1, true, "a"),
             item(2, false, "still"),
             item(3, false, "c"),
         ]
         .concat()
-        .into();
-        serve.gathered(gather("j1"));
+        .into_bytes();
+        serve.gathered(gather("j1", vec![moved]));
         assert_eq!(sent(&mut serve), ["pos 1"]);
     }
 
     #[test]
     fn a_moving_clawd_reloads_at_each_tick_not_at_the_gather() {
-        let mut serve = Serve::new(sidebar(4, true));
-        serve.gathered(gather("j1"));
+        let mut serve = sidebar();
+        serve.gathered(gather("j1", frames(4, true)));
         assert!(serve.animating());
         assert!(sent(&mut serve).is_empty());
         for _ in 0..5 {
@@ -290,44 +294,45 @@ mod tests {
 
     #[test]
     fn a_repeated_frame_reloads_only_for_a_new_gather() {
-        let mut serve = Serve::new(sidebar(4, true));
-        serve.sidebar.repeats = vec![false, true, false, true];
-        serve.gathered(gather("j1"));
+        let mut serve = sidebar();
+        // frames 1 and 3 repeat the frame before them
+        let pairs = || vec![rows("a"), rows("a"), rows("b"), rows("b")];
+        serve.gathered(gather("j1", pairs()));
         serve.tick();
         serve.tick();
         serve.tick();
         assert_eq!(sent(&mut serve), ["reload 1", "pos 2", "reload 2"]);
-        serve.gathered(gather("j1"));
+        serve.gathered(gather("j1", pairs()));
         serve.tick();
         assert_eq!(sent(&mut serve), ["reload 0"]);
     }
 
     #[test]
     fn the_cursor_stays_for_a_gather_a_jump_overtook() {
-        let mut serve = Serve::new(sidebar(1, false));
+        let mut serve = sidebar();
         serve.sidebar.jumped = "j2".into();
-        serve.gathered(gather("j1"));
+        serve.gathered(gather("j1", frames(1, false)));
         assert_eq!(sent(&mut serve), ["reload 0"]);
         serve.sidebar.jumped = "j1".into();
         serve.gathered(Gather {
-            since: "j1".into(),
             moved: true,
+            ..gather("j1", frames(1, false))
         });
         assert!(sent(&mut serve).is_empty());
         serve.sidebar.moving = true;
-        serve.gathered(gather("j1"));
+        serve.gathered(gather("j1", frames(1, false)));
         assert!(sent(&mut serve).is_empty());
         serve.sidebar.moving = false;
-        serve.gathered(gather("j1"));
+        serve.gathered(gather("j1", frames(1, false)));
         assert_eq!(sent(&mut serve), ["pos 2"]);
     }
 
     #[test]
     fn the_cursor_is_left_alone_while_the_session_on_show_stays() {
-        let mut serve = Serve::new(sidebar(1, false));
-        serve.gathered(gather("j1"));
+        let mut serve = sidebar();
+        serve.gathered(gather("j1", frames(1, false)));
         sent(&mut serve);
-        serve.gathered(gather("j1"));
+        serve.gathered(gather("j1", frames(1, false)));
         assert!(sent(&mut serve).is_empty());
     }
 

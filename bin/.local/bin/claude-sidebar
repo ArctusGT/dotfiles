@@ -3,12 +3,12 @@
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
 # Two background loops keep the list in a cache: one gathers it every second,
-# or at once on a kick, so fzf never waits on a host, and draws its frames;
-# the other, `claude-sidebar-loop`, built from the repo's crate of that name,
-# shows them in fzf, 8 a second while a Clawd moves. `tmux-frame` runs the
-# sidebar as the frame's left pane: a jump moves the frame's right pane, and
-# fzf's cursor follows the session on show there however it changed. Run
-# elsewhere, a jump moves the usual tmux's most recent client.
+# or at once on a kick, so fzf never waits on a host; the other,
+# `claude-sidebar-loop`, built from the repo's crate of that name, renders its
+# frames and shows them in fzf, 8 a second while a Clawd moves. `tmux-frame`
+# runs the sidebar as the frame's left pane: a jump moves the frame's right
+# pane, and fzf's cursor follows the session on show there however it changed.
+# Run elsewhere, a jump moves the usual tmux's most recent client.
 # Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the background loops'
 # errors in ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the list.
 #   rows              print the list once, as fzf reads it
@@ -37,16 +37,12 @@
 #                     (default ~/.config/sesh/sesh.toml)
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
-warn=${CLAUDE_CTX_WARN:-50}
 sesh_config=${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}
 # ServerAlive drops a master connection to a host gone quiet within 4s, where
 # ConnectTimeout does not reach a call made over an existing master
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ServerAliveInterval=2
   -o ServerAliveCountMax=2 -o ControlPath=/tmp/claude-sidebar-%C)
 cache=${TMPDIR:-/tmp}/claude-sidebar
-# the frames a gather draws: every animation in format (running, squatting,
-# waiting) loops within them, as each one's length divides it
-frame_count=48
 # a host's one client from the Mac, which runs inside the Mac's tmux (tmux*
 # term), as a command run on the host; add -F
 relay_client="tmux list-clients -f '#{m:tmux*,#{client_termname}}'"
@@ -79,347 +75,6 @@ tag() { # $1 label, $2 ssh host, $3 relay session, $4 "unreachable" or empty, $5
   [[ -n $4 ]] || jq -sc --arg host "$2" --arg relay "$3" \
     'map(select(.entrypoint != "claude-desktop" or .tmux_pane != null))
      | sort_by(.tmux_pane == null)[] + {$host, $relay}'
-}
-
-# the columns an fzf item's line has in the pane this runs in, past the 2 of
-# fzf's pointer and marker; read on each draw, so the lines follow a resize
-line_width() {
-  local cols
-  cols=$([[ -n $TMUX_PANE ]] && tmux display -p -t "$TMUX_PANE" '#{pane_width}' || tput cols)
-  echo $((cols - 2))
-}
-
-# one NUL-terminated fzf item per header or session: ssh host, pane, relay
-# session, session id (empty only on a header, which is how `jump` tells one),
-# entry number, 1 if the frame's right pane shows it, then the display lines.
-# Sessions with a pane are numbered in order across hosts, for `pick`. Times
-# are in whole minutes, so the rows change only when a session does, or with
-# the frame while a Clawd moves. With several animation
-# frames, the rows for each, one frame after another
-format() { # $@ animation frames, counting from 0 (default 0)
-  local frames
-  printf -v frames '%s,' "${@:-0}"
-  jq -srj --argjson frames "[${frames%,}]" --argjson now "$(printf '%(%s)T' -1)" --argjson warn "$warn" --argjson width "$(line_width)" '
-    def ago: if . < 60 then "<1m" elif . < 3600 then "\(. / 60 | floor)m"
-             else "\(. / 3600 | floor)h" end;
-    # TokyoNight Night as SGR foregrounds: the terminal palette where it has
-    # the shade (palette N is 30+N, or 90+N-8 for 8..15), hex where it does not
-    def red: "31";
-    def green: "32";
-    def yellow: "33";
-    def blue: "34";
-    def terminal_black: "90"; # palette 8, #414868
-    def orange: "38;2;255;158;100"; # #ff9e64
-    def dark5: "38;2;115;122;162"; # #737aa2, a grey still seen dimmed, where palette 8 is lost
-    # . in the colour $sgr, then back to the default foreground (39) rather
-    # than a reset, so a background entry stays dimmed
-    def paint($sgr): "\u001b[\($sgr)m" + . + "\u001b[39m";
-    # context use as a line across the entry, $width columns with the
-    # percentage label at its end: the used share a heavy rule, each cell
-    # coloured by how far along the bar it sits, green to red as a full
-    # context is the bad end. The rest a light dashed rule in terminal_black.
-    # All red at $warn. No record ($pct null): the whole line terminal_black,
-    # with no label
-    def ctxline($pct):
-      # the first . cells of a bar $cells long, each in its $palette colour,
-      # painted a run of one colour at a time
-      def gradient($cells; $palette):
-        [range(.) | $palette[. * ($palette | length) / $cells | floor]]
-        | reduce .[] as $colour ([];
-            if length > 0 and .[-1].colour == $colour then .[-1].cells += 1
-            else . + [{$colour, cells: 1}] end)
-        | map(.colour as $colour | "━" * .cells | paint($colour))
-        | join("");
-      if $pct == null then "┈" * $width | paint(terminal_black)
-      else
-        # padded to 4 columns, so bars up to 99% end in the same column
-        (" \($pct)%" | " " * (4 - length) + .) as $label
-        | ($width - ($label | length)) as $cells
-        | ([$pct * $cells / 100 | round, $cells] | min) as $full
-        | ($pct >= $warn) as $warned
-        | ($full | gradient($cells; if $warned then [red] else [green, yellow, orange, red] end))
-          + ("┈" * ($cells - $full) | paint(terminal_black))
-          + ($label | if $warned then paint(red) else . end)
-      end;
-    # Clawd standing, as Claude Code 2.1.292 draws him in its banner, open
-    # eyes and arms down, redrawn 16 pixels wide and 12 tall with a bandana
-    # below his head-top: B body, m the bandana, 1 2 3 its stripes, the
-    # ribbon a tail at its end and a drop beside the eyes. Two rows each for
-    # head-top, bandana, arms, body and feet; the eyes slits one row tall,
-    # under the bandana. Drawn as octant cells 2 pixels wide and 4 tall, from rows 0, 4
-    # and 8, so keep each cell to two colours, the empty background
-    # counting as one: octant draws a cell as one colour and empty, or as
-    # two colours and full
-    def stand: [
-      "..BBBBBBBBBBBB..",
-      "..BBBBBBBBBBBB..",
-      "..112233mmmmmm3.",
-      "..112233mmmmmm3.",
-      "..BB..BBBB..BB22",
-      "..BBBBBBBBBBBB22",
-      "BBBBBBBBBBBBBBBB",
-      "BBBBBBBBBBBBBBBB",
-      "..BBBBBBBBBBBB..",
-      "..BBBBBBBBBBBB..",
-      "..B.B......B.B..",
-      "..B.B......B.B.."
-    ];
-    # Clawd running, frame $k of 4: body two columns right, slit eyes, both
-    # arms swept left, the stripes at the far end of the bandana. Columns 0
-    # to 3 of rows 0 to 3, two octant cells, hold the ribbon streaming left,
-    # ribbons[$k], each cell in one stripe colour that changes each frame.
-    # The eyes glance a pixel with each step, run_eyes[$k]: centre, a pixel
-    # right, centre, a pixel right. The feet step left pair down, all up,
-    # right pair down, all up. Same rule as stand: two colours to a cell,
-    # empty counting as one
-    def run_body: [
-      "....BBBBBBBBBBBB",
-      "....BBBBBBBBBBBB",
-      "....mmmmmm332211",
-      "....mmmmmm332211",
-      "....BB..BBBB..BB",
-      ".BB.BBBBBBBBBBBB",
-      ".BB.BBBBBBBBBBBB",
-      "....BBBBBBBBBBBB",
-      ".BBBBBBBBBBBBBBB",
-      ".BBBBBBBBBBBBBBB"
-    ];
-    def ribbons: [["....", "1...", ".133", ".13."], [".2..", "2.1.", "2.11", "...."],
-                  ["....", ".3..", "3322", "...2"], ["2..3", ".23.", ".233", "2..."]];
-    def run_feet: [[".....B.B....B.B.", ".....B......B..."],
-                   [".....B.B....B.B.", "................"],
-                   [".....B.B....B.B.", ".......B......B."],
-                   [".....B.B....B.B.", "................"]];
-    def run_eyes: ["....BBB..BBBB..B", "....BBBB..BBBB..",
-                   "....BBB..BBBB..B", "....BBBB..BBBB.."];
-    def run($k):
-      [range(4) as $y | ribbons[$k][$y] + run_body[$y][4:]]
-      + [run_eyes[$k]] + run_body[5:] + run_feet[$k];
-    # Clawd squatting, down: the head drops a whole cell row, the eyes
-    # below the bandana, the arms below the eyes and the feet squashed to
-    # one row, while the ribbon is left floating above in one stripe
-    # colour. A drop of one or two rows would put the bandana in the eyes
-    # cell row, a cell there holding the bandana, the body and the empty
-    # eye. Same rule as stand
-    def squat: [
-      "................",
-      "...............2",
-      "...............2",
-      "..............2.",
-      "..BBBBBBBBBBBB..",
-      "..BBBBBBBBBBBB..",
-      "..112233mmmmmm..",
-      "..112233mmmmmm..",
-      "..BB..BBBB..BB..",
-      "BBBBBBBBBBBBBBBB",
-      "BBBBBBBBBBBBBBBB",
-      "..B.B......B.B.."
-    ];
-    # halfway down: the head as he stands, as no drop short of a cell row
-    # fits the rule, the arms a row lower, the ribbon drop a row longer to
-    # fill the cell beside them, and the feet squashed to one row
-    def crouch: [
-      "..BBBBBBBBBBBB..",
-      "..BBBBBBBBBBBB..",
-      "..112233mmmmmm3.",
-      "..112233mmmmmm3.",
-      "..BB..BBBB..BB22",
-      "..BBBBBBBBBBBB22",
-      "..BBBBBBBBBBBB22",
-      "BBBBBBBBBBBBBBBB",
-      "BBBBBBBBBBBBBBBB",
-      "..BBBBBBBBBBBB..",
-      "..BBBBBBBBBBBB..",
-      "..B.B......B.B.."
-    ];
-    # Clawd waiting: standing, with what . changes from that: eyes, the
-    # slits centre or a pixel left or right; feet, down or the left or right
-    # pair lifted a row; arm, the left one 0 down, 1 half up, 2 up beside
-    # the eyes, 3 high beside the bandana. Each moves within cells of body
-    # and empty alone; the right arm stays down, as above it the ribbon
-    # shares its cells
-    def wait:
-      ({eyes: "centre", feet: "down", arm: 0} + .) as $step
-      | ([[6, 7], [5, 6], [4, 5], [2, 3]][$step.arm]) as $arm_rows
-      | stand
-      | .[4] = {centre: "..BB..BBBB..BB22", left: "..B..BBBB..BBB22", right: "..BBB..BBBB..B22"}[$step.eyes]
-      | .[11] = {down: .[11], left: "...........B.B..", right: "..B.B..........."}[$step.feet]
-      # the left arm, at rows 6 and 7 as he stands, moved to $arm_rows; last,
-      # as the eyes above set all of row 4
-      | .[6, 7] |= ".." + .[2:]
-      | .[$arm_rows[]] |= "BB" + .[2:];
-    # the poses of a run, of a squat: standing a while, then down and back,
-    # and of a wait, 6 s at 8 frames a second: looking left and right, a
-    # stamp, a wave, then standing. Each wait step held n frames, 1 if not
-    # given; the steps add up to 48
-    def running: [range(4) as $k | run($k)];
-    def squatting: [range(8) | stand] + [crouch, squat, squat, crouch];
-    def waiting:
-      [[{n: 4}, {n: 6, eyes: "left"}, {n: 2}, {n: 6, eyes: "right"}, {n: 2},
-        {feet: "left"}, {n: 2}, {feet: "right"}, {n: 6},
-        {arm: 1}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 1},
-        {n: 9}][]
-       | wait as $pose | range(.n // 1) | $pose];
-    # a wait with a squat in each of its three longest rests, before the
-    # look, between the stamp and the wave, and after the wave, about one
-    # every 2 s: for a session waiting while its subagents work
-    def waiting_on_subagents:
-      reduce (0, 25, 40) as $at (waiting; .[$at:$at + 4] = [crouch, squat, squat, crouch]);
-    # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
-    # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
-    # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
-    # name, and the 26 sets Unicode encodes elsewhere are the quadrants,
-    # U+1FB82, U+2582, U+1FB85, U+2586, U+1CEA8, U+1CEAB, U+1CEA3, U+1CEA0,
-    # U+1FBE6 and U+1FBE7
-    def octants:
-      " 𜺨𜺫🮂𜴀▘𜴁𜴂𜴃𜴄▝𜴅𜴆𜴇𜴈▀" +
-      "𜴉𜴊𜴋𜴌🯦𜴍𜴎𜴏𜴐𜴑𜴒𜴓𜴔𜴕𜴖𜴗" +
-      "𜴘𜴙𜴚𜴛𜴜𜴝𜴞𜴟🯧𜴠𜴡𜴢𜴣𜴤𜴥𜴦" +
-      "𜴧𜴨𜴩𜴪𜴫𜴬𜴭𜴮𜴯𜴰𜴱𜴲𜴳𜴴𜴵🮅" +
-      "𜺣𜴶𜴷𜴸𜴹𜴺𜴻𜴼𜴽𜴾𜴿𜵀𜵁𜵂𜵃𜵄" +
-      "▖𜵅𜵆𜵇𜵈▌𜵉𜵊𜵋𜵌▞𜵍𜵎𜵏𜵐▛" +
-      "𜵑𜵒𜵓𜵔𜵕𜵖𜵗𜵘𜵙𜵚𜵛𜵜𜵝𜵞𜵟𜵠" +
-      "𜵡𜵢𜵣𜵤𜵥𜵦𜵧𜵨𜵩𜵪𜵫𜵬𜵭𜵮𜵯𜵰" +
-      "𜺠𜵱𜵲𜵳𜵴𜵵𜵶𜵷𜵸𜵹𜵺𜵻𜵼𜵽𜵾𜵿" +
-      "𜶀𜶁𜶂𜶃𜶄𜶅𜶆𜶇𜶈𜶉𜶊𜶋𜶌𜶍𜶎𜶏" +
-      "▗𜶐𜶑𜶒𜶓▚𜶔𜶕𜶖𜶗▐𜶘𜶙𜶚𜶛▜" +
-      "𜶜𜶝𜶞𜶟𜶠𜶡𜶢𜶣𜶤𜶥𜶦𜶧𜶨𜶩𜶪𜶫" +
-      "▂𜶬𜶭𜶮𜶯𜶰𜶱𜶲𜶳𜶴𜶵𜶶𜶷𜶸𜶹𜶺" +
-      "𜶻𜶼𜶽𜶾𜶿𜷀𜷁𜷂𜷃𜷄𜷅𜷆𜷇𜷈𜷉𜷊" +
-      "𜷋𜷌𜷍𜷎𜷏𜷐𜷑𜷒𜷓𜷔𜷕𜷖𜷗𜷘𜷙𜷚" +
-      "▄𜷛𜷜𜷝𜷞▙𜷟𜷠𜷡𜷢▟𜷣▆𜷤𜷥█";
-    # TokyoNight Night shades a bandana takes, clear of the state colours:
-    # red, green, blue, magenta, cyan, teal, fg, blue1, purple
-    def bandana_colours: [red, green, blue, "35", "36", "38;2;115;218;202",
-      "38;2;192;202;245", "38;2;42;195;222", "38;2;157;124;216"];
-    # djb2 of a string, kept under 2^31 so jq, counting in doubles, stays exact
-    def djb: reduce explode[] as $c (5381; (. * 33 + $c) % 2147483647);
-    # four different bandana colours for session $id, main then stripes, from
-    # a stable hash of the id, so a session wears the same bandana on every
-    # refresh and from either host. Each pick takes the hash modulo the
-    # colours left and passes the quotient on to the next
-    def bandana($id):
-      [foreach range(4) as $_ ({hash: ($id | djb), left: bandana_colours};
-         (.left | length) as $n | (.hash % $n) as $i
-         | {hash: (.hash / $n | floor), left: (.left | del(.[$i])), pick: .left[$i]};
-         .pick)];
-    # foreground . as the same colour for the background: 3x as 4x, 9x as
-    # 10x, 38;2 as 48;2
-    def as_background:
-      if startswith("38;") then "48" + .[2:] else tonumber + 10 | tostring end;
-    # . in the foreground $fg on the background $bg, both given as
-    # foregrounds, then back to the default colours
-    def paint($fg; $bg):
-      "\u001b[\($fg);\($bg | as_background)m" + . + "\u001b[39;49m";
-    # foreground . halfway to the background, #1a1b26, as Ghostty draws a
-    # faint (SGR 2) foreground at its faint-opacity of 0.5; the palette
-    # shades as TokyoNight Night sets them
-    def faded:
-      (if startswith("38;2;") then .[5:] | split(";") | map(tonumber)
-       else {"31": [247, 118, 142], "32": [158, 206, 106], "33": [224, 175, 104],
-             "34": [122, 162, 247], "35": [187, 154, 247], "36": [125, 207, 255]}[.] end)
-      | [., [26, 27, 38]] | transpose | map(add / 2 | floor | tostring)
-      | "38;2;" + join(";");
-    # a cell of 8 pixels (colours or null, left to right, top to bottom) as
-    # its octant: the first lit pixel is the ink and lights the glyph, and a
-    # second colour filling the rest of the cell is its background, closed
-    # again (49) so it stops at the cell. A second colour in a cell that is
-    # not full is not drawn. Faint dims only a foreground, so where $faint,
-    # a cell with a background turns faint off (22) and draws both colours
-    # faded, then turns faint back on
-    def octant($faint):
-      map(values) as $lit
-      | $lit[0] as $ink
-      | (if ($lit | length) == 8 then $lit - [$ink] | first else null end)
-          as $background
-      | ([range(8) as $k | select(.[$k] != null and .[$k] == $ink) | pow(2; $k)] | add // 0) as $bits
-      | octants[$bits:$bits + 1]
-      | if $ink == null then .
-        elif $background == null then paint($ink)
-        elif $faint then
-          "\u001b[22m" + paint($ink | faded; $background | faded) + "\u001b[2m"
-        else paint($ink; $background) end;
-    # the poses session $r cycles through, a pose a frame, and its phase
-    # into them. Working, he runs; idle with subagents running, he squats;
-    # waiting, he looks about, stamps and waves, and squats too while
-    # subagents run; each squat and wait at its own phase from the session
-    # id; otherwise he stands
-    def animation($r):
-      if $r.state == "working" then {poses: running, phase: 0}
-      elif $r.state == "idle" and $r.subagents > 0
-      then {poses: squatting, phase: ($r.session_id | djb)}
-      elif $r.state == "waiting" and $r.subagents > 0
-      then {poses: waiting_on_subagents, phase: ($r.session_id | djb)}
-      elif $r.state == "waiting"
-      then {poses: waiting, phase: ($r.session_id | djb)}
-      else {poses: [stand], phase: 0} end;
-    # Clawd for session $r in $pose, wearing its bandana, as three lines,
-    # his body in the colour for its state: working orange, waiting yellow,
-    # idle grey, the only states claude-session-state writes. $faint as in
-    # octant
-    def picture($r; $pose; $faint):
-      (bandana($r.session_id) as [$main, $s1, $s2, $s3]
-        | {B: {working: orange, waiting: yellow, idle: dark5}[$r.state],
-           m: $main, "1": $s1, "2": $s2, "3": $s3}) as $palette
-      | ($pose | map(split("") | map($palette[.]))) as $pixels
-      | [range(3) as $line
-          | [range(8) as $cell
-              | [range(4) as $y | range(2) as $x | $pixels[4 * $line + $y][2 * $cell + $x]]
-              | octant($faint)]
-          | join("")];
-    # Clawd for session $r in each of $frames, as picture draws him: each
-    # distinct pose of his animation drawn once, as most repeat across the
-    # frames or, standing, are the same in all of them
-    def pictures($r; $faint):
-      animation($r) as $a
-      | [$frames[] | $a.poses[($a.phase + .) % ($a.poses | length)] | tojson] as $keys
-      | (reduce ($keys | unique)[] as $k ({}; .[$k] = picture($r; $k | fromjson; $faint)))
-          as $drawn
-      | $keys | map($drawn[.]);
-    # every item for each frame, the frames one after another: each entry
-    # is formatted once, as an item a frame, which differ only in the
-    # picture, then the entries are transposed into frame order
-    [foreach .[] as $r ({n: 0, cur: ""};
-      if $r.header then .cur = $r.current
-      elif $r.tmux_pane != null then .n += 1 else . end;
-      [$r, .n, .cur])
-    | .[0] as $r | .[1] as $n | .[2] as $cur
-    | if $r.header then
-        (["", "", "", "", "", "",
-          # paint closes only the colour, so the reset ends the bold
-          ($r.label | paint("1;\(blue)")) + "\u001b[0m"
-          + (if $r.down then "  " + ("unreachable" | paint(red)) else "" end)
-          # a blank second line, so the heading stands apart from the entries,
-          # as a braille blank (U+2800) since fzf drops a trailing line of spaces
-          + "\n\u2800"]
-         | join("\t") + "\u0000") as $item
-        | [$frames[] | $item]
-      else
-        ($r.context.used_pct) as $pct
-        | ($r.tmux_pane != null) as $numbered
-        # a session with no pane (a --bg one, or a daemon) is dimmed
-        | (if $numbered then "" else "\u001b[2m" end) as $dim
-        | ([$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
-            (if $numbered then "\($n)" else "" end),
-            (if $numbered and $r.tmux_pane == $cur then "1" else "" end), ""]
-           | join("\t")) as $fields
-        # the text right of each line of the picture
-        | (" " + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n")
-            as $text0
-        | ("   \($r.name // $r.session_id[:8])\n") as $text1
-        | ("   \($r.state) \($now - $r.since | ago)"
-           # running subagents in the working colour, so an idle session
-           # whose subagents are still at work stands out
-           + (if $r.subagents > 0 then "  " + ("+\($r.subagents)" | paint(orange)) else "" end)
-           + (if $numbered then "" else "  " + $dim + "background\u001b[0m" end)
-           # reset at the end, or the dim of a background entry leaks into
-           # the entries fzf draws after it
-           + "\n" + $dim + ctxline($pct) + "\u001b[0m") as $text2
-        | [pictures($r; $numbered | not)[] as [$pic0, $pic1, $pic2]
-           | $fields + $dim + $pic0 + $text0 + $dim + $pic1 + $text1
-             + $dim + $pic2 + $text2 + "\u0000"]
-      end]
-    | transpose[][]'
 }
 
 # every host's tagged lines, local first
@@ -642,32 +297,6 @@ fzf_do() { curl -sf --unix-socket "$cache/fzf.sock" -X POST http://localhost -d 
 # so a reader never sees half of them
 gather() { collect >"$cache/tagged.new" && mv "$cache/tagged.new" "$cache/tagged"; }
 
-# the rows fzf shows, one file for each frame of the cycle, rows.0 on: all
-# formatted from the tagged lines in one jq run, then each replaced whole, as
-# `step` and `position` read rows.0 too. Every frame has the same items, so
-# the output splits into equal parts. $cache/repeats holds, for each frame,
-# 1 if it is the same as the frame before it (rows.0 after the last), else
-# 0, so claude-sidebar-loop knows whether a Clawd moves, and which ticks
-# change nothing, without reading the rows
-draw() {
-  local frames=()
-  for ((k = 0; k < frame_count; k++)); do frames+=("$k"); done
-  format "${frames[@]}" <"$cache/tagged" >"$cache/frames.new" &&
-    perl -0 -e '($dir, $count) = @ARGV; @items = <STDIN>; @items or exit 1;
-      $n = @items / $count;
-      for $k (0 .. $count - 1) {
-        $frame[$k] = join "", @items[$k * $n .. ($k + 1) * $n - 1];
-        open my $f, ">", "$dir/rows.$k.new" or die;
-        print $f $frame[$k];
-        close $f or die;
-        rename "$dir/rows.$k.new", "$dir/rows.$k" or die }
-      open my $f, ">", "$dir/repeats.new" or die;
-      print $f join(" ", map { $frame[$_] eq $frame[$_ - 1] ? 1 : 0 } 0 .. $count - 1), "\n";
-      close $f or die;
-      rename "$dir/repeats.new", "$dir/repeats" or die' \
-      "$cache" "$frame_count" <"$cache/frames.new"
-}
-
 # empty fd $1 of the lines waiting on it; succeeds if there were any
 drained() {
   local any=1
@@ -675,18 +304,18 @@ drained() {
   return "$any"
 }
 
-# gather and draw every second, or as soon as a kick comes through the fifo
-# $cache/kick, then wake claude-sidebar-loop with a line to the fifo
-# $cache/gathered: the value $cache/jumped had when the gather began, then
-# "moved" when a kick came during it, so what it saw on show in the frame may
-# already be gone, and gather again at once
+# gather every second, or as soon as a kick comes through the fifo
+# $cache/kick, then wake claude-sidebar-loop to render the gather with a line
+# to the fifo $cache/gathered: the value $cache/jumped had when the gather
+# began, then "moved" when a kick came during it, so what it saw on show in
+# the frame may already be gone, and gather again at once
 gathering() {
   local kicks since
   exec {kicks}<>"$cache/kick"
   while :; do
     drained "$kicks" # the kicks this gather answers
     read -r since <"$cache/jumped"
-    gather && draw
+    gather
     if drained "$kicks"; then
       echo "$since moved" >"$cache/gathered"
       continue
@@ -696,7 +325,7 @@ gathering() {
   done
 }
 
-pick() { # $1 entry number, counted as `format` numbers them
+pick() { # $1 entry number, as the rows number the entries
   (( $1 >= 1 )) || return 0 # jq would count 0 and below from the end
   local host pane relay id
   # the running sidebar's list, so N is the number on screen
@@ -711,7 +340,7 @@ pick() { # $1 entry number, counted as `format` numbers them
 }
 
 case $1 in
-  rows) collect | format ;;
+  rows) collect | claude-sidebar-loop rows ;;
   pick) pick "$2" ;;
   kick) kick ;;
   edge) edge "$2" "$3" "$4" "$5" ;;
@@ -719,7 +348,8 @@ case $1 in
   attach) attach "$2" ;;
   "")
     mkdir -p "$cache" && rm -f "$cache/gathered" "$cache/kick" "$cache"/moving.* &&
-      mkfifo "$cache/gathered" "$cache/kick" && moved && gather && draw
+      mkfifo "$cache/gathered" "$cache/kick" && moved && gather &&
+      claude-sidebar-loop rows <"$cache/tagged" >"$cache/rows.0"
     # errors to a log: written to the pane, they stay over fzf until it redraws
     gathering 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
     loops=$!
