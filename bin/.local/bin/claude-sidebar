@@ -38,8 +38,8 @@
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 # ServerAlive drops a master connection to a host gone quiet within 4s, where
-# ConnectTimeout does not reach a call made over an existing master. As
-# claude-sidebar-loop polls the hosts, so a jump shares its master connection
+# ConnectTimeout does not reach a call made over an existing master. The same
+# as claude-sidebar-loop's SSH_OPTS, so a jump rides the master its polls keep
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ServerAliveInterval=2
   -o ServerAliveCountMax=2 -o ControlPath=/tmp/claude-sidebar-%C)
 cache=${TMPDIR:-/tmp}/claude-sidebar
@@ -246,8 +246,9 @@ pick() { # $1 entry number, as the rows number the entries
   # running, a gather of its own
   local rows=$cache/rows.0
   [[ -f $rows ]] || { mkdir -p "$cache"; rows=$cache/once; claude-sidebar-loop rows >"$rows"; }
-  # fields 1 to 4 of the entry numbered N, field 5; \x1f apart, as read
-  # would run empty tab fields together
+  # the host, pane, relay and session id (fields 1 to 4) of the item whose
+  # entry number (field 5) is N; joined by \x1f, as read would run empty tab
+  # fields together
   IFS=$'\x1f' read -r host pane relay id < <(perl -0ne 'BEGIN { $n = shift }
     chomp; @f = split /\t/, $_, -1;
     if ($f[4] ne "" && $f[4] eq $n) { print join("\x1f", @f[0 .. 3]), "\n"; exit }' "$1" "$rows")

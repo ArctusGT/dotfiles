@@ -101,8 +101,8 @@ This creates symlinks like:
 - `~/.local/bin/espidf-index -> ~/dotfiles/bin/.local/bin/espidf-index`
 
 The sidebar's loop, `claude-sidebar-loop`, which gathers the sidebar's
-sessions, renders its frames and shows them, is a Rust binary built from the crate in
-`claude-sidebar-loop/` rather than stowed. Build it and install it
+sessions, renders its frames and shows them, is a Rust binary built from the
+crate in `claude-sidebar-loop/` rather than stowed. Build it and install it
 into `~/.local/bin`, beside the sidebar, and again whenever the crate changes:
 
 ```bash

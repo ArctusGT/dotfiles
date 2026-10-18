@@ -175,8 +175,9 @@ fn input_lines(text: &str) -> impl Iterator<Item = &str> {
 
 /// Claude Code's own records (`<pid>.json`), keyed by session id, since
 /// their pid need not be the one the hooks record; a later record of an id
-/// over an earlier one. None at all if one cannot be read, as
-/// `claude-sessions`' jq then fails
+/// over an earlier one. None at all if one cannot be parsed or is no object
+/// naming its session id in a string, as `claude-sessions`' jq then fails;
+/// a file that cannot be read is passed over
 fn records(dir: &Path) -> Records {
     let mut text = String::new();
     for path in json_files(dir) {

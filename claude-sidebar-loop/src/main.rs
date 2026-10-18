@@ -37,7 +37,7 @@ context line red at CLAUDE_CTX_WARN percent (default 50).";
 /// 8 frames a second
 const TICK: Duration = Duration::from_millis(125);
 
-/// how long a gather waits for a kick before the next
+/// how long `gathering` waits for a kick after a gather before the next
 const GATHER_EVERY: Duration = Duration::from_secs(1);
 
 fn main() {

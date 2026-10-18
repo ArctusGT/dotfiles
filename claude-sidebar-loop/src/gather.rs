@@ -26,7 +26,8 @@ const SSH_OPTS: [&str; 10] = [
 ];
 
 /// run on each remote host: its sessions, then \036 and the pane its one
-/// client from the Mac (which runs inside the Mac's tmux, a tmux* term) is on
+/// client from the Mac (which runs inside the Mac's tmux, a tmux* term) is on,
+/// found as `claude-sidebar`'s `relay_client` finds it
 const REMOTE_COMMAND: &str = "claude-sessions; printf '\\036'; \
     tmux list-clients -f '#{m:tmux*,#{client_termname}}' -F '#{pane_id}' | head -1";
 
