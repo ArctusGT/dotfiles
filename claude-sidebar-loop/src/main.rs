@@ -5,6 +5,7 @@ mod fzf;
 mod gather;
 mod json;
 mod serve;
+mod session;
 mod sessions;
 
 use frames::{FRAME_COUNT, View};

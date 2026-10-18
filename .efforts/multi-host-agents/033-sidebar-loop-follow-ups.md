@@ -46,7 +46,7 @@ The Maintainer accepted all four from 032's review notes.
 **Acceptance criteria:**
 - [x] `attach` opens or finds a session's pane as today, with no
       `claude-sessions` spawn on the Mac
-- [ ] Rows byte-identical to 032's over the shipped row comparison's
+- [x] Rows byte-identical to 032's over the shipped row comparison's
       fixtures
 - [ ] Respawning a sidebar with `respawn-pane -k` in a throwaway tmux,
       ten times, leaves a working sidebar every time; a second sidebar

@@ -11,7 +11,7 @@
 //! or with the frame while a Clawd moves.
 
 use crate::gather::Host;
-use crate::json::Value;
+use crate::session::{Number, Session, State};
 
 /// the frames a gather renders: every animation (running, squatting,
 /// waiting) loops within them, as each one's length divides it
@@ -70,7 +70,7 @@ pub fn render(hosts: &[Host], view: &View, frames: usize) -> Vec<String> {
             frame.push_str(&item);
         }
         for session in &host.sessions {
-            let numbered = session.get("tmux_pane") != &Value::Null;
+            let numbered = session.pane.is_some();
             if numbered {
                 number += 1;
             }
@@ -84,7 +84,7 @@ pub fn render(hosts: &[Host], view: &View, frames: usize) -> Vec<String> {
 /// appends `session`'s item, entry `number` if it has one, to each of
 /// `frames`
 fn render_session(
-    session: &Value,
+    session: &Session,
     host: &Host,
     number: Option<usize>,
     view: &View,
@@ -133,22 +133,14 @@ struct Entry {
 }
 
 impl Entry {
-    fn new(session: &Value, host: &Host, number: Option<usize>, view: &View) -> Entry {
-        let pane = session.get("tmux_pane");
-        let on_show = host
-            .on_show
-            .as_deref()
-            .is_some_and(|shown| pane.as_str() == Some(shown));
+    fn new(session: &Session, host: &Host, number: Option<usize>, view: &View) -> Entry {
+        let on_show = host.on_show.is_some() && host.on_show == session.pane;
         let number_text = number.map(|n| n.to_string());
         let fields = [
             host.ssh_host.clone(),
-            if pane.truthy() {
-                joined(pane)
-            } else {
-                String::new()
-            },
+            session.pane.clone().unwrap_or_default(),
             host.relay.clone(),
-            joined(session.get("session_id")),
+            session.id.clone(),
             number_text.clone().unwrap_or_default(),
             if number.is_some() && on_show { "1" } else { "" }.to_string(),
             String::new(),
@@ -158,24 +150,19 @@ impl Entry {
         let repo_text = format!(
             " {} {}\n",
             number_text.as_deref().unwrap_or(" "),
-            last_part(session.get("cwd"))
+            last_part(&session.cwd)
         );
-        let name = session.get("name");
         let name_text = format!(
             "   {}\n",
-            if name.truthy() {
-                name.text()
-            } else {
-                short_id(session.get("session_id"))
-            }
+            session.name.as_deref().unwrap_or_else(|| short_id(&session.id))
         );
-        let state = session.get("state").text();
-        let age = ago(view.now as f64 - session.get("since").as_f64().unwrap_or_default());
+        let state = session.state.word();
+        let age = ago(view.now as f64 - session.since);
         // running subagents in the working colour, so an idle session whose
         // subagents are still at work stands out
-        let subagents = session.get("subagents");
-        let subagents_label = if subagents.above_zero() {
-            format!("  {}", paint(&format!("+{}", subagents.text()), ORANGE))
+        let subagents = &session.subagents;
+        let subagents_label = if subagents.value > 0.0 {
+            format!("  {}", paint(&format!("+{}", subagents.text), ORANGE))
         } else {
             String::new()
         };
@@ -183,7 +170,7 @@ impl Entry {
             Some(_) => String::new(),
             None => format!("  {DIM}background{RESET}"),
         };
-        let context = context_line(session.get("context").get("used_pct"), view);
+        let context = context_line(session.used_pct.as_ref(), view);
         // reset at the end, or the dim of a background entry leaks into the
         // entries fzf draws after it
         let status_text =
@@ -207,29 +194,14 @@ impl Entry {
     }
 }
 
-/// a field as jq's `join` takes it: null as empty, a string as itself
-fn joined(v: &Value) -> String {
-    match v {
-        Value::Null => String::new(),
-        v => v.text(),
-    }
-}
-
-/// the last part of path `cwd`, as jq's `split("/") | last`, which has no
-/// parts in an empty path
-fn last_part(cwd: &Value) -> String {
-    match cwd.as_str() {
-        Some("") | None => "null".into(),
-        Some(path) => path.rsplit('/').next().unwrap_or_default().into(),
-    }
+/// the last part of path `cwd`
+fn last_part(cwd: &str) -> &str {
+    cwd.rsplit('/').next().unwrap_or_default()
 }
 
 /// the first 8 characters of `id`
-fn short_id(id: &Value) -> String {
-    match id.as_str() {
-        Some(id) => id.chars().take(8).collect(),
-        None => id.text(),
-    }
+fn short_id(id: &str) -> &str {
+    id.char_indices().nth(8).map_or(id, |(end, _)| &id[..end])
 }
 
 /// `seconds` as whole minutes or hours
@@ -298,12 +270,13 @@ fn faded(sgr: &str) -> String {
 /// is the bad end. The rest a light dashed rule in terminal_black. All red at
 /// `view.warn`. No record (`pct` null): the whole line terminal_black, with
 /// no label
-fn context_line(pct: &Value, view: &View) -> String {
-    let Some(share) = pct.as_f64() else {
+fn context_line(pct: Option<&Number>, view: &View) -> String {
+    let Some(Number { text, value: share }) = pct else {
         return paint(&"┈".repeat(view.width.max(0) as usize), TERMINAL_BLACK);
     };
+    let share = *share;
     // padded to 4 columns, so bars up to 99% end in the same column
-    let label = format!("{:>4}", format!(" {}%", pct.text()));
+    let label = format!("{:>4}", format!(" {text}%"));
     let cells = view.width - label.chars().count() as i64;
     let full = (share * cells as f64 / 100.0).round().min(cells as f64) as i64;
     let warned = share >= view.warn;
@@ -333,10 +306,9 @@ fn djb2(s: &str) -> u64 {
 
 /// the colours Clawd is drawn in for a session, by the letters of a pose:
 /// B his body, in the colour for its state (working orange, waiting yellow,
-/// idle grey, the only states claude-session-state writes), m its bandana,
-/// 1 2 3 the bandana's stripes
+/// idle grey), m its bandana, 1 2 3 the bandana's stripes
 struct Palette {
-    body: Option<&'static str>,
+    body: &'static str,
     /// main then stripes: four different colours from a stable hash of the
     /// session id, so a session wears the same bandana on every refresh and
     /// from either host. Each pick takes the hash modulo the colours left
@@ -345,14 +317,13 @@ struct Palette {
 }
 
 impl Palette {
-    fn new(session: &Value) -> Palette {
-        let body = match session.get("state").as_str() {
-            Some("working") => Some(ORANGE),
-            Some("waiting") => Some(YELLOW),
-            Some("idle") => Some(DARK5),
-            _ => None,
+    fn new(session: &Session) -> Palette {
+        let body = match session.state {
+            State::Working => ORANGE,
+            State::Waiting => YELLOW,
+            State::Idle => DARK5,
         };
-        let mut hash = djb2(session.get("session_id").as_str().unwrap_or_default());
+        let mut hash = djb2(&session.id);
         let mut left = BANDANA_COLOURS.to_vec();
         let bandana = std::array::from_fn(|_| {
             let n = left.len() as u64;
@@ -365,7 +336,7 @@ impl Palette {
 
     fn colour(&self, letter: u8) -> Option<&'static str> {
         match letter {
-            b'B' => self.body,
+            b'B' => Some(self.body),
             b'm' => Some(self.bandana[0]),
             b'1' => Some(self.bandana[1]),
             b'2' => Some(self.bandana[2]),
@@ -720,16 +691,15 @@ impl Clawd {
     /// waiting, he looks about, stamps and waves, and squats too while
     /// subagents run; each squat and wait at its own phase from the session
     /// id; otherwise he stands
-    fn animation(&self, session: &Value) -> (&[usize], usize) {
-        let state = session.get("state").as_str();
-        let subagents_running = session.get("subagents").above_zero();
-        let phase = || djb2(session.get("session_id").as_str().unwrap_or_default()) as usize;
-        match state {
-            Some("working") => (&self.running, 0),
-            Some("idle") if subagents_running => (&self.squatting, phase()),
-            Some("waiting") if subagents_running => (&self.waiting_on_subagents, phase()),
-            Some("waiting") => (&self.waiting, phase()),
-            _ => (&self.standing, 0),
+    fn animation(&self, session: &Session) -> (&[usize], usize) {
+        let subagents_running = session.subagents.value > 0.0;
+        let phase = || djb2(&session.id) as usize;
+        match session.state {
+            State::Working => (&self.running, 0),
+            State::Idle if subagents_running => (&self.squatting, phase()),
+            State::Waiting if subagents_running => (&self.waiting_on_subagents, phase()),
+            State::Waiting => (&self.waiting, phase()),
+            State::Idle => (&self.standing, 0),
         }
     }
 }

@@ -4,6 +4,7 @@
 //! not more.
 
 use crate::json::{self, Value};
+use crate::session::Session;
 use crate::sessions::{self, Sources};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -44,14 +45,14 @@ pub struct Host {
     pub down: bool,
     /// its pane the frame's right pane shows, if any
     pub on_show: Option<String>,
-    /// its sessions as `claude-sessions` prints them, those with a pane
-    /// first, desktop app sessions left out unless one has a pane
-    pub sessions: Vec<Value>,
+    /// its sessions, those with a pane first, desktop app sessions left out
+    /// unless one has a pane
+    pub sessions: Vec<Session>,
 }
 
 impl Host {
     /// this host, with `sessions`
-    fn local(on_show: &OnShow, sessions: Vec<Value>) -> Host {
+    fn local(on_show: &OnShow, sessions: Vec<Session>) -> Host {
         Host {
             label: "local".into(),
             ssh_host: String::new(),
@@ -241,17 +242,20 @@ fn poll(remote: &Remote, on_show: &OnShow) -> Host {
     host
 }
 
-/// a host's `sessions` as the sidebar lists them: those with a pane first,
-/// desktop app sessions left out unless one has a pane
-fn listed(sessions: Vec<Value>) -> Vec<Value> {
-    let mut listed: Vec<Value> = sessions
-        .into_iter()
-        .filter(|s| {
-            s.get("entrypoint").as_str() != Some("claude-desktop")
-                || s.get("tmux_pane") != &Value::Null
+/// a host's `sessions`, as `claude-sessions` prints them, as the sidebar
+/// lists them: those with a pane first, desktop app sessions left out unless
+/// one has a pane. One that does not parse is logged and left out
+fn listed(sessions: Vec<Value>) -> Vec<Session> {
+    let mut listed: Vec<Session> = sessions
+        .iter()
+        .filter_map(|s| {
+            Session::parse(s)
+                .map_err(|err| eprintln!("claude-sidebar-loop: a session left out: {err}"))
+                .ok()
         })
+        .filter(|s| !s.desktop || s.pane.is_some())
         .collect();
-    listed.sort_by_key(|s| s.get("tmux_pane") == &Value::Null);
+    listed.sort_by_key(|s| s.pane.is_none());
     listed
 }
 
@@ -274,20 +278,37 @@ mod tests {
         assert_eq!(found, [("mgmt-1", "sysadmin@mgmt-1"), ("lab", "lab-2")]);
     }
 
+    /// a session object of id `id`, pane `pane` (JSON) and entrypoint `entry`
+    fn session(id: &str, pane: &str, entry: &str) -> String {
+        format!(
+            "{{\"session_id\":\"{id}\",\"tmux_pane\":{pane},\"entrypoint\":\"{entry}\",\
+             \"state\":\"idle\",\"since\":1,\"subagents\":0}}"
+        )
+    }
+
     #[test]
     fn lists_sessions_with_a_pane_first_and_no_paneless_desktop_ones() {
         let sessions = json::parse_stream(
-            "{\"session_id\":\"a\",\"tmux_pane\":null,\"entrypoint\":\"cli\"}\
-             {\"session_id\":\"b\",\"tmux_pane\":null,\"entrypoint\":\"claude-desktop\"}\
-             {\"session_id\":\"c\",\"tmux_pane\":\"%1\",\"entrypoint\":\"claude-desktop\"}\
-             {\"session_id\":\"d\",\"tmux_pane\":\"%2\",\"entrypoint\":\"cli\"}",
+            &[
+                session("a", "null", "cli"),
+                session("b", "null", "claude-desktop"),
+                session("c", "\"%1\"", "claude-desktop"),
+                session("d", "\"%2\"", "cli"),
+            ]
+            .concat(),
         )
         .unwrap();
-        let listed = listed(sessions);
-        let ids: Vec<&str> = listed
-            .iter()
-            .map(|s| s.get("session_id").as_str().unwrap_or_default())
-            .collect();
+        let ids: Vec<String> = listed(sessions).into_iter().map(|s| s.id).collect();
         assert_eq!(ids, ["c", "d", "a"]);
+    }
+
+    #[test]
+    fn leaves_out_a_session_that_does_not_parse() {
+        let sessions = json::parse_stream(
+            &[session("a", "null", "cli"), "{\"session_id\":\"b\"}".into()].concat(),
+        )
+        .unwrap();
+        let ids: Vec<String> = listed(sessions).into_iter().map(|s| s.id).collect();
+        assert_eq!(ids, ["a"]);
     }
 }

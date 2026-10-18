@@ -59,16 +59,6 @@ impl Value {
         }
     }
 
-    /// whether jq's `. > 0` holds: jq orders null, false, true, numbers,
-    /// strings, arrays, objects
-    pub fn above_zero(&self) -> bool {
-        match self {
-            Value::Null | Value::Bool(_) => false,
-            Value::Number(_) => self.as_f64().is_some_and(|n| n > 0.0),
-            _ => true,
-        }
-    }
-
     /// the value as jq interpolates it into a string, `"\(.)"`: a string as
     /// itself, anything else as its JSON
     pub fn text(&self) -> String {
@@ -404,13 +394,6 @@ mod tests {
         let texts: Vec<String> = items.iter().map(Value::text).collect();
         assert_eq!(texts, ["a\"b\n", "1.50", "null", "{\"k\":[true]}"]);
         assert_eq!(items[0].to_string(), "\"a\\\"b\\n\"");
-    }
-
-    #[test]
-    fn orders_against_zero_as_jq_does() {
-        let values = parse_stream("null false true 0 2 -1 \"x\"").unwrap();
-        let above: Vec<bool> = values.iter().map(Value::above_zero).collect();
-        assert_eq!(above, [false, false, false, false, true, false, true]);
     }
 
     #[test]
