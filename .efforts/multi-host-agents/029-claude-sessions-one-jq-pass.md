@@ -46,10 +46,10 @@ that put process spawns, not the jq render, at most of its cost.
       session, a spare and a background job
 - [x] A dead session's state, context and agents files are removed, as
       today
-- [ ] CPU a call measured before and after on the Mac with 7 or more
+- [x] CPU a call measured before and after on the Mac with 7 or more
       sessions, by bash `time` over 50 calls, and stated in the closing
       commit with its method
-- [ ] The live sidebar's loops measured before and after by the stage
+- [x] The live sidebar's loops measured before and after by the stage
       profile (each stage under bash `time`, 60 s)
 
 **Out of scope:**
