@@ -4,7 +4,7 @@
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
 # Two background loops keep the list in a cache: one gathers it every second,
 # or at once on a kick, so fzf never waits on a host, and draws its frames;
-# the other shows them in fzf, 8 a second while a Clawd runs. `tmux-frame`
+# the other shows them in fzf, 8 a second while a Clawd moves. `tmux-frame`
 # runs it as the frame's left pane: a jump moves the frame's right pane, and
 # fzf's cursor follows the session on show there however it changed. Run
 # elsewhere, a jump moves the usual tmux's most recent client.
@@ -43,8 +43,9 @@ sesh_config=${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ServerAliveInterval=2
   -o ServerAliveCountMax=2 -o ControlPath=/tmp/claude-sidebar-%C)
 cache=${TMPDIR:-/tmp}/claude-sidebar
-# the frames of a running Clawd, as `run` in format draws them
-frame_count=4
+# the frames of an animation cycle: a squat, as `squat_cycle` in format
+# draws it, and three runs of four
+frame_count=12
 # a host's one client from the Mac, which runs inside the Mac's tmux (tmux*
 # term), as a command run on the host; add -F
 relay_client="tmux list-clients -f '#{m:tmux*,#{client_termname}}'"
@@ -92,7 +93,7 @@ line_width() {
 # entry number, 1 if the frame's right pane shows it, then the display lines.
 # Sessions with a pane are numbered in order across hosts, for `pick`. Times
 # are in whole minutes, so the rows change only when a session does, or with
-# the frame while a session works and its Clawd runs. With several animation
+# the frame while a Clawd runs or squats. With several animation
 # frames, the rows for each, one frame after another
 format() { # $@ animation frames, counting from 0 (default 0)
   local frames
@@ -193,6 +194,36 @@ format() { # $@ animation frames, counting from 0 (default 0)
     def run($k):
       [range(4) as $y | ribbons[$k][$y] + run_body[$y][4:]]
       + [run_eyes[$k]] + run_body[5:] + run_feet[$k];
+    # Clawd squatting, down: the head drops two rows, the arms come up
+    # under the bandana, the eyes below them, the feet squashed to one row,
+    # and the ribbon flicks up beside the head-top in one stripe colour. The
+    # eyes cannot share a cell row with the bandana, as a cell there would
+    # hold the bandana, the body and the empty eye, so they sit in the
+    # bottom cell row. Same rule as stand
+    def squat: [
+      "................",
+      "...............2",
+      "..BBBBBBBBBBBB.2",
+      "..BBBBBBBBBBBB2.",
+      "..112233mmmmmm..",
+      "..112233mmmmmm..",
+      "BBBBBBBBBBBBBBBB",
+      "BBBBBBBBBBBBBBBB",
+      "..BB..BBBB..BB..",
+      "..BBBBBBBBBBBB..",
+      "..BBBBBBBBBBBB..",
+      "..B.B......B.B.."
+    ];
+    # halfway down: standing, knees bent, the feet squashed to one row. The
+    # head cannot drop one row alone, as the top cell row would hold the
+    # empty row, the head-top and the bandana
+    def crouch: stand[:10] + ["..BBBBBBBBBBBB..", "..B.B......B.B.."];
+    # the squat, a pose a frame: s stand, c crouch, d down. As long as
+    # frame_count, or a divisor of it, so it loops without a jump
+    def squat_cycle: "sssssssscddc";
+    def squat_pose($k):
+      squat_cycle[$k % (squat_cycle | length):][:1]
+      | if . == "d" then squat elif . == "c" then crouch else stand end;
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
@@ -267,17 +298,22 @@ format() { # $@ animation frames, counting from 0 (default 0)
         elif $faint then
           "\u001b[22m" + paint($ink | faded; $background | faded) + "\u001b[2m"
         else paint($ink; $background) end;
-    # Clawd wearing the bandana of session $id, as three lines, his body in
-    # the colour for $state: working orange, waiting yellow, idle grey,
-    # the only states claude-session-state writes. Working, he runs, in
-    # the run frame for animation frame $frame; otherwise he stands. `serve`
-    # ticks while frame 0 and frame 1 differ, so a pose that moves changes
-    # by frame 1 and repeats within frame_count frames. $faint as in octant
-    def picture($state; $id; $frame; $faint):
-      (bandana($id) as [$main, $s1, $s2, $s3]
-        | {B: {working: orange, waiting: yellow, idle: dark5}[$state],
+    # Clawd for session $r, wearing its bandana, as three lines, his body in
+    # the colour for its state: working orange, waiting yellow, idle grey,
+    # the only states claude-session-state writes. Working, he runs, in the
+    # run frame for animation frame $frame; idle with subagents running, he
+    # squats, each session at its own phase of the cycle, from its id;
+    # otherwise he stands. `serve` ticks while any frame differs from frame
+    # 0, so a pose that moves repeats within frame_count frames. $faint as
+    # in octant
+    def picture($r; $frame; $faint):
+      (bandana($r.session_id) as [$main, $s1, $s2, $s3]
+        | {B: {working: orange, waiting: yellow, idle: dark5}[$r.state],
            m: $main, "1": $s1, "2": $s2, "3": $s3}) as $palette
-      | (if $state == "working" then run($frame) else stand end
+      | (if $r.state == "working" then run($frame % 4)
+         elif $r.state == "idle" and $r.subagents > 0
+         then squat_pose($frame + ($r.session_id | djb))
+         else stand end
          | map(split("") | map($palette[.]))) as $pixels
       | [range(3) as $line
           | [range(8) as $cell
@@ -305,7 +341,7 @@ format() { # $@ animation frames, counting from 0 (default 0)
         | ($r.tmux_pane != null) as $numbered
         # a session with no pane (a --bg one, or a daemon) is dimmed
         | (if $numbered then "" else "\u001b[2m" end) as $dim
-        | picture($r.state; $r.session_id; $frame; $numbered | not) as [$pic0, $pic1, $pic2]
+        | picture($r; $frame; $numbered | not) as [$pic0, $pic1, $pic2]
         | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
            (if $numbered then "\($n)" else "" end),
            (if $numbered and $r.tmux_pane == $cur then "1" else "" end),
@@ -543,10 +579,11 @@ fzf_do() { curl -sf --unix-socket "$cache/fzf.sock" -X POST http://localhost -d 
 # so a reader never sees half of them
 gather() { collect >"$cache/tagged.new" && mv "$cache/tagged.new" "$cache/tagged"; }
 
-# the rows fzf shows, one file for each of the run's frames, rows.0 on: all
+# the rows fzf shows, one file for each frame of the cycle, rows.0 on: all
 # formatted from the tagged lines in one jq run, then each replaced whole, as
 # `step` and `position` read rows.0 too. Every frame has the same items, so
-# the output splits into equal parts
+# the output splits into equal parts. $cache/moves is there while any frame
+# differs from rows.0, so `serve` knows a Clawd moves without reading them
 draw() {
   local frames=()
   for ((k = 0; k < frame_count; k++)); do frames+=("$k"); done
@@ -557,7 +594,9 @@ draw() {
         open my $f, ">", "$dir/rows.$k.new" or die;
         print $f @items[$k * $n .. ($k + 1) * $n - 1];
         close $f or die;
-        rename "$dir/rows.$k.new", "$dir/rows.$k" or die }' \
+        rename "$dir/rows.$k.new", "$dir/rows.$k" or die;
+        $moves ||= join("", @items[$k * $n .. ($k + 1) * $n - 1]) ne join("", @items[0 .. $n - 1]) }
+      if ($moves) { open my $f, ">", "$dir/moves" or die } else { unlink "$dir/moves" }' \
       "$cache" "$frame_count" <"$cache/frames.new"
 }
 
@@ -619,10 +658,10 @@ await_gather() {
 
 # show the frames `gathering` draws: after each gather the same frame of the
 # new rows, and at every tick, 8 a second, the next frame while one differs
-# from another, so a Clawd runs; with none moving it sleeps until the next
-# gather, so the rows change no more than once a second. fzf reloads only when
-# the rows on show changed, and its cursor moves only when the right pane's
-# session did, so it is not taken from an entry being browsed to
+# from another, so a Clawd runs or squats; with none moving it sleeps until the
+# next gather, so the rows change no more than once a second. fzf reloads only
+# when the rows on show changed, and its cursor moves only when the right
+# pane's session did, so it is not taken from an entry being browsed to
 serve() {
   local frame=0 animating=false check_shown=false fzf_has_rows gathered_line since jumped sum last_sum="" shown last_shown=""
   # ticks kept to a schedule, so a slow reload does not slow the frame rate
@@ -633,7 +672,7 @@ serve() {
   while :; do
     if await_gather; then
       # whether anything moves is whatever `picture` draws differently
-      if cmp -s "$cache/rows.0" "$cache/rows.1"; then animating=false; else animating=true; fi
+      if [[ -e $cache/moves ]]; then animating=true; else animating=false; fi
       # the value $cache/jumped had when the gather began. A gather a kick
       # overtook may have seen the session on show before a jump, and would
       # take the cursor back from where the jump put it

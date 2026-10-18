@@ -35,12 +35,12 @@ background counting as one, which 027's renderer draws.
 - A session's squat phase from its id, so nothing is stored
 
 **Acceptance criteria:**
-- [ ] An idle session with subagents running squats; once they finish it
+- [x] An idle session with subagents running squats; once they finish it
       stands still within about a second
-- [ ] Working and idle-without-subagents entries behave as before
-- [ ] Every squat frame keeps each cell to two colours at most, by a
+- [x] Working and idle-without-subagents entries behave as before
+- [x] Every squat frame keeps each cell to two colours at most, by a
       count script
-- [ ] With nothing working or squatting, `reload-sync` posts no more often
+- [x] With nothing working or squatting, `reload-sync` posts no more often
       than once a second
 - [ ] The Maintainer judges the squat by eye
 
