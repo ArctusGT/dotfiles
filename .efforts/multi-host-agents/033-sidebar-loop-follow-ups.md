@@ -44,7 +44,7 @@ The Maintainer accepted all four from 032's review notes.
   (`--help`, `.agents/rules/scripts-shape.md`)
 
 **Acceptance criteria:**
-- [ ] `attach` opens or finds a session's pane as today, with no
+- [x] `attach` opens or finds a session's pane as today, with no
       `claude-sessions` spawn on the Mac
 - [ ] Rows byte-identical to 032's over the shipped row comparison's
       fixtures

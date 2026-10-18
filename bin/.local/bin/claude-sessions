@@ -17,7 +17,9 @@
 # daemon` keeps idle for its next background job and which has nothing to
 # attach to, is left out.
 # claude-sidebar-loop (the repo's crate) reads this host's sessions by these
-# same rules, in its `sessions`; change both.
+# same rules, in its `sessions`; change both. The sidebar reads the host it
+# runs on through the binary, and runs this only on the hosts it reaches over
+# ssh.
 [[ $1 == --help ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
 dir=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sessions
 [[ -d $dir ]] || exit 0

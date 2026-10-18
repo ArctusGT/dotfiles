@@ -79,10 +79,11 @@ tmux_session_for() { # $1 directory
 # that tmux session detached if absent
 attach() { # $1 session id
   local row pane cwd job tmux_session open
-  # claude-sessions now, not the cached rows, so a second select before the
+  # the sessions now, not the cached rows, so a second select before the
   # next refresh finds the first window by its tag, and a tagged pane since
-  # switched to another session is not reused
-  row=$(claude-sessions | jq -c --arg s "$1" 'select(.session_id == $s)')
+  # switched to another session is not reused. Read by the binary: on a host
+  # with the sidebar, claude-sessions is no second reader of these rules
+  row=$(claude-sidebar-loop sessions | jq -c --arg s "$1" 'select(.session_id == $s)')
   pane=$(jq -r '.tmux_pane // empty' <<<"$row")
   if [[ -z $pane ]]; then
     cwd=$(jq -r '.cwd // empty' <<<"$row")
