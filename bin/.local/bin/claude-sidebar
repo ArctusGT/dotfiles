@@ -194,30 +194,43 @@ format() { # $@ animation frames, counting from 0 (default 0)
     def run($k):
       [range(4) as $y | ribbons[$k][$y] + run_body[$y][4:]]
       + [run_eyes[$k]] + run_body[5:] + run_feet[$k];
-    # Clawd squatting, down: the head drops two rows, the arms come up
-    # under the bandana, the eyes below them, the feet squashed to one row,
-    # and the ribbon flicks up beside the head-top in one stripe colour. The
-    # eyes cannot share a cell row with the bandana, as a cell there would
-    # hold the bandana, the body and the empty eye, so they sit in the
-    # bottom cell row. Same rule as stand
+    # Clawd squatting, down: the head drops a whole cell row, the eyes
+    # below the bandana, the arms below the eyes and the feet squashed to
+    # one row, while the ribbon is left floating above in one stripe
+    # colour. A drop of one or two rows would put the bandana in the eyes
+    # cell row, a cell there holding the bandana, the body and the empty
+    # eye. Same rule as stand
     def squat: [
       "................",
       "...............2",
-      "..BBBBBBBBBBBB.2",
-      "..BBBBBBBBBBBB2.",
+      "...............2",
+      "..............2.",
+      "..BBBBBBBBBBBB..",
+      "..BBBBBBBBBBBB..",
       "..112233mmmmmm..",
       "..112233mmmmmm..",
-      "BBBBBBBBBBBBBBBB",
-      "BBBBBBBBBBBBBBBB",
       "..BB..BBBB..BB..",
+      "BBBBBBBBBBBBBBBB",
+      "BBBBBBBBBBBBBBBB",
+      "..B.B......B.B.."
+    ];
+    # halfway down: the head as he stands, as no drop short of a cell row
+    # fits the rule, the arms a row lower, the ribbon drop a row longer to
+    # fill the cell beside them, and the feet squashed to one row
+    def crouch: [
+      "..BBBBBBBBBBBB..",
+      "..BBBBBBBBBBBB..",
+      "..112233mmmmmm3.",
+      "..112233mmmmmm3.",
+      "..BB..BBBB..BB22",
+      "..BBBBBBBBBBBB22",
+      "..BBBBBBBBBBBB22",
+      "BBBBBBBBBBBBBBBB",
+      "BBBBBBBBBBBBBBBB",
       "..BBBBBBBBBBBB..",
       "..BBBBBBBBBBBB..",
       "..B.B......B.B.."
     ];
-    # halfway down: standing, knees bent, the feet squashed to one row. The
-    # head cannot drop one row alone, as the top cell row would hold the
-    # empty row, the head-top and the bandana
-    def crouch: stand[:10] + ["..BBBBBBBBBBBB..", "..B.B......B.B.."];
     # the poses of a run, and of a squat: standing a while, then down and back
     def running: [range(4) as $k | run($k)];
     def squatting: [range(8) | stand] + [crouch, squat, squat, crouch];
