@@ -16,6 +16,15 @@ pub enum State {
 }
 
 impl State {
+    fn from_word(word: &str) -> Result<State, String> {
+        match word {
+            "idle" => Ok(State::Idle),
+            "working" => Ok(State::Working),
+            "waiting" => Ok(State::Waiting),
+            other => Err(format!("state is {other}")),
+        }
+    }
+
     /// the word the sidebar shows, as the hooks write it
     pub fn word(self) -> &'static str {
         match self {
@@ -77,6 +86,11 @@ pub struct Session {
 }
 
 impl Session {
+    /// whether it has subagents running
+    pub fn subagents_running(&self) -> bool {
+        self.subagents.value > 0.0
+    }
+
     pub fn parse(object: &Value) -> Result<Session, String> {
         let field = |key: &str| object.get(key);
         let text = |key: &str| match field(key) {
@@ -88,12 +102,7 @@ impl Session {
             Value::Null => Ok(None),
             _ => text(key).map(Some),
         };
-        let state = match text("state")?.as_str() {
-            "idle" => State::Idle,
-            "working" => State::Working,
-            "waiting" => State::Waiting,
-            other => return Err(format!("state is {other}")),
-        };
+        let state = State::from_word(&text("state")?)?;
         Ok(Session {
             id: text("session_id")?,
             pane: optional_text("tmux_pane")?,

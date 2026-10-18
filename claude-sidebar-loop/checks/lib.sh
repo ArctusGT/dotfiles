@@ -3,6 +3,7 @@
 #   SIDEBAR  the claude-sidebar script (default: the repo's)
 #   BINARY   the claude-sidebar-loop binary (default: this crate, built
 #            into its target/ if absent)
+# macOS and bash 5 (EPOCHREALTIME, mapfile, BSD stat and mktemp).
 # Nothing here touches the usual tmux, ~/.local or the TMPDIR a live sidebar
 # keeps its cache in.
 

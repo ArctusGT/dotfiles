@@ -161,7 +161,7 @@ impl Entry {
         // running subagents in the working colour, so an idle session whose
         // subagents are still at work stands out
         let subagents = &session.subagents;
-        let subagents_label = if subagents.value > 0.0 {
+        let subagents_label = if session.subagents_running() {
             format!("  {}", paint(&format!("+{}", subagents.text), ORANGE))
         } else {
             String::new()
@@ -692,7 +692,7 @@ impl Clawd {
     /// subagents run; each squat and wait at its own phase from the session
     /// id; otherwise he stands
     fn animation(&self, session: &Session) -> (&[usize], usize) {
-        let subagents_running = session.subagents.value > 0.0;
+        let subagents_running = session.subagents_running();
         let phase = || djb2(&session.id) as usize;
         match session.state {
             State::Working => (&self.running, 0),

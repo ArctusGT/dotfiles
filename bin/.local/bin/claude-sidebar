@@ -12,7 +12,7 @@
 # Keeps its cache in a directory of its own, ${TMPDIR:-/tmp}/claude-sidebar.PID,
 # which ${TMPDIR:-/tmp}/claude-sidebar links to once the sidebar's fzf listens,
 # for `pick`, `kick`, `jump` and `edge` to find the running sidebar by. A
-# sidebar starting or exiting beside another so never removes the other's
+# sidebar starting or exiting beside another never removes the other's
 # files, and the last to start is the one the link names; a `jump` from an
 # older one's fzf acts on that one's cache. The background
 # loop's errors go to ${TMPDIR:-/tmp}/claude-sidebar.log rather than over the
@@ -34,7 +34,7 @@
 #                     is shown through the Mac's SESSION, its ssh-tmux relay.
 #                     With no PANE, opens background Claude session ID first
 #   attach ID         print the pane showing background Claude session ID on
-#                     this host (which needs claude-sidebar-loop installed), opening it with `claude attach`, tagged
+#                     this host (needs claude-sidebar-loop installed), opening it with `claude attach`, tagged
 #                     @claude_attach, if none does: in a new window of the tmux
 #                     session named for its repo, created if absent
 # CLAUDE_CTX_WARN     context percentage an entry's context line turns red at

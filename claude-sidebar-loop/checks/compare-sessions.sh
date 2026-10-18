@@ -17,7 +17,9 @@
 # stub tmux first on PATH, so they cannot change between runs. Works in a
 # temporary directory, which it removes; changes nothing else, and kills only
 # the `sleep` it starts for a live pid.
-[[ $1 == --help || $# -ne 0 ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
+usage() { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; }
+[[ $1 == --help ]] && { usage; exit 0; }
+(( $# == 0 )) || { usage >&2; exit 2; }
 source "$(dirname "$0")/lib.sh"
 reference=$repo/bin/.local/bin/claude-sessions binary=$BINARY
 work=$(mktemp -d -t x)
@@ -32,7 +34,7 @@ mkdir -p "$work/bin"
 { echo '#!/bin/sh'; echo "cat '$work/panes'"; } >"$work/bin/tmux"; chmod +x "$work/bin/tmux"
 { echo '#!/bin/sh'; echo "exec '$binary' sessions"; } >"$work/new"; chmod +x "$work/new"
 
-state() { # $1 dir, $2 sid, $3 pid ("" for none), $4 pane ("" for none), $5 used_pct literal, $6 entrypoint
+fixture_state() { # $1 dir, $2 sid, $3 pid ("" for none), $4 pane ("" for none), $5 used_pct literal, $6 entrypoint
   jq -nc --arg s "$2" --arg p "$3" --arg pane "$4" --arg e "${6:-cli}" \
     '{session_id: $s, pid: (if $p == "" then null else ($p | tonumber) end), cwd: "/x",
       tmux_pane: (if $pane == "" then null else $pane end), entrypoint: $e, state: "idle", since: 1}' >"$1/$2.json"
@@ -48,15 +50,15 @@ build() { # $1 fixture root, $2 with|without records
   local root=$1 st=$1/state/claude-sessions rec=$1/.claude/sessions
   mkdir -p "$st" "$rec"
   cp -R "$src_state/." "$st/"
-  state "$st" fx-dead-norecord "$live" ""
-  state "$st" fx-dead-recordpid "$live" ""
-  state "$st" fx-spare "$live" ""
-  state "$st" fx-job "$dead" "%fx1" 1e2
-  state "$st" fx-nopid "" ""
-  state "$st" fx-dead-pid "$dead" ""
-  state "$st" fx-client "$live" "%fx1" 42.50
-  state "$st" fx-titled "$live" "%fx9" 0.1e1
-  state "$st" fx-desktop "$live" "" 7 claude-desktop
+  fixture_state "$st" fx-dead-norecord "$live" ""
+  fixture_state "$st" fx-dead-recordpid "$live" ""
+  fixture_state "$st" fx-spare "$live" ""
+  fixture_state "$st" fx-job "$dead" "%fx1" 1e2
+  fixture_state "$st" fx-nopid "" ""
+  fixture_state "$st" fx-dead-pid "$dead" ""
+  fixture_state "$st" fx-client "$live" "%fx1" 42.50
+  fixture_state "$st" fx-titled "$live" "%fx9" 0.1e1
+  fixture_state "$st" fx-desktop "$live" "" 7 claude-desktop
   jq -c '. + {extra: [1, 2.50]}' "$st/fx-titled.json" >"$st/fx-titled.json.new" && mv "$st/fx-titled.json.new" "$st/fx-titled.json"
   echo 'not json' >"$st/zz-broken.json"
   if [[ $2 == with ]]; then

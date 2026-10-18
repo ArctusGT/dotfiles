@@ -22,7 +22,7 @@ Changes nothing outside its temporary directory, and kills only its own tmux
 server, which must not be running when it starts. With KEEP set, leaves its
 temporary directory for a look, and says where.
 """
-import argparse, json, os, re, shutil, subprocess, tempfile, time
+import argparse, atexit, json, os, re, shutil, subprocess, tempfile, time
 
 ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 ap.add_argument("rev", nargs="?", default="HEAD")
@@ -32,6 +32,8 @@ REPO = os.path.dirname(CRATE)
 SERVER = "chkrows"
 # short, as a fixture root's paths stay clear of any socket limit
 tmp = tempfile.mkdtemp(prefix="cr", dir="/tmp")
+if not os.environ.get("KEEP"):
+    atexit.register(shutil.rmtree, tmp, True)
 
 
 def tmux(*a, check=True):
@@ -201,7 +203,5 @@ finally:
         tmux("kill-server")
     if os.environ.get("KEEP"):
         print("kept", tmp)
-    else:
-        shutil.rmtree(tmp)
 print("all identical" if failures == 0 else "%d runs differ" % failures)
 raise SystemExit(failures != 0)

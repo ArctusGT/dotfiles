@@ -14,7 +14,9 @@
 # TMPDIR is its own, so the sidebar's cache is too. Takes about a minute.
 # Changes nothing outside its temporary directory; kills only its own two
 # servers and its own sleep.
-[[ $1 == --help || $# -ne 0 ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
+usage() { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; }
+[[ $1 == --help ]] && { usage; exit 0; }
+(( $# == 0 )) || { usage >&2; exit 2; }
 source "$(dirname "$0")/lib.sh"
 f() { tmux_on chke2e "$@"; }
 w() { tmux_on chke2eu "$@"; }

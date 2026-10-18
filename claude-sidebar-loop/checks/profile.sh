@@ -13,7 +13,9 @@
 # profiled window, from ps; "fzf" is fzf's. Prints the binary's path from its
 # process. A throwaway tmux server, -L chkprof, and its own TMPDIR; changes
 # nothing outside its temporary directory, and kills only its own server.
-[[ $1 == --help || $# -lt 1 ]] && { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; exit 0; }
+usage() { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; }
+[[ $1 == --help ]] && { usage; exit 0; }
+(( $# >= 1 )) || { usage >&2; exit 2; }
 source "$(dirname "$0")/lib.sh"
 fixture=$1 secs=${2:-60}
 case $fixture in still | working | waiting) ;; *) echo "FIXTURE is still, working or waiting" >&2; exit 2 ;; esac
