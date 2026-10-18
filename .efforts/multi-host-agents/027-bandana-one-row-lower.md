@@ -36,7 +36,7 @@ own mock trimmed to 12 rows is the same standing frame pixel for pixel.
 **Acceptance criteria:**
 - [x] The standing and the four run frames match the prototype's, row for
       row
-- [ ] Each has no cell holding more than two colours, by a count script
+- [x] Each has no cell holding more than two colours, by a count script
 - [ ] The Maintainer judges it by eye in the frame, standing and running
 
 **Out of scope:**
