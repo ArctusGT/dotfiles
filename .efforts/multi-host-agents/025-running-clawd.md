@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** A working session's Clawd plays a four-frame run at 8 fps in the sidebar, the bandana ribbon streaming behind him, and nothing redraws while no entry animates
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/024-bandana-per-session]
 
 **Current behavior:**
@@ -40,7 +40,7 @@ cursor at that rate, with `prototype-fzf-redraw.py` on the branch
       a second, measured by counting them for a minute
 - [x] The CPU the sidebar takes while one session works, measured and
       stated in the commit
-- [ ] The Maintainer sees no flicker and the cursor stays put, in the frame
+- [x] The Maintainer sees no flicker and the cursor stays put, in the frame
 
 **Out of scope:**
 - Idle squats (026) and a waiting wave
