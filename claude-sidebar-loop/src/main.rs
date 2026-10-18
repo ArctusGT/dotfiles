@@ -3,7 +3,7 @@
 mod fzf;
 mod serve;
 
-use serve::{Serve, Sidebar};
+use serve::{Gather, Serve, Sidebar};
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, BufReader};
 use std::path::{Path, PathBuf};
@@ -30,11 +30,16 @@ fn main() {
         println!("{USAGE}");
         return;
     }
-    let cache = Cache { dir: PathBuf::from(cache) };
-    let gathers = match lines(&cache.dir.join("gathered")) {
+    let cache = Cache {
+        dir: PathBuf::from(cache),
+    };
+    let gathers = match gathers(&cache.dir.join("gathered")) {
         Ok(gathers) => gathers,
         Err(err) => {
-            eprintln!("claude-sidebar-loop: {}/gathered: {err}", cache.dir.display());
+            eprintln!(
+                "claude-sidebar-loop: {}/gathered: {err}",
+                cache.dir.display()
+            );
             std::process::exit(1);
         }
     };
@@ -44,20 +49,20 @@ fn main() {
 /// waits for each gather's line, or, while a Clawd moves, for that or the
 /// next tick, and hands it to `serve`. Ticks keep to a schedule, so a slow
 /// reload does not slow the frame rate; behind, the missed ones are dropped
-fn serve(mut serve: Serve<Cache>, gathers: &Receiver<String>) {
+fn serve(mut serve: Serve<Cache>, gathers: &Receiver<Gather>) {
     let mut next_tick = Instant::now();
     loop {
         if !serve.animating() {
-            let Ok(line) = gathers.recv() else { return };
+            let Ok(gather) = gathers.recv() else { return };
             next_tick = Instant::now() + TICK;
-            serve.gathered(&line);
+            serve.gathered(gather);
             continue;
         }
         let delay = next_tick.saturating_duration_since(Instant::now());
         if !delay.is_zero() {
             match gathers.recv_timeout(delay) {
-                Ok(line) => {
-                    serve.gathered(&line);
+                Ok(gather) => {
+                    serve.gathered(gather);
                     continue;
                 }
                 Err(RecvTimeoutError::Timeout) => {}
@@ -73,16 +78,20 @@ fn serve(mut serve: Serve<Cache>, gathers: &Receiver<String>) {
     }
 }
 
-/// the lines written to the fifo `fifo`, as they come. Opened read and
-/// write, so the fifo always has a writer and a read waits for a line
-/// rather than seeing end of file
-fn lines(fifo: &Path) -> io::Result<Receiver<String>> {
+/// the gathers `claude-sidebar` announces on the fifo `fifo`, as they come:
+/// a line each, the value `jumped` had when the gather began, then ` moved`
+/// if a kick came during it. Opened read and write, so the fifo always has a
+/// writer and a read waits for a line rather than seeing end of file
+fn gathers(fifo: &Path) -> io::Result<Receiver<Gather>> {
     let file = OpenOptions::new().read(true).write(true).open(fifo)?;
     let (send, receive) = mpsc::channel();
     thread::spawn(move || {
         for line in BufReader::new(file).lines() {
             let Ok(line) = line else { return };
-            if send.send(line).is_err() {
+            let mut words = line.split_whitespace();
+            let since = words.next().unwrap_or_default().to_string();
+            let moved = words.next() == Some("moved");
+            if send.send(Gather { since, moved }).is_err() {
                 return;
             }
         }
@@ -124,23 +133,36 @@ impl Sidebar for Cache {
     /// `repeats` holds a 1 or 0 for each frame
     fn repeats(&self) -> Vec<bool> {
         let repeats = self.read(&self.dir.join("repeats"));
-        String::from_utf8_lossy(&repeats).split_whitespace().map(|r| r == "1").collect()
+        String::from_utf8_lossy(&repeats)
+            .split_whitespace()
+            .map(|r| r == "1")
+            .collect()
     }
 
     fn jumped(&self) -> String {
         let jumped = self.read(&self.dir.join("jumped"));
-        String::from_utf8_lossy(&jumped).lines().next().unwrap_or_default().trim().to_string()
+        String::from_utf8_lossy(&jumped)
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .trim()
+            .to_string()
     }
 
     /// a jump marks itself `moving.<pid>` until its client has moved
     fn moving(&self) -> bool {
         fs::read_dir(&self.dir).is_ok_and(|entries| {
-            entries.flatten().any(|e| e.file_name().as_encoded_bytes().starts_with(b"moving."))
+            entries
+                .flatten()
+                .any(|e| e.file_name().as_encoded_bytes().starts_with(b"moving."))
         })
     }
 
     fn reload(&mut self, frame: usize) -> bool {
-        self.post(&format!("reload-sync(cat '{}')", self.rows_path(frame).display()))
+        self.post(&format!(
+            "reload-sync(cat '{}')",
+            self.rows_path(frame).display()
+        ))
     }
 
     fn move_cursor(&mut self, position: usize) -> bool {
@@ -185,7 +207,9 @@ mod tests {
     #[test]
     fn reads_the_cache_as_claude_sidebar_writes_it() {
         let dir = tempdir::Dir::new();
-        let cache = Cache { dir: dir.path().into() };
+        let cache = Cache {
+            dir: dir.path().into(),
+        };
         fs::write(dir.path().join("repeats"), "1 0 1\n").unwrap();
         fs::write(dir.path().join("jumped"), "1760000000.123456-42\n").unwrap();
         assert_eq!(cache.repeats(), [true, false, true]);

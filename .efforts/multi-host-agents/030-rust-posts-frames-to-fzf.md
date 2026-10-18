@@ -55,3 +55,11 @@ most of its CPU in process spawns.
 **Out of scope:**
 - Rendering the frames (031) and gathering the sessions (032)
 - `pick`, `jump`, `edge` and `attach`, which stay in bash
+
+**For the Maintainer:**
+- From the structural review, for 031: `Serve` pulls each gather's rows
+  and `repeats` back through the `Sidebar` trait, which reads them from
+  the cache. Once the binary renders the frames, `Serve` is better handed
+  them with the gather, leaving the trait to `jumped`, `moving`, `reload`
+  and `move_cursor`; the cache still gets `rows.N`, as `reload-sync` cats
+  them. Left as is here, where a gather reads only the rows it shows.
