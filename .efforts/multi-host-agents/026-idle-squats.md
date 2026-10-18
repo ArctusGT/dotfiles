@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** An idle session with subagents running (`+N`) shows its Clawd squatting, standing to down and back, as its wait-for-subagents animation; an idle session without subagents stands still
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/027-bandana-one-row-lower]
 
 **Current behavior:**
@@ -42,7 +42,7 @@ background counting as one, which 027's renderer draws.
       count script
 - [x] With nothing working or squatting, `reload-sync` posts no more often
       than once a second
-- [ ] The Maintainer judges the squat by eye
+- [x] The Maintainer judges the squat by eye
 
 **Out of scope:**
 - The waiting animations (arms, stamping, blinking, eyes looking around),
