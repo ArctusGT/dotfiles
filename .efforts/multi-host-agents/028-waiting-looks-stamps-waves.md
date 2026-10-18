@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** A waiting session with no subagents running shows its Clawd looking left and right, stamping, then waving, once every 6 seconds; between them he stands still
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:**
 
 **Current behavior:**
@@ -63,7 +63,7 @@ cell.
 
 ## Comments
 
-For the Maintainer, from implementation. Loop CPU is a scratch copy of
+2026-10-18. For the Maintainer, from implementation. Loop CPU is a scratch copy of
 the script writing each loop's bash `times` (children included) on every
 pass and counting each fzf post, 11 stubbed local sessions (one in the
 fixture's state, the rest idle), a throwaway tmux server, 60 s after a
@@ -77,7 +77,9 @@ with the sidebar stopped. Main is 207dbb4's parent.
 - One working: 11.3% against 12.0%, 477 against 478 posts a minute,
   `format` 59 against 66 ms.
 - One waiting (standing on main): 8.2% against 7.7%, 1 against 213 posts
-  a minute (a working one posts 478), `format` 62 against 84 ms.
+  a minute (a working one posts 478), `format` 62 against 84 ms. The
+  loop CPU here sits inside main's run-to-run spread, so it cannot show
+  the waiting cost either way; the posts and `format` time do.
 - 48 frames cost `format` almost nothing over 12: each distinct pose is
   drawn once and the frames repeat it, so 12 and 48 frames time within a
   few ms of each other in every fixture. The waiting fixture's extra
