@@ -1,5 +1,8 @@
 {
   "model": "opus",
+  "env": {
+    "CLAUDE_CODE_SUBAGENT_MODEL": "haiku"
+  },
   "hooks": {
     "SessionStart": [
       {
