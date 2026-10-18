@@ -45,3 +45,24 @@ and 1.0% of a core, plus a jq and a perl spawn each second.
 **Out of scope:**
 - New poses or animations
 - Gathering the sessions (032)
+
+**For the Maintainer:**
+- From the structural review, before 032: an entry's number is now
+  counted in Rust (`frames::render`) and again in `pick`'s jq over
+  `tagged`, two copies of one rule in two languages; if they disagree,
+  `pick N` jumps to another entry than the one numbered N. `pick` could
+  read fields 1-5 of `rows.0`, as `step` and `position` already do,
+  leaving the rows the one source. That would also dissolve 032's
+  criterion that `tagged` is still written whole for `pick`.
+- From the structural review, for 032: the renderer reads the raw JSON
+  values in jq's loose terms (`joined`, `last_part`'s `"null"`,
+  `above_zero` over every type), as byte-identity was measured against
+  jq. Once 032 builds sessions natively, a typed `Session` and `State`
+  parsed once at the boundary removes most of that.
+- The second criterion's "each distinct pose is drawn once a render"
+  is, as in `format`'s `pictures`, once per session a render: each
+  session has its own bandana.
+- The byte-identity harness (`compare-031.py`) and the profile
+  (`profile-031.sh`) are scratchpad scripts, so the numbers in 3783cac
+  and be9260a cannot be re-taken from the repo. Say if they should be
+  shipped.

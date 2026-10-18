@@ -73,7 +73,8 @@ fn run(cache: Cache) {
             std::process::exit(1);
         }
     };
-    serve(Serve::new(cache), &gathers);
+    let dir = cache.dir.clone();
+    serve(Serve::new(cache), &gathers, &dir);
 }
 
 /// the first `count` frames of the tagged sessions `tagged`, for this
@@ -129,12 +130,18 @@ fn terminal_columns() -> Option<u16> {
     (ok && size.cols > 0).then_some(size.cols)
 }
 
-/// hands `serve` each gather, and while a Clawd moves each tick between
-fn serve(mut serve: Serve<Cache>, gathers: &Receiver<Gather>) {
+/// hands `serve` each gather, its rows written to the cache `dir` in the
+/// same step, and while a Clawd moves each tick between
+fn serve(mut serve: Serve<Cache>, gathers: &Receiver<Gather>, dir: &Path) {
     let mut next_tick = Instant::now();
     loop {
         match next_event(serve.animating(), &mut next_tick, gathers) {
-            Some(Event::Gather(gather)) => serve.gathered(gather),
+            Some(Event::Gather(gather)) => {
+                if let Err(err) = write_rows(dir, &gather.frames) {
+                    eprintln!("claude-sidebar-loop: {err}");
+                }
+                serve.gathered(gather)
+            }
             Some(Event::Tick) => serve.tick(),
             None => return,
         }
@@ -179,7 +186,7 @@ fn next_event(
 }
 
 /// the gathers `claude-sidebar` announces on the fifo `gathered` in
-/// `cache`, as they come, each rendered and written to the cache: a line
+/// `cache`, as they come, each rendered: a line
 /// each, the value `jumped` had when the gather began, then ` moved` if a
 /// kick came during it. Opened read and write, so the fifo always has a
 /// writer and a read waits for a line rather than seeing end of file. A
@@ -219,14 +226,17 @@ fn gathers(cache: &Cache) -> io::Result<Receiver<Gather>> {
     Ok(receive)
 }
 
-/// every frame of the sessions in `dir`/tagged, each also written to its
-/// `rows.N` there, replaced whole, as `reload-sync` and `claude-sidebar`'s
-/// `step` and `position` read them
+/// every frame of the sessions in `dir`/tagged
 fn rendered(dir: &Path) -> Result<Vec<Vec<u8>>, String> {
     let tagged_path = dir.join("tagged");
     let tagged = fs::read_to_string(&tagged_path)
         .map_err(|err| format!("{}: {err}", tagged_path.display()))?;
-    let frames = render(&tagged, FRAME_COUNT)?;
+    render(&tagged, FRAME_COUNT)
+}
+
+/// each of `frames` to its `rows.N` in `dir`, replaced whole, as
+/// `reload-sync` and `claude-sidebar`'s `step` and `position` read them
+fn write_rows(dir: &Path, frames: &[Vec<u8>]) -> Result<(), String> {
     for (k, rows) in frames.iter().enumerate() {
         let path = rows_path(dir, k);
         let new = path.with_extension(format!("{k}.new"));
@@ -234,7 +244,7 @@ fn rendered(dir: &Path) -> Result<Vec<Vec<u8>>, String> {
             .and_then(|_| fs::rename(&new, &path))
             .map_err(|err| format!("{}: {err}", path.display()))?;
     }
-    Ok(frames)
+    Ok(())
 }
 
 fn rows_path(dir: &Path, frame: usize) -> PathBuf {
@@ -352,6 +362,7 @@ mod tests {
         )
         .unwrap();
         let frames = rendered(dir.path()).unwrap();
+        write_rows(dir.path(), &frames).unwrap();
         assert_eq!(frames.len(), FRAME_COUNT);
         for (k, rows) in frames.iter().enumerate() {
             assert_eq!(&fs::read(rows_path(dir.path(), k)).unwrap(), rows);

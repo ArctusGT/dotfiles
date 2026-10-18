@@ -166,7 +166,6 @@ fn position(rows: &[u8], field: usize, value: &[u8]) -> Option<usize> {
 }
 
 #[cfg(test)]
-#[cfg(test)]
 mod tests {
     use super::*;
 
