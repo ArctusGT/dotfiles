@@ -6,7 +6,7 @@ use std::path::Path;
 
 /// Runs fzf `action` through the socket at `socket`: one `POST /` with the
 /// action as its body. fzf answers and closes the connection, so the answer
-/// is read to its end. Succeeds on a 200, as `curl -f` would.
+/// is read to its end. Succeeds on a 200, the one success fzf answers.
 pub fn post(socket: &Path, action: &str) -> io::Result<()> {
     let mut stream = UnixStream::connect(socket)?;
     let request = format!(

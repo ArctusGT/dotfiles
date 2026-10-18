@@ -5,8 +5,8 @@
 # Two background loops keep the list in a cache: one gathers it every second,
 # or at once on a kick, so fzf never waits on a host, and draws its frames;
 # the other, `claude-sidebar-loop`, built from the repo's crate of that name,
-# shows them in fzf, 8 a second while a Clawd moves. `tmux-frame`
-# runs it as the frame's left pane: a jump moves the frame's right pane, and
+# shows them in fzf, 8 a second while a Clawd moves. `tmux-frame` runs the
+# sidebar as the frame's left pane: a jump moves the frame's right pane, and
 # fzf's cursor follows the session on show there however it changed. Run
 # elsewhere, a jump moves the usual tmux's most recent client.
 # Keeps its cache in ${TMPDIR:-/tmp}/claude-sidebar, and the background loops'

@@ -67,8 +67,8 @@ enum Event {
 /// at `next_tick`, then moves `next_tick` on: a tick after a gather while
 /// still, a tick after a tick. Ticks keep to a schedule, so a slow reload
 /// does not slow the frame rate; behind, the missed ones are dropped, and
-/// the tick comes before a gather waiting. None once `claude-sidebar` is
-/// gone
+/// the tick comes before a gather waiting. None once the fifo cannot be
+/// read: `gathers` holds its write end, so it never ends while open
 fn next_event(
     animating: bool,
     next_tick: &mut Instant,
@@ -147,7 +147,7 @@ impl Sidebar for Cache {
         read_logged(&self.rows_path(frame))
     }
 
-    /// `repeats` holds a 1 or 0 for each frame; as in bash, a frame
+    /// `repeats` holds a 1 or 0 for each frame, as `draw` writes it; a frame
     /// differs only at a 0
     fn repeats(&self) -> Vec<bool> {
         let repeats = read_logged(&self.dir.join("repeats"));

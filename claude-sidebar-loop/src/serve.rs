@@ -33,7 +33,7 @@ pub struct Gather {
 }
 
 /// the tab field (from 0) holding 1 on the item the frame's right pane shows
-const SHOWN: usize = 5;
+const SHOWN_FIELD: usize = 5;
 
 pub struct Serve<S> {
     sidebar: S,
@@ -42,11 +42,12 @@ pub struct Serve<S> {
     /// whether fzf has rows of the latest gather
     fzf_has_rows: bool,
     /// whether the cursor still has to follow the latest gather
-    check_shown: bool,
+    follow_pending: bool,
     /// the value `jumped` had when the latest gather began
     since: String,
     /// the rows fzf shows, less the session on show, while none moves
     last_rows: Option<Vec<u8>>,
+    /// the position the cursor was last moved to
     last_shown: Option<usize>,
 }
 
@@ -57,7 +58,7 @@ impl<S: Sidebar> Serve<S> {
             frame: 0,
             repeats: Vec::new(),
             fzf_has_rows: false,
-            check_shown: false,
+            follow_pending: false,
             since: String::new(),
             last_rows: None,
             last_shown: None,
@@ -73,7 +74,7 @@ impl<S: Sidebar> Serve<S> {
     pub fn gathered(&mut self, gather: Gather) {
         self.repeats = self.sidebar.repeats();
         self.since = gather.since;
-        self.check_shown = !gather.moved;
+        self.follow_pending = !gather.moved;
         // with one moving, the next tick shows the new rows, so the frames
         // stay evenly spaced
         if self.animating() {
@@ -109,13 +110,14 @@ impl<S: Sidebar> Serve<S> {
     /// position is counted in, and not for a gather a jump came after, or
     /// while one moves: a gather that began before a jump saw the session on
     /// show before it, and would take the cursor back from where the jump
-    /// put it. Checked just before the post, so a pick cannot land between
+    /// put it. `jumped` and `moving` are read last, just before the post, so
+    /// a pick has the least room to land between the check and the move
     fn follow(&mut self) {
-        if !(self.check_shown && self.fzf_has_rows) {
+        if !(self.follow_pending && self.fzf_has_rows) {
             return;
         }
-        self.check_shown = false;
-        let Some(shown) = position(&self.sidebar.rows(0), SHOWN, b"1") else {
+        self.follow_pending = false;
+        let Some(shown) = position(&self.sidebar.rows(0), SHOWN_FIELD, b"1") else {
             return;
         };
         if Some(shown) != self.last_shown
@@ -138,7 +140,7 @@ fn without_shown(rows: &[u8]) -> Vec<u8> {
             .enumerate()
             .filter(|&(_, &b)| b == b'\t')
             .map(|(i, _)| i);
-        match (tabs.nth(SHOWN - 1), tabs.next()) {
+        match (tabs.nth(SHOWN_FIELD - 1), tabs.next()) {
             (Some(start), Some(end)) => {
                 out.extend_from_slice(&item[..=start]);
                 out.extend_from_slice(&item[end..]);
@@ -332,7 +334,7 @@ mod tests {
     #[test]
     fn position_counts_items_from_one() {
         let rows = [item(1, false, "a"), item(2, false, "b"), item(3, true, "c")].concat();
-        assert_eq!(position(rows.as_bytes(), SHOWN, b"1"), Some(3));
+        assert_eq!(position(rows.as_bytes(), SHOWN_FIELD, b"1"), Some(3));
         assert_eq!(position(rows.as_bytes(), 4, b"2"), Some(2));
         assert_eq!(position(rows.as_bytes(), 4, b"9"), None);
     }
