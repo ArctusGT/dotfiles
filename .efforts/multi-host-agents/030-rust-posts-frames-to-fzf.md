@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's `serve` loop moves into a long-lived Rust binary that posts each frame to fzf's socket itself, removing a `curl` spawn per frame, and the repo gains a Rust crate with a build step on each host
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:**
 
 **Current behavior:**
@@ -63,3 +63,13 @@ most of its CPU in process spawns.
   them with the gather, leaving the trait to `jumped`, `moving`, `reload`
   and `move_cursor`; the cache still gets `rows.N`, as `reload-sync` cats
   them. Left as is here, where a gather reads only the rows it shows.
+- The Mac has the binary installed from this slice's last code commit.
+  mgmt-1 needs it after pulling (`Readme.md`, from `~/dotfiles`):
+  `cargo install --locked --path claude-sidebar-loop --root ~/.local`.
+  Without it a sidebar starts with no loop: fzf stays on its first rows
+  and the log says `command not found`. mgmt-1 was only built into a
+  scratch root; its fzf (0.58) is too old to run the sidebar anyway.
+- The checks behind fbb2842 and c6b0274 (a fake fzf logging posts, and
+  the stage profile extended for the binary) are scratchpad scripts, not
+  in the repo, so their numbers cannot be re-taken from it. Say if they
+  should be shipped.
