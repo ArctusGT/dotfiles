@@ -43,8 +43,8 @@ sesh_config=${SESH_CONFIG:-$HOME/.config/sesh/sesh.toml}
 ssh_opts=(-o BatchMode=yes -o ConnectTimeout=3 -o ServerAliveInterval=2
   -o ServerAliveCountMax=2 -o ControlPath=/tmp/claude-sidebar-%C)
 cache=${TMPDIR:-/tmp}/claude-sidebar
-# the frames a gather draws: every animation in format loops within them, as
-# each one's length divides it (a squat 12, a run 4)
+# the frames a gather draws: every animation in format (running, squatting)
+# loops within them, as each one's length divides it
 frame_count=12
 # a host's one client from the Mac, which runs inside the Mac's tmux (tmux*
 # term), as a command run on the host; add -F
@@ -588,14 +588,14 @@ draw() {
   for ((k = 0; k < frame_count; k++)); do frames+=("$k"); done
   format "${frames[@]}" <"$cache/tagged" >"$cache/frames.new" &&
     perl -0 -e '($dir, $count) = @ARGV; @items = <STDIN>; @items or exit 1;
-      $n = @items / $count; $first = join "", @items[0 .. $n - 1];
+      $n = @items / $count; $rows0 = join "", @items[0 .. $n - 1];
       for $k (0 .. $count - 1) {
         @rows = @items[$k * $n .. ($k + 1) * $n - 1];
         open my $f, ">", "$dir/rows.$k.new" or die;
         print $f @rows;
         close $f or die;
         rename "$dir/rows.$k.new", "$dir/rows.$k" or die;
-        $moves ||= join("", @rows) ne $first }
+        $moves ||= join("", @rows) ne $rows0 }
       if ($moves) { open my $f, ">", "$dir/moves" or die } else { unlink "$dir/moves" }' \
       "$cache" "$frame_count" <"$cache/frames.new"
 }
