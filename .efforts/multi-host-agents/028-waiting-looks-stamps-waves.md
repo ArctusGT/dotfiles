@@ -48,9 +48,9 @@ cell.
       as before
 - [x] Every waiting pose keeps each cell to two colours at most, by a
       count script
-- [ ] With nothing working, squatting or waiting, `reload-sync` posts no
+- [x] With nothing working, squatting or waiting, `reload-sync` posts no
       more often than once a second
-- [ ] Loop CPU with nothing moving, one working and one waiting, and
+- [x] Loop CPU with nothing moving, one working and one waiting, and
       `format`'s time for a gather, measured against main before the
       slice by 026's method; a rise in the nothing-moving case is named
       to the Maintainer before closure
@@ -60,3 +60,25 @@ cell.
 - Moving the renderer to Rust
 - Marking a session `working` from tool-use hooks
 - Blinking, foot tapping, raising both arms: prototyped, not chosen
+
+## Comments
+
+For the Maintainer, from implementation. Loop CPU is a scratch copy of
+the script writing each loop's bash `times` (children included) on every
+pass and counting each fzf post, 11 stubbed local sessions (one in the
+fixture's state, the rest idle), a throwaway tmux server, 60 s after a
+5 s warm-up; `format` is the median of 9 runs on the gathered sessions
+with the sidebar stopped. Main is 207dbb4's parent.
+
+- Nothing moving, main and this slice alternated three times each: loops
+  7.9, 6.6, 6.8% against 7.9, 7.1, 7.4% of a core, a rise of about 0.4
+  points; 1 post a minute in both; `format` about 58 ms against 63 ms.
+  Run to run, the same main measured anywhere from 6.1 to 8.2%.
+- One working: 11.3% against 12.0%, 477 against 478 posts a minute,
+  `format` 59 against 66 ms.
+- One waiting (standing on main): 8.2% against 7.7%, 1 against 213 posts
+  a minute (a working one posts 478), `format` 62 against 84 ms.
+- 48 frames cost `format` almost nothing over 12: each distinct pose is
+  drawn once and the frames repeat it, so 12 and 48 frames time within a
+  few ms of each other in every fixture. The waiting fixture's extra
+  22 ms is its 10 distinct poses.
