@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** `claude-sessions` prints the same lines from a fixed number of spawns, not two `jq` and a `basename` for every session, so it costs a fraction of its ~67 ms of CPU a call on every host that runs it
-**Status:** ready-for-agent
+**Status:** ready-for-closure
 **blocked-by:**
 
 **Current behavior:**
@@ -55,3 +55,21 @@ that put process spawns, not the jq render, at most of its cost.
 **Out of scope:**
 - Moving `claude-sessions` or the sidebar to Rust (030 to 032)
 - What `claude-sessions` reports or how it matches panes to sessions
+
+**For the Maintainer:**
+- A state or context file jq cannot parse now empties the whole call's
+  output, where the old loop dropped only that session; an empty
+  context file now shows its session with `context: null`, where the
+  old loop dropped it. Both writers replace a file by `mv` only after
+  jq succeeds, so neither file should arise; nothing guards for them.
+  Accept, or ask for the final pass to read files that may not parse.
+- The numbers in d0e8d48 were taken on 7ddeae0. Re-taken at e3e5593,
+  same method: 24.04 ms CPU a call (from 65.70); live 60 s, sessions
+  2.4% (from 6.4%), loops 15.4% (from 18.2%). The closing commit
+  should carry these.
+- mgmt-1 still runs the old script until its dotfiles clone is pulled.
+- `bash -n` cannot check `claude-sessions` since db6253c (extglob).
+- After closure review, 13e37f0 changed one rule on the Maintainer's
+  ask: a pane tag naming no live session no longer decides the pane,
+  so a job cleared with /clear while attached keeps its pane. Out of
+  this slice's byte-for-byte scope by design; 032 ports the new rule.
