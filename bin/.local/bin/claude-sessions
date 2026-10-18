@@ -38,6 +38,8 @@ records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
   jq -sc 'map({(.sessionId): {name, spare, kind, jobId, pid}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
 
+# this and the exit after the loop are not only shortcuts: jq given no files
+# reads the caller's stdin
 state_files=("$dir"/!(*.context).json)
 ((${#state_files[@]})) || exit 0
 
@@ -54,7 +56,7 @@ session_pids() {
 # the live sessions' state and context files, for the one pass below, and
 # each one's count of running subagents as a named argument, its id the
 # name; a dead session's files are removed
-live_files=() subagents=()
+live_files=() subagent_counts=()
 while IFS=$'\t' read -r sid pid; do
   state_file=$dir/$sid.json
   if [[ -z $pid ]] || ! kill -0 "$pid" 2>/dev/null; then
@@ -64,25 +66,27 @@ while IFS=$'\t' read -r sid pid; do
   live_files+=("$state_file")
   [[ -f $dir/$sid.context.json ]] && live_files+=("$dir/$sid.context.json")
   agents=("$dir/$sid.agents"/*)
-  subagents+=(--argjson "$sid" "${#agents[@]}")
+  subagent_counts+=(--argjson "$sid" "${#agents[@]}")
 done < <(session_pids)
 ((${#live_files[@]})) || exit 0
 
-jq -nc --argjson panes "$panes" --argjson records "$records" "${subagents[@]}" '
+jq -nc --argjson panes "$panes" --argjson records "$records" "${subagent_counts[@]}" '
   # the state files in order, each with its session id from its name, and
-  # {session id: context} from the context files among them
+  # {session id: context} from the context files among them. The counts are
+  # read from $ARGS.named, which holds panes and records too: session ids are
+  # UUIDs, so never either name
   (reduce inputs as $doc ({states: [], contexts: {}};
      (input_filename | sub(".*/"; "")) as $file
      | if $file | endswith(".context.json")
        then .contexts[$file | rtrimstr(".context.json")] = $doc
-       else .states += [{sid: ($file | rtrimstr(".json")), state: $doc}] end)) as $read
-  | [$read.states[]
-     | $read.contexts[.sid] as $ctx
-     | $ARGS.named[.sid] as $n
+       else .states += [{sid: ($file | rtrimstr(".json")), state: $doc}] end)) as $files
+  | [$files.states[]
+     | $files.contexts[.sid] as $ctx
+     | $ARGS.named[.sid] as $subagents
      | .state
      | ($records[.session_id] // {}) as $rec
      | select($rec.spare != true)
-     | . + {name: ($rec.name // $ctx.name?), subagents: $n, context: $ctx}] as $sessions
+     | . + {name: ($rec.name // $ctx.name?), subagents: $subagents, context: $ctx}] as $sessions
   # the one session a title names, by either of its names
   | def titled: .title as $t
       | [$sessions[] | select(any(.name, .context.name?; . == $t)) | .session_id]
