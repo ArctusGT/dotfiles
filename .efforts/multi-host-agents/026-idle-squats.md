@@ -51,28 +51,30 @@ background counting as one, which 027's renderer draws.
 
 ## Comments
 
-For the Maintainer, from implementation and review. Numbers are 228d432's
-(scratch copy logging fzf posts and its loops' bash `times`, 11 stubbed
-sessions, throwaway tmux server, 60 s).
+For the Maintainer, from implementation and review. Loop CPU is a
+scratch copy of the script logging each fzf post and its loops' bash
+`times` (children included), 11 stubbed sessions, a throwaway tmux
+server, 60 s; clashes are counted by evaluating the poses from the
+script's jq and counting 2x4 cells over two colours, the empty
+background counting as one.
 
-- The cost of 12 frames a gather, paid every second even with nothing
-  moving: loops 13.3% of a core against 10.3% before, `format` 68 ms
-  against 27 ms. About 90% of `format` is `picture`, run per entry per
-  frame although most entries draw the same picture in every frame
-  (12 frames with `picture` stubbed: 11 ms). Two ways back, not taken:
-  - render each entry's distinct pictures once and reuse them across
-    the frames, a change to `format`'s main body; a still sidebar
-    would then cost about one frame's worth, below today's
-  - or a shorter cycle: 8 frames (stand 4, crouch, down 2, crouch)
-    measured 48 ms, a squat every second rather than every 1.5 s
-- `serve` posts `reload-sync` on every tick while anything moves, so one
-  squatting session reloads fzf 8 times a second though 8 of its 12
-  frames are the same standing pose (471 posts a minute). `draw` already
-  compares frames, and could mark which ones repeat the last for `serve`
-  to skip.
+- The squat redrawn so the arms go down with him (9068f8a): down drops
+  the head a whole cell row, eyes on row 8, arms 9-10, feet 11, the
+  ribbon floating above; the crouch keeps the standing head (no smaller
+  drop fits) and lowers the arms a row to 7-8, its ribbon drop a row
+  longer to fill the cell beside them. 0 clashes in every pose.
+- Each entry is formatted once a gather and its distinct poses drawn
+  once (b0beb4a), and a tick whose frame repeats the one fzf holds
+  posts nothing (3273231). Rows byte-identical to 9068f8a's on four
+  fixtures. Against 228d432:
+  - nothing moving: loops 10.1% of a core against 13.3% (10.3% before
+    026)
+  - one working: 17.5% against 19.3%, 469 reloads a minute
+  - one squatting: 7.6% against 22.5%, 192 reloads a minute against 471
+  - `format`, 12 frames on 12 entries, the Mac loaded: 25 ms against
+    95 ms, and 43 ms for 4 frames before 026
+- A gather while something moves still makes the next tick post, so
+  about one repeated frame a second reaches fzf for new rows.
 - "the eyes narrow to slits" traces to the prototype, where the standing
   eyes were two rows and the squat's one. 027 made the standing eyes
-  one-row slits, so the squat's eyes match them and only move down.
-- The crouch (feet one row shorter) is the Agent's halfway pose: a
-  halfway with the head one row down puts the empty row, head-top and
-  bandana in one cell row.
+  one-row slits, so the squat's match them and only move down.
