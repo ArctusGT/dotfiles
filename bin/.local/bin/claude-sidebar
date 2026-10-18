@@ -659,9 +659,10 @@ await_gather() {
 # show the frames `gathering` draws: after each gather the same frame of the
 # new rows, and at every tick, 8 a second, the next frame while one differs
 # from another, so a Clawd runs or squats; with none moving it sleeps until the
-# next gather, so the rows change no more than once a second. fzf reloads only
-# when the rows on show changed, and its cursor moves only when the right
-# pane's session did, so it is not taken from an entry being browsed to
+# next gather, so the rows change no more than once a second. With none
+# moving, fzf reloads only when the rows on show changed; while one moves, at
+# every tick. Its cursor moves only when the right pane's session did, so it
+# is not taken from an entry being browsed to
 serve() {
   local frame=0 animating=false check_shown=false fzf_has_rows gathered_line since jumped sum last_sum="" shown last_shown=""
   # ticks kept to a schedule, so a slow reload does not slow the frame rate
