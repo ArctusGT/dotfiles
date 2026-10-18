@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's standing and running Clawd wear the bandana below a strip of head, with the eyes just under it, as the Maintainer chose from the "low" prototype
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** []
 
 **Current behavior:**
@@ -42,3 +42,34 @@ own mock trimmed to 12 rows is the same standing frame pixel for pixel.
 **Out of scope:**
 - The squat (026), redrawn to this head on its own slice
 - Any change to the animation loop or the colours
+
+## Comments
+
+**Structural review: the bandana does not show in the sidebar.** The
+frames match the prototype row for row, but the two renderers differ.
+The prototype's `render` draws a fully lit two-colour cell with a
+foreground and a background colour. claude-sidebar's `octant` lights
+every lit pixel in one foreground, the colour of the first lit pixel,
+with no background. Every feature now takes two rows, so the head-top
+and the bandana share cell row 0, and the bandana's cells come out as
+solid body-colour blocks, standing and running. Only the ribbon cells
+keep their colour. A cell probe over the jq defs (`stand`, cell row 0:
+`1B>B 2B>B 3B>B Bm>B Bm>B Bm>B`, letters then the colour painted)
+shows it.
+
+Criterion 2's rule ("two colours, the background counting as one")
+comes from the prototype's renderer, not from `octant`. The rule
+`octant` needs is the one the comment above `stand` states: one colour
+a cell besides the background. The old frames met it because the rows
+above the bandana were empty, and these frames cannot meet it.
+
+The Maintainer decides:
+- **`octant` paints a second colour as the background** (`48;2;…` or
+  `4x`/`10x`), the way the prototype does. This changes the renderer
+  that "nothing else changes" holds fixed, and puts background SGR into
+  fzf rows. How that looks on the cursor line and under the dim for
+  background entries is untested.
+- **or the frames change** to one colour a cell, which is a different
+  design from the one chosen.
+
+The method, documentation and code reviews wait on this choice.
