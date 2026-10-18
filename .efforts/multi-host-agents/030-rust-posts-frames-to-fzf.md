@@ -47,7 +47,7 @@ most of its CPU in process spawns.
       for a slow post, as today
 - [x] The cursor follows a jump in the frame as today, and does not jump
       back to an entry being browsed to
-- [ ] The live loops' CPU measured before and after by the stage
+- [x] The live loops' CPU measured before and after by the stage
       profile, 60 s, nothing moving and one working; the post stage
       gone
 - [ ] The Maintainer watches the sidebar animate and follow jumps
