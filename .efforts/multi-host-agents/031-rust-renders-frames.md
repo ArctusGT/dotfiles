@@ -39,7 +39,7 @@ and 1.0% of a core, plus a jq and a perl spawn each second.
       and past the warn level, two widths
 - [x] Every pose keeps each 2x4 cell to two colours, the background
       counting as one, by a count over the binary's poses
-- [ ] The live loops' CPU measured before and after by the stage profile
+- [x] The live loops' CPU measured before and after by the stage profile
 - [ ] The Maintainer judges the sidebar unchanged by eye
 
 **Out of scope:**
