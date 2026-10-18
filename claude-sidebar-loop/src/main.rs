@@ -37,7 +37,12 @@ fn main() {
     };
     match arg.as_str() {
         "--help" => println!("{USAGE}"),
-        "rows" => print_rows(),
+        "rows" => {
+            if let Err(err) = print_rows() {
+                eprintln!("claude-sidebar-loop: {err}");
+                std::process::exit(1);
+            }
+        }
         cache => run(Cache {
             dir: PathBuf::from(cache),
         }),
@@ -45,25 +50,19 @@ fn main() {
 }
 
 /// renders frame 0 of the sessions on stdin to stdout
-fn print_rows() {
+fn print_rows() -> Result<(), String> {
     let mut tagged = String::new();
-    let rows = io::stdin()
+    io::stdin()
         .read_to_string(&mut tagged)
+        .map_err(|err| err.to_string())?;
+    let rows = render(&tagged, 1)?;
+    io::stdout()
+        .write_all(&rows[0])
         .map_err(|err| err.to_string())
-        .and_then(|_| render(&tagged, 1));
-    match rows {
-        Ok(rows) => {
-            let _ = io::stdout().write_all(&rows[0]);
-        }
-        Err(err) => {
-            eprintln!("claude-sidebar-loop: {err}");
-            std::process::exit(1);
-        }
-    }
 }
 
 fn run(cache: Cache) {
-    let gathers = match gathers(&cache) {
+    let gathers = match gathers(&cache.dir) {
         Ok(gathers) => gathers,
         Err(err) => {
             eprintln!(
@@ -83,11 +82,7 @@ fn render(tagged: &str, count: usize) -> Result<Vec<Vec<u8>>, String> {
     let tagged = json::parse_stream(tagged)?;
     let view = View {
         width: line_width(),
-        warn: std::env::var("CLAUDE_CTX_WARN")
-            .ok()
-            .filter(|w| !w.is_empty())
-            .map_or(Ok(50.0), |w| w.parse())
-            .map_err(|_| "CLAUDE_CTX_WARN is not a number")?,
+        warn: warn_level()?,
         now: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs() as i64),
@@ -96,6 +91,16 @@ fn render(tagged: &str, count: usize) -> Result<Vec<Vec<u8>>, String> {
         .into_iter()
         .map(String::into_bytes)
         .collect())
+}
+
+/// CLAUDE_CTX_WARN, 50 when unset or empty, as bash's `${CLAUDE_CTX_WARN:-50}`
+fn warn_level() -> Result<f64, String> {
+    match std::env::var("CLAUDE_CTX_WARN") {
+        Ok(w) if !w.is_empty() => w
+            .parse()
+            .map_err(|_| "CLAUDE_CTX_WARN is not a number".into()),
+        _ => Ok(50.0),
+    }
 }
 
 /// the columns an fzf item's line has in this terminal, past the 2 of fzf's
@@ -185,45 +190,45 @@ fn next_event(
     Some(Event::Tick)
 }
 
-/// the gathers `claude-sidebar` announces on the fifo `gathered` in
-/// `cache`, as they come, each rendered: a line
+/// the gathers `claude-sidebar` announces on the fifo `gathered` in the
+/// cache `dir`, as they come, each rendered: a line
 /// each, the value `jumped` had when the gather began, then ` moved` if a
 /// kick came during it. Opened read and write, so the fifo always has a
 /// writer and a read waits for a line rather than seeing end of file. A
 /// gather whose sessions cannot be rendered is logged and passed over
-fn gathers(cache: &Cache) -> io::Result<Receiver<Gather>> {
+fn gathers(dir: &Path) -> io::Result<Receiver<Gather>> {
     let file = OpenOptions::new()
         .read(true)
         .write(true)
-        .open(cache.dir.join("gathered"))?;
-    let dir = cache.dir.clone();
+        .open(dir.join("gathered"))?;
+    let dir = dir.to_path_buf();
     let (send, receive) = mpsc::channel();
     thread::spawn(move || {
         for line in BufReader::new(file).lines() {
             let Ok(line) = line else { return };
-            let mut words = line.split_whitespace();
-            let since = words.next().unwrap_or_default().to_string();
-            let moved = words.next() == Some("moved");
-            let frames = match rendered(&dir) {
-                Ok(frames) => frames,
-                Err(err) => {
-                    eprintln!("claude-sidebar-loop: {err}");
-                    continue;
+            match gather(&dir, &line) {
+                Ok(gather) => {
+                    if send.send(gather).is_err() {
+                        return;
+                    }
                 }
-            };
-            if send
-                .send(Gather {
-                    since,
-                    moved,
-                    frames,
-                })
-                .is_err()
-            {
-                return;
+                Err(err) => eprintln!("claude-sidebar-loop: {err}"),
             }
         }
     });
     Ok(receive)
+}
+
+/// the gather `line` announces, rendered from `dir`/tagged
+fn gather(dir: &Path, line: &str) -> Result<Gather, String> {
+    let mut words = line.split_whitespace();
+    let since = words.next().unwrap_or_default().to_string();
+    let moved = words.next() == Some("moved");
+    Ok(Gather {
+        since,
+        moved,
+        frames: rendered(dir)?,
+    })
 }
 
 /// every frame of the sessions in `dir`/tagged
@@ -239,7 +244,7 @@ fn rendered(dir: &Path) -> Result<Vec<Vec<u8>>, String> {
 fn write_rows(dir: &Path, frames: &[Vec<u8>]) -> Result<(), String> {
     for (k, rows) in frames.iter().enumerate() {
         let path = rows_path(dir, k);
-        let new = path.with_extension(format!("{k}.new"));
+        let new = dir.join(format!("rows.{k}.new"));
         fs::write(&new, rows)
             .and_then(|_| fs::rename(&new, &path))
             .map_err(|err| format!("{}: {err}", path.display()))?;

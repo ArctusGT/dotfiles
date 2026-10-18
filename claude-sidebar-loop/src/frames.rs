@@ -148,26 +148,24 @@ impl Entry {
                 short_id(r.get("session_id"))
             }
         );
-        let subagents = r.get("subagents");
-        let mut text2 = format!(
-            "   {} {}",
-            r.get("state").text(),
-            ago(view.now as f64 - r.get("since").as_f64().unwrap_or_default())
-        );
+        let state = r.get("state").text();
+        let age = ago(view.now as f64 - r.get("since").as_f64().unwrap_or_default());
         // running subagents in the working colour, so an idle session whose
         // subagents are still at work stands out
-        if subagents.above_zero() {
-            text2 += &format!("  {}", paint(&format!("+{}", subagents.text()), ORANGE));
-        }
-        if number.is_none() {
-            text2 += &format!("  {dim}background{RESET}");
-        }
+        let subagents = r.get("subagents");
+        let busy = if subagents.above_zero() {
+            format!("  {}", paint(&format!("+{}", subagents.text()), ORANGE))
+        } else {
+            String::new()
+        };
+        let background = match number {
+            Some(_) => String::new(),
+            None => format!("  {DIM}background{RESET}"),
+        };
+        let ctx = ctxline(r.get("context").get("used_pct"), view);
         // reset at the end, or the dim of a background entry leaks into the
         // entries fzf draws after it
-        text2 += &format!(
-            "\n{dim}{}{RESET}",
-            ctxline(r.get("context").get("used_pct"), view)
-        );
+        let text2 = format!("   {state} {age}{busy}{background}\n{dim}{ctx}{RESET}");
         Entry {
             fields,
             dim,
@@ -240,6 +238,7 @@ fn paint_on(text: &str, fg: &str, bg: &str) -> String {
 fn as_background(sgr: &str) -> String {
     match sgr.strip_prefix("38;") {
         Some(rest) => format!("48;{rest}"),
+        // the palette shades, all numbers
         None => sgr
             .parse::<u32>()
             .map_or(String::new(), |n| (n + 10).to_string()),
@@ -259,6 +258,7 @@ fn faded(sgr: &str) -> String {
             "34" => vec![122, 162, 247],
             "35" => vec![187, 154, 247],
             "36" => vec![125, 207, 255],
+            // never taken: only the bandana and body colours are faded
             _ => return sgr.into(),
         },
     };
@@ -283,34 +283,24 @@ fn ctxline(pct: &Value, view: &View) -> String {
     // padded to 4 columns, so bars up to 99% end in the same column
     let label = format!("{:>4}", format!(" {}%", pct.text()));
     let cells = view.width - label.chars().count() as i64;
-    let full = (share * cells as f64 / 100.0).round().min(cells as f64);
+    let full = (share * cells as f64 / 100.0).round().min(cells as f64) as i64;
     let warned = share >= view.warn;
     let palette: &[&str] = if warned {
         &[RED]
     } else {
         &[GREEN, YELLOW, ORANGE, RED]
     };
-    let mut line = String::new();
+    let colours: Vec<&str> = (0..full)
+        .map(|cell| palette[(cell as f64 * palette.len() as f64 / cells as f64).floor() as usize])
+        .collect();
     // painted a run of one colour at a time
-    let mut run: Option<(&str, usize)> = None;
-    for cell in 0..full.max(0.0) as i64 {
-        let colour = palette[(cell as f64 * palette.len() as f64 / cells as f64).floor() as usize];
-        match &mut run {
-            Some((c, n)) if *c == colour => *n += 1,
-            _ => {
-                if let Some((c, n)) = run {
-                    line += &paint(&"━".repeat(n), c);
-                }
-                run = Some((colour, 1));
-            }
-        }
-    }
-    if let Some((c, n)) = run {
-        line += &paint(&"━".repeat(n), c);
-    }
-    let rest = (cells - full as i64).max(0) as usize;
-    line += &paint(&"┈".repeat(rest), TERMINAL_BLACK);
-    line + &if warned { paint(&label, RED) } else { label }
+    let used: String = colours
+        .chunk_by(|a, b| a == b)
+        .map(|run| paint(&"━".repeat(run.len()), run[0]))
+        .collect();
+    let rest = paint(&"┈".repeat((cells - full).max(0) as usize), TERMINAL_BLACK);
+    let label = if warned { paint(&label, RED) } else { label };
+    used + &rest + &label
 }
 
 /// djb2 of a string, kept under 2^31 as jq, counting in doubles, kept it
@@ -368,13 +358,19 @@ fn picture(pose: &Pose, palette: &Palette, faint: bool) -> [String; 3] {
     std::array::from_fn(|line| {
         (0..8)
             .map(|cell| {
-                let pixels = std::array::from_fn(|k| {
-                    palette.colour(pose[4 * line + k / 2][2 * cell + k % 2])
-                });
-                octant(pixels, faint)
+                octant(
+                    cell_pixels(pose, line, cell).map(|p| palette.colour(p)),
+                    faint,
+                )
             })
             .collect()
     })
+}
+
+/// the 8 pixels of octant cell `cell` on picture line `line`, left to right,
+/// top to bottom
+fn cell_pixels(pose: &Pose, line: usize, cell: usize) -> [u8; 8] {
+    std::array::from_fn(|k| pose[4 * line + k / 2][2 * cell + k % 2])
 }
 
 /// the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
@@ -499,23 +495,13 @@ const RUN_EYES: [&str; 4] = [
 ];
 
 fn run(k: usize) -> Pose {
-    let ribbon: Vec<String> = (0..4)
+    let rows: Vec<String> = (0..4)
         .map(|y| format!("{}{}", RIBBONS[k][y], &RUN_BODY[y][4..]))
+        .chain([RUN_EYES[k].into()])
+        .chain(RUN_BODY[5..].iter().map(|r| r.to_string()))
+        .chain(RUN_FEET[k].map(String::from))
         .collect();
-    pose([
-        &ribbon[0],
-        &ribbon[1],
-        &ribbon[2],
-        &ribbon[3],
-        RUN_EYES[k],
-        RUN_BODY[5],
-        RUN_BODY[6],
-        RUN_BODY[7],
-        RUN_BODY[8],
-        RUN_BODY[9],
-        RUN_FEET[k][0],
-        RUN_FEET[k][1],
-    ])
+    pose(std::array::from_fn(|y| rows[y].as_str()))
 }
 
 /// Clawd squatting, down: the head drops a whole cell row, the eyes below
@@ -728,9 +714,7 @@ mod tests {
         for (i, pose) in clawd.poses.iter().enumerate() {
             for line in 0..3 {
                 for cell in 0..8 {
-                    let mut colours: Vec<u8> = (0..8)
-                        .map(|k| pose[4 * line + k / 2][2 * cell + k % 2])
-                        .collect();
+                    let mut colours = cell_pixels(pose, line, cell).to_vec();
                     colours.sort();
                     colours.dedup();
                     assert!(
