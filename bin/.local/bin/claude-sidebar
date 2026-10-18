@@ -372,6 +372,18 @@ attach() { # $1 session id
   echo "$pane"
 }
 
+# a jump moving the right pane's client, marked by $cache/moving.<pid> from
+# before it moves to once it has (on a host, once its ssh is back); then a
+# new value in $cache/jumped, written whole. A gather keeps the value it
+# began with, and `serve` takes the cursor to the session on show only if
+# that value still stands and no jump is moving, however slow the host
+moving() { [[ -d $cache ]] && : >"$cache/moving.$$"; return 0; }
+moved() {
+  [[ -d $cache ]] || return 0
+  echo "$EPOCHREALTIME-$$" >"$cache/jumped.$$" && mv "$cache/jumped.$$" "$cache/jumped"
+  rm -f "$cache/moving.$$"
+}
+
 jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
   local host=$1 pane=$2 relay=$3 id=$4
   [[ -n $id ]] || return 0 # a header
@@ -381,12 +393,15 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
   [[ -n $main ]] && client=(-c "${main#* }")
   if [[ -z $host ]]; then
     [[ -n $pane ]] || pane=$(attach "$id") || return
+    moving
     work switch-client "${client[@]}" -t "$pane" \; select-window -t "$pane" \; select-pane -t "$pane"
+    moved
   else
     # the Mac window holding this host's relay, tagged by ssh-tmux
     local window
     window=$(work list-windows -a -F '#{window_id} #{@ssh_tmux}' | awk -v h="$host" '$2 == h {print $1; exit}')
     [[ -n $window ]] || { tmux display-message "open $relay first (prefix f)"; return; }
+    moving
     work switch-client "${client[@]}" -t "$window" \; select-window -t "$window"
     # the host's client from the Mac moves, in the background, so a slow link
     # does not hold up the caller, which for a click is fzf itself. The kick
@@ -399,6 +414,7 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
       pane='$pane'
       [ -n \"\$pane\" ] || pane=\$(claude-sidebar attach '$id') || exit
       tmux switch-client -c \"\$client\" -t \"\$pane\" \\; select-window -t \"\$pane\" \\; select-pane -t \"\$pane\""
+      moved
       kick
     } </dev/null >/dev/null 2>&1 &
   fi
@@ -518,42 +534,46 @@ drained() {
 }
 
 # gather and draw every second, or as soon as a kick comes through the fifo
-# $cache/kick, then wake `serve` with a line to the fifo $cache/gathered:
-# "moved" when a kick came during the gather, so what it saw on show in the
-# frame may already be gone, and gather again at once
+# $cache/kick, then wake `serve` with a line to the fifo $cache/gathered: the
+# value $cache/jumped had when the gather began, then "moved" when a kick came
+# during it, so what it saw on show in the frame may already be gone, and
+# gather again at once
 gathering() {
-  local kicks
+  local kicks since
   exec {kicks}<>"$cache/kick"
   while :; do
     drained "$kicks" # the kicks this gather answers
+    read -r since <"$cache/jumped"
     gather && draw
     if drained "$kicks"; then
-      echo moved >"$cache/gathered"
+      echo "$since moved" >"$cache/gathered"
       continue
     fi
-    echo >"$cache/gathered"
+    echo "$since" >"$cache/gathered"
     read -r -t 1 -u "$kicks"
   done
 }
 
 # wait for `serve`, reading and moving its locals: for the next gather on fd
-# $gathered, its line in $note, or, while a Clawd is $animating, for that or
-# the tick at $next_tick_us, then moving it on by $tick_us. Succeeds if a
-# gather came, fails at a tick. The waits are read timeouts, with no sleep to
-# fork
+# $gathered, its line in $gathered_line, or, while a Clawd is $animating,
+# for that or the tick at $next_tick_us, then moving it on by $tick_us.
+# Succeeds if a gather came, fails at a tick. The waits are read timeouts,
+# with no sleep to fork; a read that times out still sets its variable, so
+# the line goes to $gathered_line only once read
 await_gather() {
   # times in microseconds: EPOCHREALTIME without its decimal separator, a
   # point or a comma by locale
-  local now delay
+  local now delay line
   if [[ $animating != true ]]; then
-    read -r -u "$gathered" note || return
+    read -r -u "$gathered" line || return
+    gathered_line=$line
     next_tick_us=$((${EPOCHREALTIME/[.,]/} + tick_us))
     return 0
   fi
   delay=$((next_tick_us - ${EPOCHREALTIME/[.,]/}))
   if ((delay > 0)); then
     printf -v delay '0.%06d' "$delay"
-    read -r -t "$delay" -u "$gathered" note && return 0
+    read -r -t "$delay" -u "$gathered" line && gathered_line=$line && return 0
   fi
   now=${EPOCHREALTIME/[.,]/}
   next_tick_us=$((next_tick_us + tick_us))
@@ -569,7 +589,7 @@ await_gather() {
 # the rows on show changed, and its cursor moves only when the right pane's
 # session did, so it is not taken from an entry being browsed to
 serve() {
-  local frame=0 animating=false check_shown=false fzf_has_rows note sum last_sum="" shown last_shown=""
+  local frame=0 animating=false check_shown=false fzf_has_rows gathered_line since jumped sum last_sum="" shown last_shown=""
   # ticks kept to a schedule, so a slow reload does not slow the frame rate
   local tick_us=125000 next_tick_us gathered
   # read and write, so the fifo always has a reader and a writer, and `read`
@@ -579,9 +599,11 @@ serve() {
     if await_gather; then
       # whether anything moves is whatever `picture` draws differently
       if cmp -s "$cache/rows.0" "$cache/rows.1"; then animating=false; else animating=true; fi
-      # a gather a kick overtook may have seen the session on show before a
-      # jump, and would take the cursor back from where the jump put it
-      if [[ $note == moved ]]; then check_shown=false; else check_shown=true; fi
+      # the value $cache/jumped had when the gather began. A gather a kick
+      # overtook may have seen the session on show before a jump, and would
+      # take the cursor back from where the jump put it
+      since=${gathered_line%% *}
+      if [[ $gathered_line == *" moved" ]]; then check_shown=false; else check_shown=true; fi
       # with none moving, the new rows if they changed; with one, the next
       # tick shows them, so the frames stay evenly spaced. The sum is without
       # field 6, the session on show, which moves the cursor, not the rows
@@ -599,10 +621,16 @@ serve() {
       last_sum=""
       fzf_has_rows=true
     fi
-    # the cursor moves once fzf has the rows its position is counted in
+    # the cursor moves once fzf has the rows its position is counted in, and
+    # not for a gather a jump came after, or while one moves
     if [[ $check_shown == true && $fzf_has_rows == true ]]; then
       check_shown=false
-      shown=$(position 6 1)
+      read -r jumped <"$cache/jumped"
+      if [[ $jumped == "$since" ]] && ! compgen -G "$cache/moving.*" >/dev/null; then
+        shown=$(position 6 1)
+      else
+        shown=""
+      fi
       if [[ -n $shown && $shown != "$last_shown" ]]; then
         fzf_do "pos($shown)" && last_shown=$shown
       fi
@@ -632,8 +660,8 @@ case $1 in
   jump) jump "$2" "$3" "$4" "$5" ;;
   attach) attach "$2" ;;
   "")
-    mkdir -p "$cache" && rm -f "$cache/gathered" "$cache/kick" &&
-      mkfifo "$cache/gathered" "$cache/kick" && gather && draw
+    mkdir -p "$cache" && rm -f "$cache/gathered" "$cache/kick" "$cache"/moving.* &&
+      mkfifo "$cache/gathered" "$cache/kick" && moved && gather && draw
     # errors to a log: written to the pane, they stay over fzf until it redraws
     gathering 2>>"${TMPDIR:-/tmp}/claude-sidebar.log" &
     loops=$!

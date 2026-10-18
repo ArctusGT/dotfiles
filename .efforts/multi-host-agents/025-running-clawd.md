@@ -100,10 +100,25 @@ moves" as rows.0 against rows.1 would also miss a squat that starts later
 in the cycle; comparing rows.0 with each other frame, or the files' count
 of distinct sums, would cover it.
 
-What the moved mark leaves open: a jump whose `switch-client` lands after
-a gather read the session on show, but whose kick arrives only after that
-gather finished, still gets one `pos()` for the old entry; the kick's own
-gather puts it back within a gather. Closing it would take a jump sequence
-`serve` compares when it posts, rather than a mark from `gathering`. A
-host's jump now kicks only once its ssh has moved the client there, which
-no probe here exercises: it needs an ssh-tmux host.
+---
+
+2026-10-18: the Maintainer's mgmt-1 entries still bounced (fzf's cursor
+9, 7, 9, 7 within 2 s). A jump now marks itself moving before it moves
+the right pane's client, and once the move has landed, after the ssh for
+a host, writes a new value to `$cache/jumped`; `serve` moves the cursor
+only for a gather that began under the value still standing, with no jump
+moving. The probe now stands in a fake host behind a stub ssh with a set
+round trip; numbers in the commit. The brief had the jump counted before
+it moves; counted only then, a gather that starts after the count but
+reads the host before its ssh lands still matches, so the count also
+moves once the move is done, and the mark covers the time between.
+
+With the hooks tmux/.tmux.conf.local sets, which kick the sidebar at
+every host jump, the probe got no stale post out of the script before
+this change; with them left out, 28 in 18 bursts. So the bounce seen on
+mgmt-1 may have had a cause the probe does not model. One candidate:
+Cmd+Up/Down in a host window runs `edge`, which asks the host for its
+active pane over ssh; while the previous jump's ssh is still in flight
+that is the old pane, so `step` picks from the old entry. If the recheck
+still bounces, fzf's cursor polled as before beside the sidebar's posts
+would tell the two apart.
