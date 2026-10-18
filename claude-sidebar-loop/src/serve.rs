@@ -79,13 +79,19 @@ impl<S: Sidebar> Serve<S> {
         if self.animating() {
             self.fzf_has_rows = false;
         } else {
-            let rows = without_shown(&self.sidebar.rows(self.frame));
-            if self.last_rows.as_ref() != Some(&rows) && self.sidebar.reload(self.frame) {
-                self.last_rows = Some(rows);
-            }
+            self.show_still_rows();
             self.fzf_has_rows = true;
         }
         self.follow();
+    }
+
+    /// reloads fzf with the frame on show while none moves, if its rows
+    /// changed other than in the session on show
+    fn show_still_rows(&mut self) {
+        let rows = without_shown(&self.sidebar.rows(self.frame));
+        if self.last_rows.as_ref() != Some(&rows) && self.sidebar.reload(self.frame) {
+            self.last_rows = Some(rows);
+        }
     }
 
     /// shows the next frame, if it changes what fzf shows

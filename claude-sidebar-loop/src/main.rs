@@ -46,36 +46,53 @@ fn main() {
     serve(Serve::new(cache), &gathers);
 }
 
-/// waits for each gather's line, or, while a Clawd moves, for that or the
-/// next tick, and hands it to `serve`. Ticks keep to a schedule, so a slow
-/// reload does not slow the frame rate; behind, the missed ones are dropped
+/// hands `serve` each gather, and while a Clawd moves each tick between
 fn serve(mut serve: Serve<Cache>, gathers: &Receiver<Gather>) {
     let mut next_tick = Instant::now();
     loop {
-        if !serve.animating() {
-            let Ok(gather) = gathers.recv() else { return };
-            next_tick = Instant::now() + TICK;
-            serve.gathered(gather);
-            continue;
+        match next_event(serve.animating(), &mut next_tick, gathers) {
+            Some(Event::Gather(gather)) => serve.gathered(gather),
+            Some(Event::Tick) => serve.tick(),
+            None => return,
         }
-        let delay = next_tick.saturating_duration_since(Instant::now());
-        if !delay.is_zero() {
-            match gathers.recv_timeout(delay) {
-                Ok(gather) => {
-                    serve.gathered(gather);
-                    continue;
-                }
-                Err(RecvTimeoutError::Timeout) => {}
-                Err(RecvTimeoutError::Disconnected) => return,
-            }
-        }
-        let now = Instant::now();
-        next_tick += TICK;
-        if next_tick <= now {
-            next_tick = now + TICK;
-        }
-        serve.tick();
     }
+}
+
+enum Event {
+    Gather(Gather),
+    Tick,
+}
+
+/// waits for the next gather, or, while `animating`, for that or the tick
+/// at `next_tick`, then moves `next_tick` on: a tick after a gather while
+/// still, a tick after a tick. Ticks keep to a schedule, so a slow reload
+/// does not slow the frame rate; behind, the missed ones are dropped, and
+/// the tick comes before a gather waiting. None once `claude-sidebar` is
+/// gone
+fn next_event(
+    animating: bool,
+    next_tick: &mut Instant,
+    gathers: &Receiver<Gather>,
+) -> Option<Event> {
+    if !animating {
+        let gather = gathers.recv().ok()?;
+        *next_tick = Instant::now() + TICK;
+        return Some(Event::Gather(gather));
+    }
+    let delay = next_tick.saturating_duration_since(Instant::now());
+    if !delay.is_zero() {
+        match gathers.recv_timeout(delay) {
+            Ok(gather) => return Some(Event::Gather(gather)),
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => return None,
+        }
+    }
+    let now = Instant::now();
+    *next_tick += TICK;
+    if *next_tick <= now {
+        *next_tick = now + TICK;
+    }
+    Some(Event::Tick)
 }
 
 /// the gathers `claude-sidebar` announces on the fifo `fifo`, as they come:
@@ -99,6 +116,14 @@ fn gathers(fifo: &Path) -> io::Result<Receiver<Gather>> {
     Ok(receive)
 }
 
+/// the file at `path`, or nothing, with the error logged
+fn read_logged(path: &Path) -> Vec<u8> {
+    fs::read(path).unwrap_or_else(|err| {
+        eprintln!("claude-sidebar-loop: {}: {err}", path.display());
+        Vec::new()
+    })
+}
+
 /// the sidebar's cache directory, where `claude-sidebar` leaves the rows,
 /// `repeats`, `jumped`, the `moving.*` marks and fzf's socket
 struct Cache {
@@ -110,14 +135,6 @@ impl Cache {
         self.dir.join(format!("rows.{frame}"))
     }
 
-    /// the file `name`, or nothing, with the error logged
-    fn read(&self, name: &Path) -> Vec<u8> {
-        fs::read(name).unwrap_or_else(|err| {
-            eprintln!("claude-sidebar-loop: {}: {err}", name.display());
-            Vec::new()
-        })
-    }
-
     /// whether fzf took `action`; a sidebar starting before its fzf listens
     /// fails quietly, as the next gather tries again
     fn post(&self, action: &str) -> bool {
@@ -127,20 +144,21 @@ impl Cache {
 
 impl Sidebar for Cache {
     fn rows(&self, frame: usize) -> Vec<u8> {
-        self.read(&self.rows_path(frame))
+        read_logged(&self.rows_path(frame))
     }
 
-    /// `repeats` holds a 1 or 0 for each frame
+    /// `repeats` holds a 1 or 0 for each frame; as in bash, a frame
+    /// differs only at a 0
     fn repeats(&self) -> Vec<bool> {
-        let repeats = self.read(&self.dir.join("repeats"));
+        let repeats = read_logged(&self.dir.join("repeats"));
         String::from_utf8_lossy(&repeats)
             .split_whitespace()
-            .map(|r| r == "1")
+            .map(|r| r != "0")
             .collect()
     }
 
     fn jumped(&self) -> String {
-        let jumped = self.read(&self.dir.join("jumped"));
+        let jumped = read_logged(&self.dir.join("jumped"));
         String::from_utf8_lossy(&jumped)
             .lines()
             .next()
