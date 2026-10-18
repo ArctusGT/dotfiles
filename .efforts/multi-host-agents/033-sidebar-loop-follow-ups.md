@@ -52,7 +52,7 @@ The Maintainer accepted all four from 032's review notes.
       ten times, leaves a working sidebar every time; a second sidebar
       started and stopped beside a running one leaves the running one
       updating
-- [ ] The shipped checks run from a clean checkout on the Mac and pass;
+- [x] The shipped checks run from a clean checkout on the Mac and pass;
       none touches the live cache, by running them while a sidebar runs
       and seeing it keep updating
 - [ ] The Maintainer restarts the live sidebar and uses it

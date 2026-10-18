@@ -109,6 +109,13 @@ into `~/.local/bin`, beside the sidebar, and again whenever the crate changes:
 cargo install --locked --path claude-sidebar-loop --root ~/.local
 ```
 
+`claude-sidebar-loop/checks/` holds the scripts that check the sidebar and the
+binary (`--help` says what each does): `attach.sh`, `respawn.sh` and `e2e.sh`
+drive a sidebar, `compare-sessions.sh` and `compare-rows.py` compare the binary
+with `claude-sessions` and with an earlier revision, and `profile.sh` measures
+CPU. Each runs in its own tmux server and `TMPDIR`, so none touches a running
+sidebar's cache.
+
 `zsh` also links `~/.zshenv`, which every zsh reads, including the one
 `ssh host '<cmd>'` runs. Stow refuses to replace a real file, so on a host
 that already has a `~/.zshenv`, fold anything it needs into
