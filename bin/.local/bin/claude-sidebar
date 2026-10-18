@@ -243,8 +243,9 @@ format() { # $@ animation frames, counting from 0 (default 0)
       | stand
       | .[4] = {centre: "..BB..BBBB..BB22", left: "..B..BBBB..BBB22", right: "..BBB..BBBB..B22"}[$p.eyes]
       | .[11] = {down: .[11], left: "...........B.B..", right: "..B.B..........."}[$p.feet]
-      # columns 0 and 1 of rows 2 to 7 hold the arm
-      | reduce range(2; 8) as $y (.; .[$y] |= (if $y | IN($arm_rows[]) then "BB" else ".." end) + .[2:]);
+      # the left arm, at rows 6 and 7 as he stands, moved to $arm_rows
+      | .[6, 7] |= ".." + .[2:]
+      | .[$arm_rows[]] |= "BB" + .[2:];
     # the poses of a run, of a squat: standing a while, then down and back,
     # and of a wait, 6 s at 8 frames a second: looking left and right, a
     # stamp, a wave, then standing. Each wait step held n frames, 1 if not
