@@ -316,59 +316,73 @@ format() { # $@ animation frames, counting from 0 (default 0)
       elif $r.state == "idle" and $r.subagents > 0
       then {poses: squatting, phase: ($r.session_id | djb)}
       else {poses: [stand], phase: 0} end;
-    # Clawd for session $r, wearing its bandana, as three lines, his body in
-    # the colour for its state: working orange, waiting yellow, idle grey,
-    # the only states claude-session-state writes. In the pose of its
-    # animation for frame $frame. `serve` ticks while any frame differs from
-    # frame 0. $faint as in octant
-    def picture($r; $frame; $faint):
+    # Clawd for session $r in $pose, wearing its bandana, as three lines,
+    # his body in the colour for its state: working orange, waiting yellow,
+    # idle grey, the only states claude-session-state writes. $faint as in
+    # octant
+    def picture($r; $pose; $faint):
       (bandana($r.session_id) as [$main, $s1, $s2, $s3]
         | {B: {working: orange, waiting: yellow, idle: dark5}[$r.state],
            m: $main, "1": $s1, "2": $s2, "3": $s3}) as $palette
-      | (animation($r) | .poses[(.phase + $frame) % (.poses | length)]
-         | map(split("") | map($palette[.]))) as $pixels
+      | ($pose | map(split("") | map($palette[.]))) as $pixels
       | [range(3) as $line
           | [range(8) as $cell
               | [range(4) as $y | range(2) as $x | $pixels[4 * $line + $y][2 * $cell + $x]]
               | octant($faint)]
           | join("")];
-    . as $tagged
-    | $frames[] as $frame
-    | $tagged
-    | foreach .[] as $r ({n: 0, cur: ""};
+    # Clawd for session $r in each of $frames, as picture draws him: each
+    # distinct pose of his animation drawn once, as most repeat across the
+    # frames or, standing, are the same in all of them
+    def pictures($r; $faint):
+      animation($r) as $a
+      | [$frames[] | $a.poses[($a.phase + .) % ($a.poses | length)] | tojson] as $keys
+      | (reduce ($keys | unique)[] as $k ({}; .[$k] = picture($r; $k | fromjson; $faint)))
+          as $drawn
+      | $keys | map($drawn[.]);
+    # every item for each frame, the frames one after another: each entry
+    # is formatted once, as an item a frame, which differ only in the
+    # picture, then the entries are transposed into frame order
+    [foreach .[] as $r ({n: 0, cur: ""};
       if $r.header then .cur = $r.current
       elif $r.tmux_pane != null then .n += 1 else . end;
       [$r, .n, .cur])
     | .[0] as $r | .[1] as $n | .[2] as $cur
     | if $r.header then
-        ["", "", "", "", "", "",
-         # paint closes only the colour, so the reset ends the bold
-         ($r.label | paint("1;\(blue)")) + "\u001b[0m"
-         + (if $r.down then "  " + ("unreachable" | paint(red)) else "" end)
-         # a blank second line, so the heading stands apart from the entries,
-         # as a braille blank (U+2800) since fzf drops a trailing line of spaces
-         + "\n\u2800"]
+        (["", "", "", "", "", "",
+          # paint closes only the colour, so the reset ends the bold
+          ($r.label | paint("1;\(blue)")) + "\u001b[0m"
+          + (if $r.down then "  " + ("unreachable" | paint(red)) else "" end)
+          # a blank second line, so the heading stands apart from the entries,
+          # as a braille blank (U+2800) since fzf drops a trailing line of spaces
+          + "\n\u2800"]
+         | join("\t") + "\u0000") as $item
+        | [$frames[] | $item]
       else
         ($r.context.used_pct) as $pct
         | ($r.tmux_pane != null) as $numbered
         # a session with no pane (a --bg one, or a daemon) is dimmed
         | (if $numbered then "" else "\u001b[2m" end) as $dim
-        | picture($r; $frame; $numbered | not) as [$pic0, $pic1, $pic2]
-        | [$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
-           (if $numbered then "\($n)" else "" end),
-           (if $numbered and $r.tmux_pane == $cur then "1" else "" end),
-           $dim + $pic0 + " " + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n"
-           + $dim + $pic1 + "   \($r.name // $r.session_id[:8])\n"
-           + $dim + $pic2 + "   \($r.state) \($now - $r.since | ago)"
+        | ([$r.host, ($r.tmux_pane // ""), $r.relay, $r.session_id,
+            (if $numbered then "\($n)" else "" end),
+            (if $numbered and $r.tmux_pane == $cur then "1" else "" end), ""]
+           | join("\t")) as $fields
+        # the text right of each line of the picture
+        | (" " + (if $numbered then "\($n)" else " " end) + " \($r.cwd | split("/") | last)\n")
+            as $text0
+        | ("   \($r.name // $r.session_id[:8])\n") as $text1
+        | ("   \($r.state) \($now - $r.since | ago)"
            # running subagents in the working colour, so an idle session
            # whose subagents are still at work stands out
            + (if $r.subagents > 0 then "  " + ("+\($r.subagents)" | paint(orange)) else "" end)
            + (if $numbered then "" else "  " + $dim + "background\u001b[0m" end)
            # reset at the end, or the dim of a background entry leaks into
            # the entries fzf draws after it
-           + "\n" + $dim + ctxline($pct) + "\u001b[0m"]
-      end
-    | join("\t") + "\u0000"'
+           + "\n" + $dim + ctxline($pct) + "\u001b[0m") as $text2
+        | [pictures($r; $numbered | not)[] as [$pic0, $pic1, $pic2]
+           | $fields + $dim + $pic0 + $text0 + $dim + $pic1 + $text1
+             + $dim + $pic2 + $text2 + "\u0000"]
+      end]
+    | transpose[][]'
 }
 
 # every host's tagged lines, local first
