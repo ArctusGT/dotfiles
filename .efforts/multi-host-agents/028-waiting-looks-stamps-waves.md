@@ -18,13 +18,15 @@ idle one with subagents running squats (026); everything else stands.
 - Each waiting entry plays at its own phase, from its session id as the
   squat does, so waiting entries do not move in step
 - While a session is `waiting` with subagents running, the same loop
-  squats in its last rest, a frame after the wave: crouch, down, down,
-  crouch, the squat's own poses
+  squats in each of its three longest rests, before the look, between
+  the stamp and the wave, and after the wave: crouch, down, down,
+  crouch, the squat's own poses, about one every 2 s
 - Working, squatting and still entries behave as before
 
 Watching the first build, the Maintainer asked for the waiting session
 with subagents to mix the waves and the squat in turn, rather than
-stand as first drafted.
+stand as first drafted; then for three squats a loop over one, so the
+subagents' work shows plainly.
 
 The Maintainer chose these three motions, and running them one after
 another over running them at once, by eye from the prototype
@@ -51,7 +53,7 @@ cell.
       in that order, once a loop; when it stops waiting its Clawd takes
       the new state's pose within about a second
 - [x] A waiting session with subagents running plays the same loop with a
-      squat in its last rest
+      squat in each of its three longest rests
 - [x] Working, squatting and idle entries behave as before
 - [x] Every waiting pose keeps each cell to two colours at most, by a
       count script

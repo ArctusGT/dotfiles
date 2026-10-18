@@ -259,9 +259,11 @@ format() { # $@ animation frames, counting from 0 (default 0)
         {arm: 1}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 3}, {arm: 2}, {arm: 1},
         {n: 9}][]
        | wait as $pose | range(.n // 1) | $pose];
-    # a wait with a squat in its last rest, a frame after the wave: for a
-    # session waiting while its subagents work
-    def waiting_on_subagents: waiting[:40] + [crouch, squat, squat, crouch] + waiting[44:];
+    # a wait with a squat in each of its three longest rests, before the
+    # look, between the stamp and the wave, and after the wave, about one
+    # every 2 s: for a session waiting while its subagents work
+    def waiting_on_subagents:
+      reduce (0, 25, 40) as $at (waiting; .[$at:$at + 4] = [crouch, squat, squat, crouch]);
     # the octant for each set of lit pixels in a cell, bit n-1 for pixel n:
     # 1 2 / 3 4 / 5 6 / 7 8. Written out from Unicode names by Python 3.15
     # unicodedata: BLOCK OCTANT-n at U+1CD00 lights the pixels its digits
