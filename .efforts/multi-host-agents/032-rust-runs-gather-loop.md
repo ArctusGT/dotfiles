@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's gather loop moves into the Rust binary, which reads this host's sessions from their state files itself rather than spawning `claude-sessions`, and polls remote hosts over ssh as today
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:** [multi-host-agents/031-rust-renders-frames]
 
 **Current behavior:**
@@ -63,3 +63,37 @@ from the binary, and `pick` reading `rows.0` so the tagged file goes.
 **Out of scope:**
 - Replacing `claude-sessions` on remote hosts
 - `jump`, `edge`, `attach`, `kick`
+
+**For the Maintainer:**
+- From the structural review: a typed `Session` (and `State`) for the
+  renderer, parsed from each session's JSON once, would remove
+  `joined`, `last_part`'s `"null"`, `short_id`'s fallback and
+  `Value::above_zero`. It changes the rows only for sessions
+  `claude-session-state` never writes (a missing `cwd` would show blank
+  rather than `null`). Left for a yes: the rows were kept byte-identical
+  to the jq-era rows instead. `sessions` itself stays JSON, as it passes
+  each state file through field for field.
+- From the structural review: `attach` still runs the bash
+  `claude-sessions` on the Mac, so two local readers of one set of rules
+  now run side by side, both removing dead sessions' files. `attach`
+  could read `claude-sidebar-loop sessions` instead (one word, its jq
+  kept), leaving `claude-sessions` the remote hosts' source only. Not
+  done: the slice keeps `attach` as it is.
+- The comparison and profile scripts (`compare-sessions.sh`,
+  `compare-rows.py`, `e2e-032.sh`, `profile-032.sh`) are scratchpad
+  files, like 030's and 031's. Say if they should be shipped.
+- In 26 end-to-end starts, once the cursor did not move to the entry on
+  show when the sidebar started (it did at the next change of the right
+  pane), under load right after a build. Not reproduced since; possibly
+  the first gather, now far quicker, posting `pos` before fzf has loaded
+  its first rows.
+- mgmt-1 built and tested the crate offline (cargo 1.92) from a `git
+  archive`, and its `sessions` matched that revision's `claude-sessions`
+  byte for byte over a fixture there. mgmt-1 needs the binary after
+  pulling, as `Readme.md`'s setup says. On mgmt-1, from `~/dotfiles`:
+
+  ```bash
+  cargo install --locked --path claude-sidebar-loop --root ~/.local
+  ```
+- The sessions' divergences from `claude-sessions` on files the hooks never
+  write are in `sessions.rs`' module comment.
