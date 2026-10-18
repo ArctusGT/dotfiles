@@ -104,9 +104,11 @@ jq -nc --argjson panes "$panes" --argjson records "$records" "${subagent_counts[
   # its own the title cannot tell the two apart. An untagged Claude pane
   # shows the session its title names, else the one the hooks recorded in
   # it. The tag before the record, since a `claude attach` client runs its
-  # own hooks and records its interactive session in the tagged pane too
-  ($panes | map(.title as $title | {key: .id, value: (
-      if .tag != "" then
+  # own hooks and records its interactive session in the tagged pane too. A
+  # tag naming no live session counts as none: /clear in an attached job
+  # gives its conversation a new id, and the pane goes on showing it
+  ($panes | map(.title as $title | .tag as $tag | {key: .id, value: (
+      if any($sessions[]; .session_id == $tag) then
         (names(.tag) as $own
          | if ($own | length) > 0 and ($own | index($title) | not)
            then ((select(.runs_claude) | titled) // .tag) else .tag end)
