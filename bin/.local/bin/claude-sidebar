@@ -364,7 +364,7 @@ case $1 in
     # ctrl-c clear the query rather than closing the sidebar
     fzf --read0 --ansi --delimiter '\t' --with-nth 7.. <"$cache/rows.0" \
       --listen "$cache/fzf.sock" \
-      --layout reverse --no-scrollbar --info hidden --prompt '' \
+      --layout reverse --highlight-line --no-scrollbar --info hidden --prompt '' \
       --bind "esc,ctrl-c,ctrl-g,ctrl-q:clear-query" \
       --bind "enter,left-click:execute-silent($self jump {1} {2} {3} {4})+clear-query"
     ;;
