@@ -159,7 +159,8 @@ jump() { # $1 ssh host, $2 pane, $3 relay session, $4 session id
     moving
     work switch-client "${client[@]}" -t "$window" \; select-window -t "$window"
     # the host's client from the Mac moves, in the background, so a slow link
-    # does not hold up the caller, which for a click is fzf itself. The kick
+    # holds up neither the focus back to the right pane nor a pick's move of
+    # fzf's cursor after it. The kick
     # waits for it, or the gather it brings could see the host's old session
     # on show and take the cursor back
     {

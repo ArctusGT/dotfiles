@@ -10,9 +10,10 @@
 #                   what runs, as in lib.sh
 # Three throwaway tmux servers: -L chkmousef for fzf alone, -L chkmouse the
 # frame (a right pane attached to the usual tmux, and the sidebar), and
-# -L chkmouseu the usual tmux. Clicks are SGR mouse bytes sent to the
-# sidebar's pane. Changes nothing outside its temporary directory; kills only
-# its own servers and its own sleep.
+# -L chkmouseu the usual tmux. Clicks are mouse bytes in SGR encoding (the
+# `\e[<` reports fzf asks for), sent to the sidebar's pane. Changes nothing
+# outside its temporary directory; kills only its own servers and its own
+# sleep.
 usage() { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; }
 [[ $1 == --help ]] && { usage; exit 0; }
 jumps=${1:-30}

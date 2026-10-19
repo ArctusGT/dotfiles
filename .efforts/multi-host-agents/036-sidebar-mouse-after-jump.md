@@ -2,7 +2,7 @@
 
 **Category:** bug
 **Summary:** A click or Enter in the sidebar runs the jump inside fzf's silent execute, and a frame posted to fzf while a long one runs makes fzf turn mouse tracking off for good once it returns; the jump runs in the background so the execute returns at once, and the reproduction ships as a check
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:**
 
 **Current behavior:**
@@ -70,3 +70,14 @@ mode, the last written, and fzf's is button events.
   mouse from the command fzf ran: neither can stop a drop fzf writes as
   its execute returns
 - Any change to what a jump does once it has the mouse
+
+**For the Maintainer:**
+- fzf no longer waits on a jump, so a second click during a slow one
+  starts a second jump beside it, where fzf used to hold the click until
+  the first returned. Each marks its own `moving.<pid>` and the last
+  `jumped` written wins, and the loop follows the session actually on
+  show, so the code review judged it benign; nothing checks overlapping
+  clicks
+- The end-to-end check's "four numbered entries" had failed since
+  e4b5328 grouped by repo, its stub host's sessions carrying none;
+  4f878b2 gave them one each so the last criterion could be met
