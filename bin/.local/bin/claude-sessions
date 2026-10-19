@@ -5,7 +5,10 @@
 # Each object carries the session's state file plus `subagents` (a count),
 # `context` (the status line's last record, or null), `name` (the one
 # Claude Code's own record holds for it, else the status line's) and `repo`
-# (the repo root its cwd is in, `~` for HOME; null for no cwd). Removes the
+# (the repo root its cwd is in, `~` for HOME; null for no cwd) and `unseen`
+# (true where the window of its pane carries @claude_wait, which
+# `claude-tmux-status` sets when a turn ends or a question comes while nobody
+# is looking; false for no pane). Removes the
 # files of a session whose process is gone, which is how a killed session is
 # cleared. Where Claude Code keeps its own records, a session is live only
 # while one of them, with a live pid, names it.

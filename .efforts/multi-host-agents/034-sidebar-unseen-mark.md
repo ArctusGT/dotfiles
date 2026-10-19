@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Each sidebar entry carries the unseen mark the tmux status bar's dots show today, a session whose turn ended or that asked something while its window was not being looked at, read from the same window flag, so the dots can later be retired
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:**
 
 **Current behavior:**

@@ -91,7 +91,7 @@ LOCAL = [
     ("a6666666-0000-4000-8000-000000000006", "idle", 90, None, "/Users/x/six", None, 0, "claude-desktop"),
 ]
 # the default tmux server's panes: id, tag, command, @claude_wait, title; a
-# revision from before the wait column is served the line without it
+# revision without the wait column is served the line without it
 PANES = [("%1", "", "claude", "", "one"), ("%2", "", "claude", "", "two"), ("%3", "", "claude", "", "three"),
          ("%4", "", "claude", "", "four"), ("%5", "", "zsh", "", "arc@host:~")]
 
