@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# claude-sidebar [rows|pick N|kick|edge|jump|attach]: list every Claude session on this host and
+# claude-sidebar [rows|pick N|pin HOST REPO|kick|edge|jump|attach]: list every Claude session on this host and
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
-# jump to one. With no argument, runs the list in fzf; Enter or a click jumps.
+# jump to one. With no argument, runs the list in fzf; Enter or a click jumps,
+# and ctrl-p pins the repo whose first entry the cursor is on.
 # A background loop, `claude-sidebar-loop`, built from the repo's crate of
 # that name, keeps the list in a cache: it gathers it every second, or at once
 # on a kick, so fzf never waits on a host, renders its frames and shows them
@@ -20,6 +21,11 @@
 #   rows              print the list once, as fzf reads it
 #   pick N            jump to the entry numbered N (the frame's M-1..9), as
 #                     the running sidebar shows it
+#   pin HOST REPO     ask for a key and pin REPO on ssh host HOST (empty = this
+#                     one) to that entry number, 1 to 9, taking it from any
+#                     repo that had it; 0 unpins REPO, and any other key leaves
+#                     the pins as they are. The pins are in
+#                     ${XDG_STATE_HOME:-~/.local/state}/claude-sidebar/pins
 #   kick              have a running sidebar rebuild now (tmux hooks call it
 #                     when a client changes session or window)
 #   edge SIDE TTY PANE [HOST]
@@ -238,19 +244,48 @@ from_frame() {
   [[ -n $main && ${main#* } == "$1" ]]
 }
 
-# pick the entry $3 numbers away from the first of panes $2 (space-separated)
-# that is a numbered entry on ssh host $1 (empty for this one), so a shell
-# under Claude steps from its window's entry; nothing past either end, or when
-# no pane is one. The panes, not the rows' entry on show, which lags any change
-# by up to a refresh, so a held key walks the list
+# pick the numbered entry $3 places down the list (up for a negative $3) from
+# the first of panes $2 (space-separated) that is a numbered entry on ssh host
+# $1 (empty for this one), so a shell under Claude steps from its window's
+# entry; nothing past either end, or when no pane is one. Down the list rather
+# than by number, as a pin numbers its repo out of the list's order. The
+# panes, not the rows' entry on show, which lags any change by up to a
+# refresh, so a held key walks the list
 step() {
   local entry
-  entry=$(perl -0ne 'BEGIN { ($h, $ps) = splice @ARGV, 0, 2; @p = split " ", $ps }
+  entry=$(perl -0ne 'BEGIN { ($h, $ps, $d) = splice @ARGV, 0, 3; @p = split " ", $ps }
     chomp; @f = split /\t/, $_, -1;
-    $n{$f[1]} = $f[4] if $f[0] eq $h && $f[4] ne "";
-    END { for (@p) { if (exists $n{$_}) { print $n{$_}; last } } }' "$1" "$2" "$cache/rows.0")
-  [[ -n $entry ]] && pick $((entry + $3))
+    next if $f[4] eq "";
+    push @n, $f[4];
+    $at{$f[1]} = $#n if $f[0] eq $h;
+    END { for (@p) { next unless exists $at{$_}; $i = $at{$_} + $d;
+      print $n[$i] if $i >= 0 && $i < @n; last } }' "$1" "$2" "$3" "$cache/rows.0")
+  [[ -n $entry ]] && pick "$entry"
   return 0
+}
+
+# pin repo $2 on ssh host $1 (empty for this one) to the entry number the next
+# key gives; run from the sidebar's fzf, which hands over its terminal. Only a
+# repo's first entry carries its repo, so from any other this says so instead
+pin() { # $1 ssh host, $2 repo
+  local host=$1 repo=$2 key
+  local pins=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sidebar/pins
+  if [[ -z $repo ]]; then
+    printf '\npin a repo from its first entry'
+    sleep 1
+    return 0
+  fi
+  printf '\npin %s%s to 1-9, 0 unpins: ' "${host:+$host }" "$repo"
+  read -rsn1 key
+  [[ $key == [0-9] ]] || return 0
+  mkdir -p "${pins%/*}"
+  # the other pins, less any on this number or for this repo, then this one
+  {
+    [[ -f $pins ]] && awk -F'\t' -v k="$key" -v h="$host" -v r="$repo" \
+      '$1 != k && !($2 == h && $3 == r)' "$pins"
+    [[ $key == 0 ]] || printf '%s\t%s\t%s\n' "$key" "$host" "$repo"
+  } | sort -n >"$pins.$$" && mv "$pins.$$" "$pins"
+  kick
 }
 
 # the position in fzf's list (from 1) of the first row whose field $1 is $2
@@ -283,6 +318,7 @@ pick() { # $1 entry number, as the rows number the entries
 case $1 in
   rows) claude-sidebar-loop rows ;;
   pick) pick "$2" ;;
+  pin) pin "$2" "$3" ;;
   kick) kick ;;
   edge) edge "$2" "$3" "$4" "$5" ;;
   jump) jump "$2" "$3" "$4" "$5" ;;
@@ -303,11 +339,12 @@ case $1 in
     # no --track: it holds back cursor moves while it finds the item again
     # after each reload, and the list's order is stable without it. Esc and
     # ctrl-c clear the query rather than closing the sidebar
-    fzf --read0 --ansi --delimiter '\t' --with-nth 7.. <"$cache/rows.0" \
+    fzf --read0 --ansi --delimiter '\t' --with-nth 8.. <"$cache/rows.0" \
       --listen "$cache/fzf.sock" \
       --layout reverse --highlight-line --no-scrollbar --info hidden --prompt '' \
       --bind "esc,ctrl-c,ctrl-g,ctrl-q:clear-query" \
-      --bind "enter,left-click:execute-silent($self jump {1} {2} {3} {4})+clear-query"
+      --bind "enter,left-click:execute-silent($self jump {1} {2} {3} {4})+clear-query" \
+      --bind "ctrl-p:execute($self pin {1} {7})"
     ;;
   *) "$self" --help >&2; exit 2 ;;
 esac

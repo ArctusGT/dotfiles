@@ -4,6 +4,7 @@ mod frames;
 mod fzf;
 mod gather;
 mod json;
+mod pins;
 mod serve;
 mod session;
 mod sessions;
@@ -33,7 +34,9 @@ ${XDG_STATE_HOME:-~/.local/state}/claude-sessions, Claude Code's records in
 session's files, as claude-sessions does, and runs claude-sessions over ssh
 on each host the sesh config SESH_CONFIG (default ~/.config/sesh/sesh.toml)
 reaches through ssh-tmux. The list is drawn the width of the terminal, a
-context line red at CLAUDE_CTX_WARN percent (default 50).";
+context line red at CLAUDE_CTX_WARN percent (default 50), each repo numbered
+by its pin in ${XDG_STATE_HOME:-~/.local/state}/claude-sidebar/pins, which
+`claude-sidebar pin` writes.";
 
 /// 8 frames a second
 const TICK: Duration = Duration::from_millis(125);
@@ -94,6 +97,7 @@ fn render(hosts: &[Host], count: usize, warn: f64) -> Vec<Vec<u8>> {
         now: SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs() as i64),
+        pins: pins::Pins::read(),
     };
     frames::render(hosts, &view, count)
         .into_iter()

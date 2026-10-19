@@ -197,7 +197,7 @@ mod tests {
     /// an item: host, pane, relay, id, number, shown, then its text
     fn item(n: u32, shown: bool, text: &str) -> String {
         format!(
-            "\t%{n}\t\tid{n}\t{n}\t{}\t{text}\0",
+            "\t%{n}\t\tid{n}\t{n}\t{}\t\t{text}\0",
             if shown { "1" } else { "" }
         )
     }
@@ -348,7 +348,7 @@ mod tests {
         let rows = format!("{}header\0", item(1, true, "a\tb"));
         assert_eq!(
             without_shown(rows.as_bytes()),
-            b"\t%1\t\tid1\t1\t\ta\tb\0header\0"
+            b"\t%1\t\tid1\t1\t\t\ta\tb\0header\0"
         );
     }
 }

@@ -178,11 +178,12 @@ window, over one shared ssh connection per host.
 |---|---|
 | click, or `Enter` in the sidebar | show that session in the right pane |
 | `M-1` … `M-9` | the same for the entry numbered 1 to 9 |
+| `ctrl-p` in the sidebar, on a repo's first entry | pin that repo to the number pressed next, 1 to 9; `0` unpins it |
 | `M-s` | move into the sidebar, and back out |
 | `Cmd+Left` in a window's leftmost pane | move into the sidebar |
 | `Cmd+Up`, `Cmd+Down` in the sidebar | move its cursor |
 | `Cmd+Right` in the sidebar | as `Enter` |
-| `Cmd+Down` in a window's lowest pane, `Cmd+Up` in its top one | show the next or previous numbered entry, across hosts; nothing past either end, or from a window with no numbered entry |
+| `Cmd+Down` in a window's lowest pane, `Cmd+Up` in its top one | show the next or previous numbered entry down the list, across hosts; nothing past either end, or from a window with no numbered entry |
 
 In the Mac's `mgmt-1` window the edges are those of the host's pane: the Mac
 asks the host over the sidebar's ssh connection, so in the frame
@@ -194,7 +195,11 @@ directory, then the rest, alphabetically. A session in a subdirectory or a
 worktree joins its repo. The first of each group, the one in the right pane
 when it is there, is labelled with the repo and numbered if it is in a tmux
 pane; the rest are indented under it, unnumbered: other panes in the repo,
-then background sessions. A background session, one a `claude daemon` runs
+then background sessions. A repo pinned with `ctrl-p` keeps its number, held
+for it while it has no session; the others take the numbers no pin holds, in
+list order. The pins live in `~/.local/state/claude-sidebar/pins`, one
+`number, ssh host (empty for the Mac), repo` line apiece, tab-separated.
+A background session, one a `claude daemon` runs
 (`--bg`, or sent to the background from Claude Code's session list), is
 dimmed as `background`. Selecting it opens it with
 `claude attach` in a new window on its own host, in the tmux session named for

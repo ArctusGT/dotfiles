@@ -4,15 +4,18 @@
 //!
 //! A session's item is its tab fields: ssh host, pane, relay session,
 //! session id (empty only on a header, which is how `jump` tells one), entry
-//! number, 1 if the frame's right pane shows it, then its display lines.
+//! number, 1 if the frame's right pane shows it, its repo if it leads one
+//! (what `claude-sidebar pin` pins), then its display lines.
 //! A host's sessions come grouped by repo (`gather`'s `listed`). The first
-//! of each group leads it, and is numbered, in order across hosts, if it has
-//! a pane; `pick N` finds entry N by its number field in `rows.0`. The rest
-//! of the group are indented under it, unnumbered.
+//! of each group leads it, and is numbered if it has a pane: by its repo's
+//! pin, else the next number, in order across hosts, that no pin holds;
+//! `pick N` finds entry N by its number field in `rows.0`. The rest of the
+//! group are indented under it, unnumbered.
 //! Times are in whole minutes, so the rows change only when a session does,
 //! or with the frame while a Clawd moves.
 
 use crate::gather::Host;
+use crate::pins::Pins;
 use crate::session::{Number, Session, State};
 
 /// the frames a gather renders: every animation (running, squatting,
@@ -27,6 +30,8 @@ pub struct View {
     pub warn: f64,
     /// the time, in seconds since the epoch, the times are counted to
     pub now: i64,
+    /// the entry numbers pinned to repos
+    pub pins: Pins,
 }
 
 // TokyoNight Night as SGR foregrounds: the terminal palette where it has the
@@ -69,7 +74,8 @@ const RESET: &str = "\x1b[0m";
 pub fn render(hosts: &[Host], view: &View, frames: usize) -> Vec<String> {
     let clawd = Clawd::new();
     let mut out = vec![String::new(); frames];
-    let mut number = 0;
+    // the last number given to a repo with no pin
+    let mut unpinned = 0;
     for host in hosts {
         let item = header(host);
         for frame in &mut out {
@@ -79,11 +85,19 @@ pub fn render(hosts: &[Host], view: &View, frames: usize) -> Vec<String> {
         for session in &host.sessions {
             let leads = group != Some(&session.repo);
             group = Some(&session.repo);
-            let numbered = leads && session.pane.is_some();
-            if numbered {
-                number += 1;
-            }
-            let number = numbered.then_some(number);
+            let pin = session
+                .repo
+                .as_deref()
+                .and_then(|repo| view.pins.number(&host.ssh_host, repo));
+            let number = (leads && session.pane.is_some()).then(|| {
+                pin.unwrap_or_else(|| {
+                    unpinned += 1;
+                    while view.pins.holds(unpinned) {
+                        unpinned += 1;
+                    }
+                    unpinned
+                })
+            });
             render_session(session, host, number, !leads, view, &clawd, &mut out);
         }
     }
@@ -120,7 +134,7 @@ fn render_session(
 fn header(host: &Host) -> String {
     // paint closes only the colour, so the reset ends the bold
     let mut item = format!(
-        "\t\t\t\t\t\t{}{RESET}",
+        "\t\t\t\t\t\t\t{}{RESET}",
         paint(&host.label, &format!("1;{BLUE}"))
     );
     if host.down {
@@ -164,6 +178,11 @@ impl Entry {
             session.id.clone(),
             number_text.clone().unwrap_or_default(),
             if on_show { "1" } else { "" }.to_string(),
+            if indented {
+                String::new()
+            } else {
+                session.repo.clone().unwrap_or_default()
+            },
             String::new(),
         ]
         .join("\t");
@@ -736,6 +755,50 @@ impl Clawd {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn numbers_a_pinned_repo_by_its_pin_and_the_rest_around_it() {
+        let session = |id: &str, repo: &str| {
+            let text = format!(
+                "{{\"session_id\":\"{id}\",\"tmux_pane\":\"%{id}\",\"repo\":\"{repo}\",\
+                 \"state\":\"idle\",\"since\":1,\"subagents\":0}}"
+            );
+            Session::parse(&crate::json::parse_stream(&text).unwrap()[0]).unwrap()
+        };
+        let host = Host {
+            label: "local".into(),
+            ssh_host: String::new(),
+            relay: String::new(),
+            down: false,
+            on_show: None,
+            sessions: vec![
+                session("1", "~"),
+                session("2", "~/a"),
+                session("3", "~/a"),
+                session("4", "~/b"),
+            ],
+        };
+        let view = View {
+            width: 20,
+            warn: 50.0,
+            now: 0,
+            pins: Pins::parse("1\t\t~/b\n"),
+        };
+        let fields: Vec<(String, String)> = render(&[host], &view, 1)[0]
+            .split('\0')
+            .skip(1)
+            .filter(|item| !item.is_empty())
+            .map(|item| {
+                let f: Vec<&str> = item.split('\t').collect();
+                (f[4].to_string(), f[6].to_string())
+            })
+            .collect();
+        let expected = [("2", "~"), ("3", "~/a"), ("", ""), ("1", "~/b")];
+        assert_eq!(
+            fields,
+            expected.map(|(n, r)| (n.to_string(), r.to_string()))
+        );
+    }
 
     #[test]
     fn every_pose_keeps_each_cell_to_two_colours() {
