@@ -38,8 +38,9 @@ panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
 
 # {session id: {name, spare, kind, jobId, parkedJobId, pid}} from Claude
 # Code's own records (~/.claude/sessions/<pid>.json); keyed by id, since
-# their pid need not be the one the hooks record. With no records the glob vanishes under nullglob,
-# so `cat` gets /dev/null as stdin rather than waiting on the caller's
+# their pid need not be the one the hooks record. With no records the glob
+# vanishes under nullglob, so `cat` gets /dev/null as stdin rather than
+# waiting on the caller's
 records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
   jq -sc 'map({(.sessionId): {name, spare, kind, jobId, parkedJobId, pid}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
