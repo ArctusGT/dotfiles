@@ -195,8 +195,9 @@ Each host's sessions are grouped by repo: `~` first, then the rest of the home
 directory, then the rest, alphabetically. A session in a subdirectory or a
 worktree joins its repo. The first of each group, the one in the right pane
 when it is there, is labelled with the repo and numbered if it is in a tmux
-pane; the rest are indented under it, unnumbered: other panes in the repo,
-then background sessions. A repo pinned with `M-Shift-N` or `M-p` keeps its
+pane; the rest are indented under it, unnumbered and dimmed: other panes in
+the repo, then background sessions. Selecting one makes it the first, and the
+cursor follows it there. A repo pinned with `M-Shift-N` or `M-p` keeps its
 number, held for it while it has no session; the others take the numbers no
 pin holds, in list order. The pins live in
 `~/.local/state/claude-sidebar/pins`, one `number, ssh host (empty for the

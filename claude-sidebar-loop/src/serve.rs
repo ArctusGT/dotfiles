@@ -4,7 +4,8 @@
 //! rows on show change: with none moving, when the rows do; with one, at a
 //! tick, unless the frame repeats the one before it and fzf already has
 //! this gather's rows. Its cursor moves only when the right pane's session
-//! did, so it is not taken from an entry being browsed to.
+//! did, or that session's place in the list, so it is not taken from an
+//! entry being browsed to.
 
 /// The sidebar's cache, as `Serve` reads it, and its fzf.
 pub trait Sidebar {
@@ -32,6 +33,9 @@ pub struct Gather {
 /// the tab field (from 0) holding 1 on the item the frame's right pane shows
 const SHOWN_FIELD: usize = 5;
 
+/// the tab field (from 0) holding an item's session id
+const ID_FIELD: usize = 3;
+
 pub struct Serve<S> {
     sidebar: S,
     frame: usize,
@@ -48,8 +52,10 @@ pub struct Serve<S> {
     since: String,
     /// the rows fzf shows, less the session on show, while none moves
     last_rows: Option<Vec<u8>>,
-    /// the position the cursor was last moved to
-    last_shown: Option<usize>,
+    /// the session on show the cursor was last moved to, and its position:
+    /// a session taking the place of the one before it, as one selected
+    /// from under its repo's first entry does, is a move all the same
+    last_shown: Option<(usize, Vec<u8>)>,
 }
 
 impl<S: Sidebar> Serve<S> {
@@ -123,13 +129,13 @@ impl<S: Sidebar> Serve<S> {
             return;
         }
         self.follow_pending = false;
-        let Some(shown) = position(&self.frames[0], SHOWN_FIELD, b"1") else {
+        let Some(shown) = shown(&self.frames[0]) else {
             return;
         };
-        if Some(shown) != self.last_shown
+        if Some(&shown) != self.last_shown.as_ref()
             && self.sidebar.jumped() == self.since
             && !self.sidebar.moving()
-            && self.sidebar.move_cursor(shown)
+            && self.sidebar.move_cursor(shown.0)
         {
             self.last_shown = Some(shown);
         }
@@ -155,6 +161,15 @@ fn without_shown(rows: &[u8]) -> Vec<u8> {
         }
     }
     out
+}
+
+/// the position in fzf's list, from 1, of the item on show, and its session
+/// id
+fn shown(rows: &[u8]) -> Option<(usize, Vec<u8>)> {
+    let position = position(rows, SHOWN_FIELD, b"1")?;
+    let item = rows.split(|&b| b == 0).nth(position - 1)?;
+    let id = item.split(|&b| b == b'\t').nth(ID_FIELD)?;
+    Some((position, id.to_vec()))
 }
 
 /// the position in fzf's list, from 1, of the first item whose tab field
@@ -324,6 +339,23 @@ mod tests {
         serve.sidebar.moving = false;
         serve.gathered(gather("j1", frames(1, false)));
         assert_eq!(sent(&mut serve), ["pos 2"]);
+    }
+
+    #[test]
+    fn a_session_taking_the_place_of_the_one_on_show_moves_the_cursor() {
+        let mut serve = sidebar();
+        serve.gathered(gather("j1", frames(1, false)));
+        sent(&mut serve);
+        // item 3, selected from under item 2, now leads in item 2's place
+        let swapped = [
+            item(1, false, "a"),
+            item(3, true, "c"),
+            item(2, false, "still"),
+        ]
+        .concat()
+        .into_bytes();
+        serve.gathered(gather("j1", vec![swapped]));
+        assert_eq!(sent(&mut serve), ["reload 0", "pos 2"]);
     }
 
     #[test]

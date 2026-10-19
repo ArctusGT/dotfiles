@@ -118,13 +118,14 @@ fn render_session(
     let entry = Entry::new(session, host, number, indented, view);
     let (animation, phase) = clawd.animation(session);
     let palette = Palette::new(session);
+    let faint = session.pane.is_none() || indented;
     // each distinct pose drawn once, as most repeat across the frames
     // or, standing, are the same in all of them
     let mut drawn: Vec<Option<[String; 3]>> = vec![None; clawd.poses.len()];
     for (k, frame) in frames.iter_mut().enumerate() {
         let pose_id = animation[(phase + k) % animation.len()];
-        let picture = drawn[pose_id]
-            .get_or_insert_with(|| picture(&clawd.poses[pose_id], &palette, session.pane.is_none()));
+        let picture =
+            drawn[pose_id].get_or_insert_with(|| picture(&clawd.poses[pose_id], &palette, faint));
         entry.write(frame, picture);
     }
 }
@@ -152,7 +153,9 @@ struct Entry {
     /// before each line: the cells an entry under its group's first is
     /// moved right by
     indent: &'static str,
-    /// dims each line of a session with no pane (a --bg one, or a daemon)
+    /// dims each line of a session with no pane (a --bg one, or a daemon),
+    /// and of one indented under its repo's first, which it would take the
+    /// place of when selected as a background one does
     dim: &'static str,
     /// right of the picture on each line: number and repo, name, then
     /// status, the last line also carrying the context line below it
@@ -186,7 +189,7 @@ impl Entry {
             String::new(),
         ]
         .join("\t");
-        let dim = if has_pane { "" } else { DIM };
+        let dim = if has_pane && !indented { "" } else { DIM };
         // the repo the entry is grouped by, its cwd from a host whose
         // claude-sessions gives no repo
         let repo = session.repo.as_deref().unwrap_or(&session.cwd);
