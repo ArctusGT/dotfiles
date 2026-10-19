@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Four follow-ups from 030 to 032 the Maintainer accepted: `attach` reads sessions through the binary, the renderer parses each session into a typed `Session`, a sidebar removes only the cache it created, and the comparison and end-to-end checks ship in the repo
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/032-rust-runs-gather-loop]
 
 **Current behavior:**
@@ -55,7 +55,7 @@ The Maintainer accepted all four from 032's review notes.
 - [x] The shipped checks run from a clean checkout on the Mac and pass;
       none touches the live cache, by running them while a sidebar runs
       and seeing it keep updating
-- [ ] The Maintainer restarts the live sidebar and uses it
+- [x] The Maintainer restarts the live sidebar and uses it
 
 **Out of scope:**
 - Replacing `claude-sessions` on remote hosts
