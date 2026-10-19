@@ -35,7 +35,7 @@ shopt -s nullglob extglob
 panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
   -F '#{pane_id}	#{@claude_attach}	#{pane_current_command}	#{@claude_wait}	#{pane_title}' 2>/dev/null |
   jq -Rn '[inputs | split("\t") | {id: .[0], tag: .[1], runs_claude: (.[2] == "claude"),
-           wait: ((.[3] // "") != ""),
+           waiting: ((.[3] // "") != ""),
            title: (.[4:] | join("\t") | sub("^[✳◐◑] "; ""))}]')
 [[ -n $panes ]] || panes='[]'
 
@@ -173,5 +173,5 @@ jq -nc --argjson panes "$panes" --argjson records "$records" --argjson repos "$r
   # the first pane showing it, its recorded one first; null when none does
   | .tmux_pane = ([.tmux_pane, $panes[].id] | map(select(. != null and $shows[.] == $s)) | .[0])
   # whether the window of its pane carries @claude_wait: news not yet looked at
-  | .unseen = (.tmux_pane as $pane | any($panes[]; .id == $pane and .wait))' \
+  | .unseen = (.tmux_pane as $pane | any($panes[]; .id == $pane and .waiting))' \
   "${live_files[@]}"

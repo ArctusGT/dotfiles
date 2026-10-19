@@ -118,7 +118,7 @@ fn client_of_another(session: &Value, shows: &ByPane, records: &Records) -> bool
     record(records, id).is_some_and(|r| r.interactive) && &shown != id
 }
 
-/// the first pane showing `session`, its recorded one first; none for none
+/// the first pane showing `session`, its recorded one first; None for none
 fn first_pane_showing<'a>(session: &Value, panes: &'a [Pane], shows: &ByPane) -> Option<&'a Pane> {
     let id = session.get("session_id");
     let recorded = session

@@ -202,7 +202,7 @@ impl Entry {
             "   {}\n",
             session.name.as_deref().unwrap_or_else(|| short_id(&session.id))
         );
-        // the status bar's dot: colour 3, as tmux names it
+        // the status bar's dot, in YELLOW (tmux colour 3), after the age
         let unseen_label = if session.unseen {
             format!(" {}", paint("●", YELLOW))
         } else {
