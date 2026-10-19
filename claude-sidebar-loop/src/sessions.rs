@@ -25,6 +25,8 @@ pub struct Sources {
     pub state: PathBuf,
     /// Claude Code's own records, `<pid>.json`
     pub records: PathBuf,
+    /// HOME, which a session's `repo` names `~`
+    pub home: PathBuf,
 }
 
 impl Sources {
@@ -37,6 +39,7 @@ impl Sources {
         Sources {
             state: state_home.join("claude-sessions"),
             records: home.join(".claude/sessions"),
+            home,
         }
     }
 }
@@ -76,14 +79,14 @@ struct Pane {
 }
 
 /// every live session, in the order of their state files, each its state
-/// file plus `name`, `subagents`, `context` and `tmux_pane`, as
+/// file plus `name`, `subagents`, `context`, `repo` and `tmux_pane`, as
 /// `claude-sessions` prints them; removes a dead session's files
 pub fn read(sources: &Sources) -> Vec<Value> {
     if !sources.state.is_dir() {
         return Vec::new();
     }
     let records = records(&sources.records);
-    let sessions = live_sessions(&sources.state, &records);
+    let sessions = live_sessions(&sources.state, &records, &sources.home);
     if sessions.is_empty() {
         return sessions;
     }
@@ -239,13 +242,13 @@ fn json_files(dir: &Path) -> Vec<PathBuf> {
     names.into_iter().map(|name| dir.join(name)).collect()
 }
 
-/// the live sessions' state files, each with `name`, `subagents` and
-/// `context` added, less the spares; a dead session's files are removed.
+/// the live sessions' state files, each with `name`, `subagents`,
+/// `context` and `repo` added, less the spares; a dead session's files are removed.
 /// A session is live while its pid is: the record's where there are
 /// records, since a background job's hooks run under the `claude daemon`,
 /// so its state file can hold the daemon's pid, which outlives the job; a
 /// session missing from the records has ended
-fn live_sessions(dir: &Path, records: &Records) -> Vec<Value> {
+fn live_sessions(dir: &Path, records: &Records, home: &Path) -> Vec<Value> {
     let mut sessions = Vec::new();
     for path in json_files(dir) {
         let name = path.file_name().unwrap_or_default().to_string_lossy();
@@ -271,7 +274,7 @@ fn live_sessions(dir: &Path, records: &Records) -> Vec<Value> {
             if own.is_some_and(|r| r.spare) {
                 continue;
             }
-            add_fields(&mut state, dir, &id, own);
+            add_fields(&mut state, dir, &id, own, home);
             sessions.push(state);
         }
     }
@@ -299,14 +302,54 @@ fn remove_session(dir: &Path, id: &str) {
     }
 }
 
-/// adds `name` (its record's, else its status line's), `subagents` and
-/// `context` to session `id`'s `state`
-fn add_fields(state: &mut Value, dir: &Path, id: &str, record: Option<&Record>) {
+/// adds `name` (its record's, else its status line's), `subagents`,
+/// `context` and `repo` (null for no cwd) to session `id`'s `state`
+fn add_fields(state: &mut Value, dir: &Path, id: &str, record: Option<&Record>, home: &Path) {
     let context = context(dir, id);
     let own_name = record.map_or(Value::Null, |r| r.name.clone());
+    let repo = match state.get("cwd").as_str() {
+        Some(cwd) if !cwd.is_empty() => Value::String(repo(cwd, home)),
+        _ => Value::Null,
+    };
     state.set("name", or(own_name, context.get("name").clone()));
     state.set("subagents", Value::Number(subagents(dir, id).to_string()));
     state.set("context", context);
+    state.set("repo", repo);
+}
+
+/// the repo root directory `cwd` is in, as `claude-sidebar` names tmux
+/// sessions: a linked worktree's main checkout, a subdirectory's top level,
+/// and `cwd` itself outside a repo; `home` as `~`. Read from the .git files
+/// rather than asked of git, which this would run for every session every
+/// second
+fn repo(cwd: &str, home: &Path) -> String {
+    let mut dir = Path::new(cwd);
+    let root = loop {
+        let git = dir.join(".git");
+        if git.is_dir() {
+            break dir.to_path_buf();
+        }
+        if git.is_file() {
+            // a worktree's .git names its gitdir in its main checkout's .git;
+            // a submodule's, one under its superproject's, which is no
+            // checkout
+            let text = fs::read_to_string(&git).unwrap_or_default();
+            let gitdir = text.split_whitespace().nth(1).unwrap_or_default();
+            break match gitdir.split_once("/.git/worktrees/") {
+                Some((main, _)) if main.starts_with('/') => PathBuf::from(main),
+                _ => dir.to_path_buf(),
+            };
+        }
+        match dir.parent() {
+            Some(parent) => dir = parent,
+            None => break PathBuf::from(cwd),
+        }
+    };
+    match root.strip_prefix(home) {
+        Ok(rest) if rest.as_os_str().is_empty() => "~".into(),
+        Ok(rest) => format!("~/{}", rest.display()),
+        Err(_) => root.display().to_string(),
+    }
 }
 
 /// whether process `pid` is running, as `kill -0` tells; false for no pid

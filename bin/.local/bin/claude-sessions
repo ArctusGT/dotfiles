@@ -3,8 +3,9 @@
 # from the state files `claude-session-state` and `claude-statusline` keep in
 # ${XDG_STATE_HOME:-~/.local/state}/claude-sessions.
 # Each object carries the session's state file plus `subagents` (a count),
-# `context` (the status line's last record, or null) and `name` (the one
-# Claude Code's own record holds for it, else the status line's). Removes the
+# `context` (the status line's last record, or null), `name` (the one
+# Claude Code's own record holds for it, else the status line's) and `repo`
+# (the repo root its cwd is in, `~` for HOME; null for no cwd). Removes the
 # files of a session whose process is gone, which is how a killed session is
 # cleared. Where Claude Code keeps its own records, a session is live only
 # while one of them, with a live pid, names it.
@@ -50,21 +51,49 @@ records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
 state_files=("$dir"/!(*.context).json)
 ((${#state_files[@]})) || exit 0
 
-# each session's id and pid, a tab-separated line apiece, the pid empty for
+# each session's id, pid and cwd, a line apiece separated by \x1f, which
+# unlike a tab does not run together around an empty field; the pid empty for
 # none: the record's where there are records, since a background job's hooks
 # run under the `claude daemon`, so its state file can hold the daemon's
 # pid, which outlives the job. A session missing from the records has ended
 session_pids() {
   jq -r --argjson records "$records" '(input_filename | sub(".*/"; "") | rtrimstr(".json")) as $sid
-    | [$sid, (if $records == {} then .pid else $records[$sid].pid end // "")] | @tsv' \
+    | [$sid, (if $records == {} then .pid else $records[$sid].pid end // ""), .cwd // ""]
+    | map(tostring) | join("\u001f")' \
     "${state_files[@]}" 2>/dev/null
+}
+
+# the repo root directory $1 is in, as `claude-sidebar` names tmux sessions:
+# a linked worktree's main checkout, a subdirectory's top level, and $1
+# itself outside a repo; HOME as `~`. Read from the .git files rather than
+# asked of git, which this would run for every session every second
+repo_of() { # $1 directory
+  local dir=$1 gitdir
+  while :; do
+    if [[ -d $dir/.git ]]; then
+      break
+    elif [[ -f $dir/.git ]]; then
+      # a worktree's .git names its gitdir in its main checkout's .git; a
+      # submodule's, one under its superproject's, which is no checkout
+      read -r _ gitdir <"$dir/.git"
+      [[ $gitdir == /*/.git/worktrees/* ]] && dir=${gitdir%%/.git/worktrees/*}
+      break
+    fi
+    [[ $dir == */* ]] || { dir=$1; break; }
+    dir=${dir%/*}
+  done
+  case $dir in
+    "$HOME") dir='~' ;;
+    "$HOME"/*) dir="~/${dir#"$HOME"/}" ;;
+  esac
+  printf '%s\n' "$dir"
 }
 
 # the live sessions' state and context files, for the one pass below, and
 # each one's count of running subagents as a named argument, its id the
-# name; a dead session's files are removed
-live_files=() subagent_counts=()
-while IFS=$'\t' read -r sid pid; do
+# name; a dead session's files are removed. Each one's repo, a line apiece
+live_files=() subagent_counts=() repo_lines=''
+while IFS=$'\x1f' read -r sid pid cwd; do
   state_file=$dir/$sid.json
   if [[ -z $pid ]] || ! kill -0 "$pid" 2>/dev/null; then
     rm -rf "$state_file" "$dir/$sid.context.json" "$dir/$sid.agents"
@@ -74,14 +103,19 @@ while IFS=$'\t' read -r sid pid; do
   [[ -f $dir/$sid.context.json ]] && live_files+=("$dir/$sid.context.json")
   agents=("$dir/$sid.agents"/*)
   subagent_counts+=(--argjson "$sid" "${#agents[@]}")
+  [[ -n $cwd ]] && repo_lines+=$sid$'\x1f'$(repo_of "$cwd")$'\n'
 done < <(session_pids)
 ((${#live_files[@]})) || exit 0
+# {session id: repo}
+repos=$(printf %s "$repo_lines" |
+  jq -Rn '[inputs | split("\u001f") | {key: .[0], value: .[1]}] | from_entries')
 
-jq -nc --argjson panes "$panes" --argjson records "$records" "${subagent_counts[@]}" '
+jq -nc --argjson panes "$panes" --argjson records "$records" --argjson repos "$repos" \
+  "${subagent_counts[@]}" '
   # the state files in order, each with its session id from its name, and
   # {session id: context} from the context files among them. The counts are
-  # read from $ARGS.named, which holds panes and records too: session ids are
-  # UUIDs, so never either name
+  # read from $ARGS.named, which holds panes, records and repos too: session
+  # ids are UUIDs, so never one of those names
   (reduce inputs as $doc ({states: [], contexts: {}};
      (input_filename | sub(".*/"; "")) as $file
      | if $file | endswith(".context.json")
@@ -90,10 +124,12 @@ jq -nc --argjson panes "$panes" --argjson records "$records" "${subagent_counts[
   | [$files.states[]
      | $files.contexts[.sid] as $ctx
      | $ARGS.named[.sid] as $subagents
+     | $repos[.sid] as $repo
      | .state
      | ($records[.session_id] // {}) as $rec
      | select($rec.spare != true)
-     | . + {name: ($rec.name // $ctx.name?), subagents: $subagents, context: $ctx}] as $sessions
+     | . + {name: ($rec.name // $ctx.name?), subagents: $subagents, context: $ctx,
+            repo: $repo}] as $sessions
   # the one session a title names, by either of its names
   | def titled: .title as $t
       | [$sessions[] | select(any(.name, .context.name?; . == $t)) | .session_id]
