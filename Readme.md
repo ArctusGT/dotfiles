@@ -114,8 +114,9 @@ binary (`--help` says what each does): `attach.sh` drives `attach`,
 `respawn.sh` and `e2e.sh` drive a sidebar, `mouse.sh` clicks one through jumps
 and reads its mouse after each, `compare-sessions.sh` and `compare-rows.py`
 compare the binary with `claude-sessions` and with an earlier revision, and
-`profile.sh` measures CPU. Each runs in a directory of its own, and in tmux servers of its own where
-it needs one, so none touches the usual tmux or a running sidebar's cache.
+`profile.sh` measures CPU. Each runs in a directory of its own, and in tmux
+servers of its own where it needs one, so none touches the usual tmux or a
+running sidebar's cache.
 
 `zsh` also links `~/.zshenv`, which every zsh reads, including the one
 `ssh host '<cmd>'` runs. Stow refuses to replace a real file, so on a host
