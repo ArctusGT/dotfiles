@@ -1,7 +1,7 @@
 ## The sidebar keeps its mouse through a jump
 
 **Category:** bug
-**Summary:** A click or Enter in the sidebar runs the jump inside fzf's silent execute, and a frame posted to fzf while that runs makes fzf turn mouse tracking off for good; the jump and pin commands re-assert it as their last act, the loop posts nothing while a jump is moving, and the reproduction ships as a check
+**Summary:** A click or Enter in the sidebar runs the jump inside fzf's silent execute, and a frame posted to fzf while a long one runs makes fzf turn mouse tracking off for good once it returns; the jump runs in the background so the execute returns at once, and the reproduction ships as a check
 **Status:** ready-for-agent
 **blocked-by:**
 
@@ -26,27 +26,30 @@ the same slow execute with no posts, change nothing. Writing the three
 enable sequences to the pane's tty restores the mouse, and fzf keeps
 reading clicks, as it still believes the mouse is on.
 
+Measured further on a private tmux while implementing: fzf writes the
+four sequences after the execute's last output, as it returns, so
+nothing the command writes can undo them. It does so only for an
+execute of about a second or more (posts during a 0.8 s execute leave
+the flags at `111`, during a 1.0 s one at `000`), which a local jump
+reaches when it opens a background session. A silent execute that puts
+its command in the background, and a non-silent execute such as
+`pin`'s, keep the mouse under the same posts. tmux holds one tracking
+mode, the last written, and fzf's is button events.
+
 **Desired behavior:**
-- A jump or a pin from the sidebar, by click, Enter or `alt-p`, leaves
-  the sidebar's mouse working, every time, with a Clawd moving in the
-  list while it runs
-- The loop posts nothing to fzf while a jump is moving, which the
-  marker the jump already writes tells it; a frame due in that time is
-  shown once the jump has moved
-- The command fzf ran writes the enable sequences for button and any
-  event tracking and SGR encoding to its own terminal as its last act,
-  so a post that slipped in before that is undone, and a post after it
-  cannot land inside the execute
+- A jump from the sidebar, by click or Enter, leaves the sidebar's
+  mouse working, every time, with a Clawd moving in the list while it
+  runs, however long the jump takes
+- fzf's silent execute puts the jump in the background and returns at
+  once, so no execute is long enough for a post to turn the mouse off
 - A check in the crate's checks reproduces fzf's behaviour on a private
   tmux with the sidebar's own actions, as the record of why the
   workaround exists, and drives a throwaway sidebar through repeated
-  click jumps with a moving Clawd, reading the pane's mouse flags after
-  each; it answers `--help`
+  click jumps held past a second with a moving Clawd, reading the
+  pane's mouse flags after each; it answers `--help`
 
 **Key interfaces:**
-- `claude-sidebar`'s `jump` and `pin` commands, which run with the
-  sidebar's terminal when fzf runs them
-- The loop's posting to fzf and the moving marker it reads
+- The sidebar's fzf bindings in `claude-sidebar`
 - The checks directory and `lib.sh`, which run a sidebar in a throwaway
   tmux with its own TMPDIR
 
@@ -54,9 +57,6 @@ reading clicks, as it still believes the mouse is on.
 - [ ] The shipped check shows fzf alone dropping the mouse under posts
       during a silent execute, and the sidebar keeping it through 30
       click jumps with a working session's Clawd running, on the Mac
-- [ ] The loop sends no post between a jump's moving marker appearing
-      and going, by the check reading fzf's socket log or the loop's
-      stderr at a debug setting, whichever the implementation offers
 - [ ] The Maintainer uses the sidebar for a session of work, jumping by
       click locally and to mgmt-1, with the mouse working throughout
 - [ ] The row comparison and the end-to-end check still pass
@@ -64,6 +64,9 @@ reading clicks, as it still believes the mouse is on.
 **Out of scope:**
 - A fix in fzf itself; the reproduction is the material for a report
   upstream, which the Maintainer may file
-- Pins by `Alt+Shift+N`, which tmux runs outside fzf and which never
-  touched the sidebar's terminal
+- Pins, by `alt-p` or `Alt+Shift+N`: `alt-p`'s non-silent execute keeps
+  the mouse under posts, and tmux runs `Alt+Shift+N` outside fzf
+- Holding the loop's posts while a jump moves, or re-asserting the
+  mouse from the command fzf ran: neither can stop a drop fzf writes as
+  its execute returns
 - Any change to what a jump does once it has the mouse
