@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's frames are rendered inside the Rust binary from the gathered sessions, in place of `format`'s jq and `draw`'s perl split, byte-identical to today's rows
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/030-rust-posts-frames-to-fzf]
 
 **Current behavior:**
@@ -40,7 +40,7 @@ and 1.0% of a core, plus a jq and a perl spawn each second.
 - [x] Every pose keeps each 2x4 cell to two colours, the background
       counting as one, by a count over the binary's poses
 - [x] The live loops' CPU measured before and after by the stage profile
-- [ ] The Maintainer judges the sidebar unchanged by eye
+- [x] The Maintainer judges the sidebar unchanged by eye
 
 **Out of scope:**
 - New poses or animations

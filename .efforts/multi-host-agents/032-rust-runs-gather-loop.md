@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's gather loop moves into the Rust binary, which reads this host's sessions from their state files itself rather than spawning `claude-sessions`, and polls remote hosts over ssh as today
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:** [multi-host-agents/031-rust-renders-frames]
 
 **Current behavior:**
@@ -57,7 +57,7 @@ from the binary, and `pick` reading `rows.0` so the tagged file goes.
 - [x] The live loops' CPU measured before and after by the stage
       profile, nothing moving and one working; the target is about 3 to
       4% of a core, measured against 18.2% before 029
-- [ ] The Maintainer uses the sidebar for a session of work, jumping
+- [x] The Maintainer uses the sidebar for a session of work, jumping
       locally and to mgmt-1
 
 **Out of scope:**

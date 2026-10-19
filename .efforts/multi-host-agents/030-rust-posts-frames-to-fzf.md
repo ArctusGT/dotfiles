@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's `serve` loop moves into a long-lived Rust binary that posts each frame to fzf's socket itself, removing a `curl` spawn per frame, and the repo gains a Rust crate with a build step on each host
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:**
 
 **Current behavior:**
@@ -50,7 +50,7 @@ most of its CPU in process spawns.
 - [x] The live loops' CPU measured before and after by the stage
       profile, 60 s, nothing moving and one working; the post stage
       gone
-- [ ] The Maintainer watches the sidebar animate and follow jumps
+- [x] The Maintainer watches the sidebar animate and follow jumps
 
 **Out of scope:**
 - Rendering the frames (031) and gathering the sessions (032)
