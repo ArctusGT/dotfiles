@@ -45,24 +45,24 @@ pub struct Host {
     pub down: bool,
     /// its pane the frame's right pane shows, if any
     pub on_show: Option<String>,
-    /// its sessions, those with a pane first, desktop app sessions left out
-    /// unless one has a pane
+    /// its sessions, grouped by repo as `listed` orders them
     pub sessions: Vec<Session>,
 }
 
 impl Host {
     /// this host, with `sessions`
-    fn local(on_show: &OnShow, sessions: Vec<Session>) -> Host {
+    fn local(on_show: &OnShow, sessions: Vec<Value>) -> Host {
+        let on_show = match on_show {
+            OnShow::Local(pane) => Some(pane.clone()),
+            _ => None,
+        };
         Host {
             label: "local".into(),
             ssh_host: String::new(),
             relay: String::new(),
             down: false,
-            on_show: match on_show {
-                OnShow::Local(pane) => Some(pane.clone()),
-                _ => None,
-            },
-            sessions,
+            sessions: listed(sessions, on_show.as_deref()),
+            on_show,
         }
     }
 }
@@ -97,7 +97,7 @@ pub fn gather() -> Vec<Host> {
             .collect();
         let mut hosts = vec![Host::local(
             &on_show,
-            listed(sessions::read(&Sources::from_env())),
+            sessions::read(&Sources::from_env()),
         )];
         for (remote, poll) in polls {
             hosts.push(poll.join().unwrap_or_else(|_| remote.host(true)));
@@ -237,15 +237,19 @@ fn poll(remote: &Remote, on_show: &OnShow) -> Host {
     }
     // an answer that is not all JSON shows as a host with no sessions
     if let Ok(sessions) = json::parse_stream(sessions) {
-        host.sessions = listed(sessions);
+        host.sessions = listed(sessions, host.on_show.as_deref());
     }
     host
 }
 
 /// a host's `sessions` (the objects `claude-sessions` prints) as the sidebar
-/// lists them: those with a pane first, desktop app sessions left out unless
-/// one has a pane. One that does not parse is logged and left out
-fn listed(sessions: Vec<Value>) -> Vec<Session> {
+/// lists them, desktop app sessions left out unless one has a pane: grouped
+/// by repo, `~` first, then the rest of HOME, then the rest, each group in
+/// order of its path, case aside. In a group, the one on show in pane
+/// `on_show` first, then the others with a pane, then those with none, each
+/// in the order `claude-sessions` printed them. One that does not parse is
+/// logged and left out
+fn listed(sessions: Vec<Value>, on_show: Option<&str>) -> Vec<Session> {
     let mut listed: Vec<Session> = sessions
         .iter()
         .filter_map(|s| {
@@ -255,7 +259,21 @@ fn listed(sessions: Vec<Value>) -> Vec<Session> {
         })
         .filter(|s| !s.desktop || s.pane.is_some())
         .collect();
-    listed.sort_by_key(|s| s.pane.is_none());
+    listed.sort_by_cached_key(|s| {
+        let repo = s.repo.as_deref();
+        let group = match repo {
+            Some("~") => 0,
+            Some(r) if r.starts_with("~/") => 1,
+            Some(_) => 2,
+            None => 3,
+        };
+        let place = match s.pane.as_deref() {
+            Some(pane) if Some(pane) == on_show => 0,
+            Some(_) => 1,
+            None => 2,
+        };
+        (group, repo.unwrap_or_default().to_lowercase(), place)
+    });
     listed
 }
 
@@ -298,8 +316,30 @@ mod tests {
             .concat(),
         )
         .unwrap();
-        let ids: Vec<String> = listed(sessions).into_iter().map(|s| s.id).collect();
+        let ids: Vec<String> = listed(sessions, None).into_iter().map(|s| s.id).collect();
         assert_eq!(ids, ["c", "d", "a"]);
+    }
+
+    #[test]
+    fn groups_sessions_by_repo_home_first_with_the_one_on_show_leading() {
+        let in_repo = |id: &str, pane: &str, repo: &str| {
+            session(id, pane, "cli").replace("}", &format!(",\"repo\":{repo}}}"))
+        };
+        let sessions = json::parse_stream(
+            &[
+                in_repo("opt", "\"%1\"", "\"/opt/x\""),
+                in_repo("dot-bg", "null", "\"~/dotfiles\""),
+                in_repo("dot-a", "\"%2\"", "\"~/dotfiles\""),
+                in_repo("dot-b", "\"%3\"", "\"~/dotfiles\""),
+                in_repo("none", "\"%4\"", "null"),
+                in_repo("home", "\"%5\"", "\"~\""),
+                in_repo("work", "\"%6\"", "\"~/Work\""),
+            ]
+            .concat(),
+        )
+        .unwrap();
+        let ids: Vec<String> = listed(sessions, Some("%3")).into_iter().map(|s| s.id).collect();
+        assert_eq!(ids, ["home", "dot-b", "dot-a", "dot-bg", "work", "opt", "none"]);
     }
 
     #[test]
@@ -308,7 +348,7 @@ mod tests {
             &[session("a", "null", "cli"), "{\"session_id\":\"b\"}".into()].concat(),
         )
         .unwrap();
-        let ids: Vec<String> = listed(sessions).into_iter().map(|s| s.id).collect();
+        let ids: Vec<String> = listed(sessions, None).into_iter().map(|s| s.id).collect();
         assert_eq!(ids, ["a"]);
     }
 }

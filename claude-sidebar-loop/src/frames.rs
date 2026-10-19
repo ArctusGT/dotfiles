@@ -5,8 +5,10 @@
 //! A session's item is its tab fields: ssh host, pane, relay session,
 //! session id (empty only on a header, which is how `jump` tells one), entry
 //! number, 1 if the frame's right pane shows it, then its display lines.
-//! Sessions with a pane are numbered in order across hosts; `pick N` finds
-//! entry N by its number field in `rows.0`.
+//! A host's sessions come grouped by repo (`gather`'s `listed`). The first
+//! of each group leads it, and is numbered, in order across hosts, if it has
+//! a pane; `pick N` finds entry N by its number field in `rows.0`. The rest
+//! of the group are indented under it, unnumbered.
 //! Times are in whole minutes, so the rows change only when a session does,
 //! or with the frame while a Clawd moves.
 
@@ -55,6 +57,10 @@ const BANDANA_COLOURS: [&str; 9] = [
 /// the background, #1a1b26, that `faded` takes a colour halfway to
 const BACKGROUND: [u32; 3] = [26, 27, 38];
 
+/// the cells an entry under its group's first is moved right by: enough to
+/// see, little enough to keep the width
+const INDENT: &str = "  ";
+
 const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 
@@ -69,13 +75,16 @@ pub fn render(hosts: &[Host], view: &View, frames: usize) -> Vec<String> {
         for frame in &mut out {
             frame.push_str(&item);
         }
+        let mut group = None;
         for session in &host.sessions {
-            let numbered = session.pane.is_some();
+            let leads = group != Some(&session.repo);
+            group = Some(&session.repo);
+            let numbered = leads && session.pane.is_some();
             if numbered {
                 number += 1;
             }
             let number = numbered.then_some(number);
-            render_session(session, host, number, view, &clawd, &mut out);
+            render_session(session, host, number, !leads, view, &clawd, &mut out);
         }
     }
     out
@@ -87,11 +96,12 @@ fn render_session(
     session: &Session,
     host: &Host,
     number: Option<usize>,
+    indented: bool,
     view: &View,
     clawd: &Clawd,
     frames: &mut [String],
 ) {
-    let entry = Entry::new(session, host, number, view);
+    let entry = Entry::new(session, host, number, indented, view);
     let (animation, phase) = clawd.animation(session);
     let palette = Palette::new(session);
     // each distinct pose drawn once, as most repeat across the frames
@@ -100,7 +110,7 @@ fn render_session(
     for (k, frame) in frames.iter_mut().enumerate() {
         let pose_id = animation[(phase + k) % animation.len()];
         let picture = drawn[pose_id]
-            .get_or_insert_with(|| picture(&clawd.poses[pose_id], &palette, number.is_none()));
+            .get_or_insert_with(|| picture(&clawd.poses[pose_id], &palette, session.pane.is_none()));
         entry.write(frame, picture);
     }
 }
@@ -125,6 +135,9 @@ fn header(host: &Host) -> String {
 struct Entry {
     /// the tab fields, through the tab before the display lines
     fields: String,
+    /// before each line: the cells an entry under its group's first is
+    /// moved right by
+    indent: &'static str,
     /// dims each line of a session with no pane (a --bg one, or a daemon)
     dim: &'static str,
     /// right of the picture on each line: number and repo, name, then
@@ -133,7 +146,15 @@ struct Entry {
 }
 
 impl Entry {
-    fn new(session: &Session, host: &Host, number: Option<usize>, view: &View) -> Entry {
+    fn new(
+        session: &Session,
+        host: &Host,
+        number: Option<usize>,
+        indented: bool,
+        view: &View,
+    ) -> Entry {
+        let has_pane = session.pane.is_some();
+        let indent = if indented { INDENT } else { "" };
         let on_show = host.on_show.is_some() && host.on_show == session.pane;
         let number_text = number.map(|n| n.to_string());
         let fields = [
@@ -142,15 +163,18 @@ impl Entry {
             host.relay.clone(),
             session.id.clone(),
             number_text.clone().unwrap_or_default(),
-            if number.is_some() && on_show { "1" } else { "" }.to_string(),
+            if on_show { "1" } else { "" }.to_string(),
             String::new(),
         ]
         .join("\t");
-        let dim = if number.is_some() { "" } else { DIM };
+        let dim = if has_pane { "" } else { DIM };
+        // the repo the entry is grouped by, its cwd from a host whose
+        // claude-sessions gives no repo
+        let repo = session.repo.as_deref().unwrap_or(&session.cwd);
         let repo_text = format!(
             " {} {}\n",
             number_text.as_deref().unwrap_or(" "),
-            last_part(&session.cwd)
+            last_part(repo)
         );
         let name_text = format!(
             "   {}\n",
@@ -166,17 +190,21 @@ impl Entry {
         } else {
             String::new()
         };
-        let background_label = match number {
-            Some(_) => String::new(),
-            None => format!("  {DIM}background{RESET}"),
+        let background_label = if has_pane {
+            String::new()
+        } else {
+            format!("  {DIM}background{RESET}")
         };
-        let context = context_line(session.used_pct.as_ref(), view);
+        let width = view.width - indent.chars().count() as i64;
+        let context = context_line(session.used_pct.as_ref(), width, view);
         // reset at the end, or the dim of a background entry leaks into the
         // entries fzf draws after it
-        let status_text =
-            format!("   {state} {age}{subagents_label}{background_label}\n{dim}{context}{RESET}");
+        let status_text = format!(
+            "   {state} {age}{subagents_label}{background_label}\n{indent}{dim}{context}{RESET}"
+        );
         Entry {
             fields,
+            indent,
             dim,
             texts: [repo_text, name_text, status_text],
         }
@@ -186,6 +214,7 @@ impl Entry {
     fn write(&self, frame: &mut String, picture: &[String; 3]) {
         frame.push_str(&self.fields);
         for (line, text) in picture.iter().zip(&self.texts) {
+            frame.push_str(self.indent);
             frame.push_str(self.dim);
             frame.push_str(line);
             frame.push_str(text);
@@ -264,20 +293,20 @@ fn faded(sgr: &str) -> String {
     format!("38;2;{}", halves.join(";"))
 }
 
-/// context use as a line across the entry, `view.width` columns with the
+/// context use as a line across the entry, `width` columns with the
 /// percentage label at its end: the used share a heavy rule, each cell
 /// coloured by how far along the bar it sits, green to red as a full context
 /// is the bad end. The rest a light dashed rule in terminal_black. All red at
 /// `view.warn`. No record (`pct` none): the whole line terminal_black, with
 /// no label
-fn context_line(pct: Option<&Number>, view: &View) -> String {
+fn context_line(pct: Option<&Number>, width: i64, view: &View) -> String {
     let Some(Number { text, value: share }) = pct else {
-        return paint(&"┈".repeat(view.width.max(0) as usize), TERMINAL_BLACK);
+        return paint(&"┈".repeat(width.max(0) as usize), TERMINAL_BLACK);
     };
     let share = *share;
     // padded to 4 columns, so bars up to 99% end in the same column
     let label = format!("{:>4}", format!(" {text}%"));
-    let cells = view.width - label.chars().count() as i64;
+    let cells = width - label.chars().count() as i64;
     let full = (share * cells as f64 / 100.0).round().min(cells as f64) as i64;
     let warned = share >= view.warn;
     let palette: &[&str] = if warned {

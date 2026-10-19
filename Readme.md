@@ -189,14 +189,19 @@ asks the host over the sidebar's ssh connection, so in the frame
 `Cmd+Left`, `Cmd+Up` and `Cmd+Down` there each take a round trip to the host.
 Outside the frame the edges do nothing.
 
-Only sessions in a tmux pane are numbered. A background session, one a `claude
-daemon` runs (`--bg`, or sent to the background from Claude Code's session
-list), is dimmed below them as `background`. Selecting it opens it with
+Each host's sessions are grouped by repo: `~` first, then the rest of the home
+directory, then the rest, alphabetically. A session in a subdirectory or a
+worktree joins its repo. The first of each group, the one in the right pane
+when it is there, is labelled with the repo and numbered if it is in a tmux
+pane; the rest are indented under it, unnumbered: other panes in the repo,
+then background sessions. A background session, one a `claude daemon` runs
+(`--bg`, or sent to the background from Claude Code's session list), is
+dimmed as `background`. Selecting it opens it with
 `claude attach` in a new window on its own host, in the tmux session named for
 its repo, created there if missing: a session started in a subdirectory or a
 worktree joins its repo's session, and on the Mac that is the repo's sesh
 session. Outside a repo the tmux session is named for its directory.
-The entry is numbered like the rest while that window is open.
+While that window is open the entry counts as one in a pane.
 Selecting it again goes back to the same window. Closing the window, or
 `ctrl+z` in it, leaves the session running and the entry dimmed again. Claude
 desktop app sessions are left out; the app's own sidebar lists them. A remote

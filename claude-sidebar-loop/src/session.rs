@@ -71,6 +71,9 @@ pub struct Session {
     pub pane: Option<String>,
     /// blank where the state file has none
     pub cwd: String,
+    /// the repo root `cwd` is in, `~` for HOME; none where there is no cwd,
+    /// or the host's claude-sessions predates it
+    pub repo: Option<String>,
     /// the name Claude Code or the status line gave it
     pub name: Option<String>,
     pub state: State,
@@ -109,6 +112,7 @@ impl Session {
             id: text("session_id")?,
             pane: optional_text("tmux_pane")?,
             cwd: optional_text("cwd")?.unwrap_or_default(),
+            repo: optional_text("repo")?,
             name: optional_text("name")?,
             state,
             since: Number::required(field("since"))?.value,
