@@ -196,10 +196,11 @@ directory, then the rest, alphabetically. A session in a subdirectory or a
 worktree joins its repo. The first of each group, the one in the right pane
 when it is there, is labelled with the repo and numbered if it is in a tmux
 pane; the rest are indented under it, unnumbered: other panes in the repo,
-then background sessions. A repo pinned with `M-Shift-N` or `M-p` keeps its number, held
-for it while it has no session; the others take the numbers no pin holds, in
-list order. The pins live in `~/.local/state/claude-sidebar/pins`, one
-`number, ssh host (empty for the Mac), repo` line apiece, tab-separated.
+then background sessions. A repo pinned with `M-Shift-N` or `M-p` keeps its
+number, held for it while it has no session; the others take the numbers no
+pin holds, in list order. The pins live in
+`~/.local/state/claude-sidebar/pins`, one `number, ssh host (empty for the
+Mac), repo` line apiece, tab-separated.
 A background session, one a `claude daemon` runs
 (`--bg`, or sent to the background from Claude Code's session list), is
 dimmed as `background`. Selecting it opens it with
