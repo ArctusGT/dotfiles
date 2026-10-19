@@ -47,7 +47,7 @@ esac
 EOF
 chmod +x "$run/bin/ssh"
 now=$(date +%s)
-printf '{"session_id":"00000000-0000-4000-8000-0000000000f1","pid":1,"cwd":"/r/remote1","tmux_pane":"%%71","entrypoint":"cli","state":"idle","since":%d,"name":"remote one","subagents":0,"context":null}\n{"session_id":"00000000-0000-4000-8000-0000000000f2","pid":1,"cwd":"/r/remote2","tmux_pane":"%%72","entrypoint":"cli","state":"idle","since":%d,"name":"remote two","subagents":0,"context":null}\n\036%%71\n' "$now" "$now" >"$run/fake.out"
+printf '{"session_id":"00000000-0000-4000-8000-0000000000f1","pid":1,"cwd":"/r/remote1","repo":"/r/remote1","tmux_pane":"%%71","entrypoint":"cli","state":"idle","since":%d,"name":"remote one","subagents":0,"context":null}\n{"session_id":"00000000-0000-4000-8000-0000000000f2","pid":1,"cwd":"/r/remote2","repo":"/r/remote2","tmux_pane":"%%72","entrypoint":"cli","state":"idle","since":%d,"name":"remote two","subagents":0,"context":null}\n\036%%71\n' "$now" "$now" >"$run/fake.out"
 SESH_CONFIG=$run/sesh.toml
 sesh() { # the hosts, by name
   : >"$run/sesh.toml"

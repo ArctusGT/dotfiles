@@ -59,7 +59,7 @@ mode, the last written, and fzf's is button events.
       click jumps with a working session's Clawd running, on the Mac
 - [ ] The Maintainer uses the sidebar for a session of work, jumping by
       click locally and to mgmt-1, with the mouse working throughout
-- [ ] The row comparison and the end-to-end check still pass
+- [x] The row comparison and the end-to-end check still pass
 
 **Out of scope:**
 - A fix in fzf itself; the reproduction is the material for a report
