@@ -363,12 +363,15 @@ case $1 in
     trap 'kill $loop $claimer 2>/dev/null; [[ $(readlink "$link") == "$cache" ]] && rm -f "$link"; rm -rf "$cache"' EXIT
     # no --track: it holds back cursor moves while it finds the item again
     # after each reload, and the list's order is stable without it. Esc and
-    # ctrl-c clear the query rather than closing the sidebar
+    # ctrl-c clear the query rather than closing the sidebar. A jump runs in
+    # the background, so fzf's execute returns at once: fzf 0.74.5 turns its
+    # mouse off for good once its execute returns, if that took a second or
+    # more and the loop posted to it meanwhile (checks/mouse.sh)
     fzf --read0 --ansi --delimiter '\t' --with-nth 8.. <"$cache/rows.0" \
       --listen "$cache/fzf.sock" \
       --layout reverse --highlight-line --no-scrollbar --info hidden --prompt '' \
       --bind "esc,ctrl-c,ctrl-g,ctrl-q:clear-query" \
-      --bind "enter,left-click:execute-silent($self jump {1} {2} {3} {4})+clear-query" \
+      --bind "enter,left-click:execute-silent($self jump {1} {2} {3} {4} </dev/null >/dev/null 2>&1 &)+clear-query" \
       --bind "alt-p:execute($self pin {1} {7})"
     ;;
   *) "$self" --help >&2; exit 2 ;;

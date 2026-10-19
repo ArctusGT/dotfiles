@@ -54,7 +54,7 @@ mode, the last written, and fzf's is button events.
   tmux with its own TMPDIR
 
 **Acceptance criteria:**
-- [ ] The shipped check shows fzf alone dropping the mouse under posts
+- [x] The shipped check shows fzf alone dropping the mouse under posts
       during a silent execute, and the sidebar keeping it through 30
       click jumps with a working session's Clawd running, on the Mac
 - [ ] The Maintainer uses the sidebar for a session of work, jumping by
