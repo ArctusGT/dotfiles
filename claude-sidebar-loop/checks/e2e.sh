@@ -57,6 +57,7 @@ sesh fake
 
 # the usual tmux: two local panes, and fake's relay window
 pane_a=$(w new-session -d -P -F '#{pane_id}' -s work -x 120 -y 40 'sleep 3600')
+# its own window: @claude_wait is a window's, and entries of one window share it
 pane_b=$(w new-window -d -P -F '#{pane_id}' -t work: 'sleep 3600')
 relay_window=$(w new-window -d -P -F '#{window_id}' -t work: 'sleep 3600')
 w set -w -t "$relay_window" @ssh_tmux fake

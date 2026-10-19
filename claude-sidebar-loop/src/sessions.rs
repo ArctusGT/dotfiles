@@ -99,19 +99,15 @@ pub fn read(sources: &Sources) -> Vec<Value> {
         .filter(|session| !client_of_another(session, &shows, &records))
         .map(|mut session| {
             let pane = first_pane_showing(&session, &panes, &shows);
-            let unseen = unseen(&pane, &panes);
-            session.set("tmux_pane", pane);
-            session.set("unseen", Value::Bool(unseen));
+            session.set(
+                "tmux_pane",
+                pane.map_or(Value::Null, |p| Value::String(p.id.clone())),
+            );
+            // the window of its pane carries @claude_wait
+            session.set("unseen", Value::Bool(pane.is_some_and(|p| p.waiting)));
             session
         })
         .collect()
-}
-
-/// whether the window of `pane`, null for none, carries @claude_wait
-fn unseen(pane: &Value, panes: &[Pane]) -> bool {
-    panes
-        .iter()
-        .any(|p| p.waiting && pane.as_str() == Some(p.id.as_str()))
 }
 
 /// whether `session` is an interactive client whose pane shows another
@@ -122,13 +118,17 @@ fn client_of_another(session: &Value, shows: &ByPane, records: &Records) -> bool
     record(records, id).is_some_and(|r| r.interactive) && &shown != id
 }
 
-/// the first pane showing `session`, its recorded one first; null for none
-fn first_pane_showing(session: &Value, panes: &[Pane], shows: &ByPane) -> Value {
+/// the first pane showing `session`, its recorded one first; none for none
+fn first_pane_showing<'a>(session: &Value, panes: &'a [Pane], shows: &ByPane) -> Option<&'a Pane> {
     let id = session.get("session_id");
-    std::iter::once(session.get("tmux_pane").clone())
-        .chain(panes.iter().map(|p| Value::String(p.id.clone())))
-        .find(|pane| pane != &Value::Null && at(shows, pane) == id)
-        .unwrap_or(Value::Null)
+    let recorded = session
+        .get("tmux_pane")
+        .as_str()
+        .and_then(|recorded| panes.iter().find(|p| p.id == recorded));
+    recorded
+        .into_iter()
+        .chain(panes)
+        .find(|p| at(shows, &Value::String(p.id.clone())) == id)
 }
 
 /// what `by_pane` holds for `pane`, null for none or no pane

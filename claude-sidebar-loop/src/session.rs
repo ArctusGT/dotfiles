@@ -87,8 +87,8 @@ pub struct Session {
     /// one shows it
     pub desktop: bool,
     /// its pane's window carries @claude_wait: a turn ended or a question
-    /// came while nobody was looking. False where the host's claude-sessions
-    /// predates the field
+    /// came while nobody was looking. False where the host's output has no
+    /// such field
     pub unseen: bool,
 }
 
