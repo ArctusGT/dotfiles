@@ -74,6 +74,8 @@ struct Pane {
     /// null where tmux printed no field for it
     tag: Value,
     runs_claude: bool,
+    /// its window carries @claude_wait: news nobody has looked at
+    waiting: bool,
     /// with Claude Code's status glyph taken off
     title: Value,
 }
@@ -97,10 +99,19 @@ pub fn read(sources: &Sources) -> Vec<Value> {
         .filter(|session| !client_of_another(session, &shows, &records))
         .map(|mut session| {
             let pane = first_pane_showing(&session, &panes, &shows);
+            let unseen = unseen(&pane, &panes);
             session.set("tmux_pane", pane);
+            session.set("unseen", Value::Bool(unseen));
             session
         })
         .collect()
+}
+
+/// whether the window of `pane`, null for none, carries @claude_wait
+fn unseen(pane: &Value, panes: &[Pane]) -> bool {
+    panes
+        .iter()
+        .any(|p| p.waiting && pane.as_str() == Some(p.id.as_str()))
 }
 
 /// whether `session` is an interactive client whose pane shows another
@@ -145,7 +156,7 @@ fn panes() -> Vec<Pane> {
                 "list-panes",
                 "-a",
                 "-F",
-                "#{pane_id}\t#{@claude_attach}\t#{pane_current_command}\t#{pane_title}",
+                "#{pane_id}\t#{@claude_attach}\t#{pane_current_command}\t#{@claude_wait}\t#{pane_title}",
             ])
             .env_remove("TMUX")
             .env_remove("TMUX_PANE"),
@@ -159,7 +170,7 @@ impl Pane {
     fn parse(line: &str) -> Pane {
         let fields: Vec<&str> = line.split('\t').collect();
         let title = fields
-            .get(3..)
+            .get(4..)
             .map(|rest| rest.join("\t"))
             .unwrap_or_default();
         let title = ["✳ ", "◐ ", "◑ "]
@@ -173,6 +184,7 @@ impl Pane {
                 .get(1)
                 .map_or(Value::Null, |t| Value::String(t.to_string())),
             runs_claude: fields.get(2) == Some(&"claude"),
+            waiting: fields.get(3).is_some_and(|wait| !wait.is_empty()),
             title: Value::String(title),
         }
     }

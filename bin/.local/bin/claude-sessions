@@ -29,12 +29,14 @@ dir=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sessions
 shopt -s nullglob extglob
 
 # every pane on the default server, even when run from inside the sidebar's
-# frame: its id, its @claude_attach tag, whether it runs Claude Code, and its
-# title with Claude Code's status glyph (idle ✳, working ◐ ◑) taken off
+# frame: its id, its @claude_attach tag, whether it runs Claude Code, whether
+# its window carries @claude_wait (unseen news), and its title with Claude
+# Code's status glyph (idle ✳, working ◐ ◑) taken off
 panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
-  -F '#{pane_id}	#{@claude_attach}	#{pane_current_command}	#{pane_title}' 2>/dev/null |
+  -F '#{pane_id}	#{@claude_attach}	#{pane_current_command}	#{@claude_wait}	#{pane_title}' 2>/dev/null |
   jq -Rn '[inputs | split("\t") | {id: .[0], tag: .[1], runs_claude: (.[2] == "claude"),
-           title: (.[3:] | join("\t") | sub("^[✳◐◑] "; ""))}]')
+           wait: ((.[3] // "") != ""),
+           title: (.[4:] | join("\t") | sub("^[✳◐◑] "; ""))}]')
 [[ -n $panes ]] || panes='[]'
 
 # {session id: {name, spare, kind, jobId, parkedJobId, pid}} from Claude
@@ -169,5 +171,7 @@ jq -nc --argjson panes "$panes" --argjson records "$records" --argjson repos "$r
   # pane is the other entry now
   | select($records[$s].kind != "interactive" or ($shows[.tmux_pane // ""] // $s) == $s)
   # the first pane showing it, its recorded one first; null when none does
-  | .tmux_pane = ([.tmux_pane, $panes[].id] | map(select(. != null and $shows[.] == $s)) | .[0])' \
+  | .tmux_pane = ([.tmux_pane, $panes[].id] | map(select(. != null and $shows[.] == $s)) | .[0])
+  # whether the window of its pane carries @claude_wait: news not yet looked at
+  | .unseen = (.tmux_pane as $pane | any($panes[]; .id == $pane and .wait))' \
   "${live_files[@]}"

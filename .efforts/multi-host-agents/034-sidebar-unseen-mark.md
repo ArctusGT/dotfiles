@@ -38,7 +38,7 @@ then retire the status bar's dots.
 - `@claude_wait` and the hooks that set and unset it
 
 **Acceptance criteria:**
-- [ ] On a throwaway tmux server with its own TMPDIR, setting and unsetting
+- [x] On a throwaway tmux server with its own TMPDIR, setting and unsetting
       `@claude_wait` on a session's window shows and clears the mark within
       a gather, and the other entries' rows are byte-identical to before
 - [ ] The binary's local sessions still equal `claude-sessions`' output,

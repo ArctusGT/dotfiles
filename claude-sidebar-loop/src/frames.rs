@@ -202,6 +202,12 @@ impl Entry {
             "   {}\n",
             session.name.as_deref().unwrap_or_else(|| short_id(&session.id))
         );
+        // the status bar's dot: colour 3, as tmux names it
+        let unseen_label = if session.unseen {
+            format!(" {}", paint("●", YELLOW))
+        } else {
+            String::new()
+        };
         let state = session.state.word();
         let age = ago(view.now as f64 - session.since);
         // running subagents in the working colour, so an idle session whose
@@ -222,7 +228,7 @@ impl Entry {
         // reset at the end, or the dim of a background entry leaks into the
         // entries fzf draws after it
         let status_text = format!(
-            "   {state} {age}{subagents_label}{background_label}\n{indent}{dim}{context}{RESET}"
+            "   {state} {age}{unseen_label}{subagents_label}{background_label}\n{indent}{dim}{context}{RESET}"
         );
         Entry {
             fields,
@@ -806,6 +812,36 @@ mod tests {
             fields,
             expected.map(|(n, r)| (n.to_string(), r.to_string()))
         );
+    }
+
+    #[test]
+    fn an_unseen_session_carries_the_status_bars_dot_after_its_age() {
+        let status_line = |extra: &str| {
+            let text = format!(
+                "{{\"session_id\":\"1\",\"tmux_pane\":\"%1\",\"state\":\"idle\",\
+                 \"since\":1,\"subagents\":0{extra}}}"
+            );
+            let session = Session::parse(&crate::json::parse_stream(&text).unwrap()[0]).unwrap();
+            let view = View {
+                width: 20,
+                warn: 50.0,
+                now: 120,
+                pins: Pins::parse(""),
+            };
+            let host = Host {
+                label: "local".into(),
+                ssh_host: String::new(),
+                relay: String::new(),
+                down: false,
+                on_show: None,
+                sessions: vec![],
+            };
+            let entry = Entry::new(&session, &host, None, false, &view);
+            entry.texts[2].clone()
+        };
+        assert!(status_line("").starts_with("   idle 1m\n"));
+        assert!(status_line(",\"unseen\":false").starts_with("   idle 1m\n"));
+        assert!(status_line(",\"unseen\":true").starts_with("   idle 1m \x1b[33m●\x1b[39m\n"));
     }
 
     #[test]

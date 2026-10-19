@@ -3,7 +3,7 @@
 # `pick N` jumps to entry N, local and remote, with no tagged file, and with
 # no sidebar running; a jump made during a slow gather keeps fzf's cursor; an
 # unreachable host shows within one ssh ConnectTimeout while the other hosts
-# keep updating.
+# keep updating. @claude_wait on a session's window shows and clears its mark.
 #   e2e.sh        (SIDEBAR and BINARY choose what runs, as in lib.sh)
 # Two throwaway tmux servers: -L chke2e is the frame (a right pane attached
 # to the usual tmux, and the sidebar), -L chke2eu the usual tmux, reached
@@ -57,7 +57,7 @@ sesh fake
 
 # the usual tmux: two local panes, and fake's relay window
 pane_a=$(w new-session -d -P -F '#{pane_id}' -s work -x 120 -y 40 'sleep 3600')
-pane_b=$(w split-window -P -F '#{pane_id}' -t "$pane_a" 'sleep 3600')
+pane_b=$(w new-window -d -P -F '#{pane_id}' -t work: 'sleep 3600')
 relay_window=$(w new-window -d -P -F '#{window_id}' -t work: 'sleep 3600')
 w set -w -t "$relay_window" @ssh_tmux fake
 state aaaaaaaa-0000-4000-8000-000000000001 "$pane_a" idle
@@ -94,6 +94,25 @@ check "four numbered entries, local first" test "$(echo "$items" | awk -F'|' '$4
 check "the right pane's entry on show" grep -q "^\[|$pane_a||1|1\]" <<<"$items"
 check "the cursor follows it to item 2" test "$(cursor)" = 2
 check "no tagged file in the cache" test ! -e "$cache/tagged"
+
+# @claude_wait on pane b's window shows the mark on b's entry only, and unset
+# clears it, each within a gather (a second) or two
+item_of() { # $1 session id: that session's item
+  perl -0777 -ne 'for (split /\0/) { print if /^[^\t]*\t[^\t]*\t[^\t]*\t'"$1"'\t/ }' "$cache/rows.0"
+}
+a_before=$(item_of aaaaaaaa-0000-4000-8000-000000000001)
+b_before=$(item_of bbbbbbbb-0000-4000-8000-000000000002)
+w set -w -t "$pane_b" @claude_wait 1
+took=$(wait_rows '\xe2\x97\x8f' 3)
+echo "      @claude_wait set to mark: $took"
+check "setting @claude_wait shows the mark within two gathers" test "${took% ms}" -lt 2500 2>/dev/null
+check "the mark is on b's entry" grep -q $'\xe2\x97\x8f' <<<"$(item_of bbbbbbbb-0000-4000-8000-000000000002)"
+check "a's entry is byte-identical" test "$(item_of aaaaaaaa-0000-4000-8000-000000000001)" = "$a_before"
+w set -wu -t "$pane_b" @claude_wait
+took=$(wait_rows '\A(?![\s\S]*\xe2\x97\x8f)' 3)
+echo "      @claude_wait unset to clear: $took"
+check "unsetting it clears the mark within two gathers" test "${took% ms}" -lt 2500 2>/dev/null
+check "b's entry is byte-identical to before" test "$(item_of bbbbbbbb-0000-4000-8000-000000000002)" = "$b_before"
 
 # a kick, just after a gather: the change shows at once, not at the next second
 m=$(mtime); while [[ $(mtime) == "$m" ]]; do sleep 0.01; done

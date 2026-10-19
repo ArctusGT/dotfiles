@@ -86,6 +86,10 @@ pub struct Session {
     /// a session of the desktop app, which has no pane to jump to unless
     /// one shows it
     pub desktop: bool,
+    /// its pane's window carries @claude_wait: a turn ended or a question
+    /// came while nobody was looking. False where the host's claude-sessions
+    /// predates the field
+    pub unseen: bool,
 }
 
 impl Session {
@@ -119,6 +123,7 @@ impl Session {
             subagents: Number::required(field("subagents"))?,
             used_pct: Number::optional(field("context").get("used_pct"))?,
             desktop: field("entrypoint").as_str() == Some("claude-desktop"),
+            unseen: matches!(field("unseen"), Value::Bool(true)),
         })
     }
 }
@@ -144,6 +149,15 @@ mod tests {
         assert_eq!(session.subagents.text, "2.0");
         assert_eq!(session.used_pct.unwrap().text, "42.50");
         assert!(!session.desktop);
+    }
+
+    #[test]
+    fn unseen_is_true_only_where_the_host_says_so() {
+        assert!(!parse(WHOLE).unwrap().unseen);
+        let marked = WHOLE.replace(r#""cwd""#, r#""unseen":true,"cwd""#);
+        assert!(parse(&marked).unwrap().unseen);
+        let clear = WHOLE.replace(r#""cwd""#, r#""unseen":false,"cwd""#);
+        assert!(!parse(&clear).unwrap().unseen);
     }
 
     #[test]
