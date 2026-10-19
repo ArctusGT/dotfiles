@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** Each sidebar entry carries the unseen mark the tmux status bar's dots show today, a session whose turn ended or that asked something while its window was not being looked at, read from the same window flag, so the dots can later be retired
-**Status:** ready-for-human
+**Status:** ready-for-closure
 **blocked-by:**
 
 **Current behavior:**
@@ -17,8 +17,8 @@ the dots are the only place the difference shows.
 
 **Desired behavior:**
 - Each entry whose pane's window carries `@claude_wait` shows the
-  status bar's mark, a `●` in colour 3, in its text; the Clawd is
-  unchanged
+  status bar's mark as a `●`, magenta so it reads apart from the yellow
+  waiting state, in its text; the Clawd is unchanged
 - The mark comes from the flag the hooks already keep, read with the
   panes each gather lists; no second store and no new hook
 - It clears in the sidebar within a gather of the flag clearing, which
@@ -45,7 +45,7 @@ then retire the status bar's dots.
       by the shipped comparison, with the field present in both
 - [x] A session without the flag, a session with no pane, and a remote
       host whose output lacks the field all render as today
-- [ ] The Maintainer sees the mark beside a session the status bar shows a
+- [x] The Maintainer sees the mark beside a session the status bar shows a
       dot for, locally and on mgmt-1, and sees it clear on jumping to it
 
 **Out of scope:**
