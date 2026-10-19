@@ -16,7 +16,7 @@
 usage() { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; }
 [[ $1 == --help ]] && { usage; exit 0; }
 jumps=${1:-30}
-(( $# <= 1 )) && [[ $jumps =~ ^[0-9]+$ ]] || { usage >&2; exit 2; }
+[[ $# -le 1 && $jumps =~ ^[0-9]+$ ]] || { usage >&2; exit 2; }
 source "$(dirname "$0")/lib.sh"
 a() { tmux_on chkmousef "$@"; }
 f() { tmux_on chkmouse "$@"; }
@@ -89,13 +89,17 @@ click() { # $1 screen line, from 1: a left press and release, SGR encoded
 line_a=$(line_of aaaaaaaa)
 line_b=$(line_of bbbbbbbb)
 check "both entries on screen" test -n "$line_a" -a -n "$line_b"
-# a dropped mouse is turned back on, so each jump counts alone
+# turn a dropped mouse back on, as fzf has it, so each jump counts alone
+revive() { printf '\e[?1000h\e[?1002h\e[?1006h' >"$(f display -p -t "$side" '#{pane_tty}')"; }
 dropped=0 missed=0
 for k in $(seq "$jumps"); do
   if (( k % 2 )); then line=$line_b want=$pane_b; else line=$line_a want=$pane_a; fi
   click "$line"
   sleep 1.6
-  [[ $(mouse chkmouse "$side") == 111 ]] || { dropped=$((dropped + 1)); printf '\e[?1000h\e[?1002h\e[?1006h' >"$(f display -p -t "$side" '#{pane_tty}')"; }
+  if [[ $(mouse chkmouse "$side") != 111 ]]; then
+    dropped=$((dropped + 1))
+    revive
+  fi
   [[ $(client_pane) == "$want" ]] || missed=$((missed + 1))
 done
 echo "      $jumps click jumps: mouse dropped after $dropped, client missed $missed"
