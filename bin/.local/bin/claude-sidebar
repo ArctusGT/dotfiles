@@ -2,7 +2,7 @@
 # claude-sidebar [rows|pick N|pin HOST REPO|kick|edge|jump|attach]: list every Claude session on this host and
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps,
-# and ctrl-p pins the repo whose first entry the cursor is on.
+# and alt-p pins the repo whose first entry the cursor is on.
 # A background loop, `claude-sidebar-loop`, built from the repo's crate of
 # that name, keeps the list in a cache: it gathers it every second, or at once
 # on a kick, so fzf never waits on a host, renders its frames and shows them
@@ -344,7 +344,7 @@ case $1 in
       --layout reverse --highlight-line --no-scrollbar --info hidden --prompt '' \
       --bind "esc,ctrl-c,ctrl-g,ctrl-q:clear-query" \
       --bind "enter,left-click:execute-silent($self jump {1} {2} {3} {4})+clear-query" \
-      --bind "ctrl-p:execute($self pin {1} {7})"
+      --bind "alt-p:execute($self pin {1} {7})"
     ;;
   *) "$self" --help >&2; exit 2 ;;
 esac
