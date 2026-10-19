@@ -15,8 +15,8 @@
 # its own servers and its own sleep.
 usage() { awk 'NR>1 && /^#/ {sub(/^# ?/, ""); print; next} NR>1 {exit}' "$0"; }
 [[ $1 == --help ]] && { usage; exit 0; }
-(( $# <= 1 )) && [[ ${1:-30} =~ ^[0-9]+$ ]] || { usage >&2; exit 2; }
 jumps=${1:-30}
+(( $# <= 1 )) && [[ $jumps =~ ^[0-9]+$ ]] || { usage >&2; exit 2; }
 source "$(dirname "$0")/lib.sh"
 a() { tmux_on chkmousef "$@"; }
 f() { tmux_on chkmouse "$@"; }
@@ -34,8 +34,8 @@ trap cleanup EXIT
 trap 'exit 1' TERM INT
 
 # a pane's button-event, any-event and SGR mouse flags, as fzf turns them on
-mouse() { # $1 server function, $2 pane
-  $1 display -p -t "$2" '#{mouse_button_flag}#{mouse_any_flag}#{mouse_sgr_flag}'
+mouse() { # $1 tmux server name, $2 pane
+  tmux_on "$1" display -p -t "$2" '#{mouse_button_flag}#{mouse_any_flag}#{mouse_sgr_flag}'
 }
 until_socket() { # $1 socket
   for _ in $(seq 50); do [[ -S $1 ]] && return 0; sleep 0.1; done
@@ -52,16 +52,16 @@ until_socket "$sock"
 sleep 0.3
 post() { curl -sf --unix-socket "$sock" -X POST http://localhost -d "$1"; }
 posts() { for _ in 1 2 3; do post "reload-sync(cat '$run/alone/rows')"; post 'pos(2)'; sleep 0.2; done; }
-started=$(mouse a "$alone")
+started=$(mouse chkmousef "$alone")
 posts
-check "fzf alone keeps its mouse under posts while idle" test "$(mouse a "$alone")" = "$started"
+check "fzf alone keeps its mouse under posts while idle" test "$(mouse chkmousef "$alone")" = "$started"
 a send-keys -t "$alone" Enter
 sleep 0.2
 posts
 sleep 2
-echo "      fzf $(fzf --version | cut -d' ' -f1): flags $started at start, $(mouse a "$alone") after posts during an execute"
+echo "      fzf $(fzf --version | cut -d' ' -f1): flags $started at start, $(mouse chkmousef "$alone") after posts during an execute"
 check "fzf alone drops its mouse under posts during an execute (the workaround's reason)" \
-  test "$(mouse a "$alone")" = 000
+  test "$(mouse chkmousef "$alone")" = 000
 
 # the sidebar: a's Clawd moving, b's still, each in a window of its own
 pane_a=$(w new-session -d -P -F '#{pane_id}' -s work -x 120 -y 40 'sleep 3600')
@@ -95,7 +95,7 @@ for k in $(seq "$jumps"); do
   if (( k % 2 )); then line=$line_b want=$pane_b; else line=$line_a want=$pane_a; fi
   click "$line"
   sleep 1.6
-  [[ $(mouse f "$side") == 111 ]] || { dropped=$((dropped + 1)); printf '\e[?1000h\e[?1002h\e[?1006h' >"$(f display -p -t "$side" '#{pane_tty}')"; }
+  [[ $(mouse chkmouse "$side") == 111 ]] || { dropped=$((dropped + 1)); printf '\e[?1000h\e[?1002h\e[?1006h' >"$(f display -p -t "$side" '#{pane_tty}')"; }
   [[ $(client_pane) == "$want" ]] || missed=$((missed + 1))
 done
 echo "      $jumps click jumps: mouse dropped after $dropped, client missed $missed"
