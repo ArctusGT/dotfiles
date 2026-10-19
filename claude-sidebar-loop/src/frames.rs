@@ -446,9 +446,11 @@ const OCTANTS: &str = concat!(
 /// octant: the first lit pixel is the ink and lights the glyph, and a second
 /// colour filling the rest of the cell is its background, closed again (49)
 /// so it stops at the cell. A second colour in a cell that is not full is
-/// not drawn. Faint dims only a foreground, so where `faint`, a cell with a
-/// background turns faint off (22) and draws both colours faded, then turns
-/// faint back on
+/// not drawn. Where `faint`, a cell turns faint off (22), draws its colours
+/// faded by hand, and turns faint back on, rather than leaving the dimming
+/// to SGR 2: faint dims only a foreground, and fzf draws its current line
+/// bold, under which Ghostty keeps faint on some glyphs and drops it from
+/// others, so a sprite dimmed by SGR 2 comes out patchy when selected
 fn octant(pixels: [Option<&str>; 8], faint: bool) -> String {
     let lit: Vec<&str> = pixels.iter().flatten().copied().collect();
     let Some(&ink) = lit.first() else {
@@ -463,10 +465,13 @@ fn octant(pixels: [Option<&str>; 8], faint: bool) -> String {
         .filter(|&k| pixels[k] == Some(ink))
         .fold(0, |bits, k| bits | 1 << k);
     let glyph = OCTANTS.chars().nth(bits).unwrap_or(' ').to_string();
-    match background {
-        None => paint(&glyph, ink),
-        Some(bg) if faint => format!("\x1b[22m{}{DIM}", paint_on(&glyph, &faded(ink), &faded(bg))),
-        Some(bg) => paint_on(&glyph, ink, bg),
+    match (background, faint) {
+        (None, false) => paint(&glyph, ink),
+        (None, true) => format!("\x1b[22m{}{DIM}", paint(&glyph, &faded(ink))),
+        (Some(bg), false) => paint_on(&glyph, ink, bg),
+        (Some(bg), true) => {
+            format!("\x1b[22m{}{DIM}", paint_on(&glyph, &faded(ink), &faded(bg)))
+        }
     }
 }
 
