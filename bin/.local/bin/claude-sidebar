@@ -27,7 +27,7 @@
 #                     the pins as they are. The pins are in
 #                     ${XDG_STATE_HOME:-~/.local/state}/claude-sidebar/pins
 #   pin-shown N       pin the repo on show in the frame's right pane to entry
-#                     number N (the frame's M-Shift-1..9), as the running
+#                     number N (Alt+Shift+1..9, in the usual tmux), as the running
 #                     sidebar shows it, saying so in tmux's message line
 #   kick              have a running sidebar rebuild now (tmux hooks call it
 #                     when a client changes session or window)

@@ -468,6 +468,31 @@ bind -n C-M-S-Left  if -F '#{@ssh_tmux}' 'send-keys C-M-S-Left'  { if -F '#{!:#{
 bind -n C-M-S-Right if -F '#{@ssh_tmux}' 'send-keys C-M-S-Right' { if -F '#{!:#{pane_at_right}}'  'swap-pane -d -t "{right-of}"' }
 bind -n C-M-S-Up    if -F '#{@ssh_tmux}' 'send-keys C-M-S-Up'    { if -F '#{!:#{pane_at_top}}'    'swap-pane -d -t "{up-of}"' }
 bind -n C-M-S-Down  if -F '#{@ssh_tmux}' 'send-keys C-M-S-Down'  { if -F '#{!:#{pane_at_bottom}}' 'swap-pane -d -t "{down-of}"' }
+# Alt+Shift+1..9 pins the repo the frame's right pane shows to the sidebar's
+# entry N (`claude-sidebar pin-shown`), so the frame's M-N comes back to it;
+# outside the frame it says there is none. Bound here, not in the frame,
+# because inside the frame the key reaches this tmux unmatched there. Each
+# under both names tmux may give it: the shifted character of a US layout,
+# and M-S-N where the terminal reports the key with its modifiers. In an
+# ssh-tmux window too, since the sidebar marks the remote repo on show
+bind -n 'M-!' run-shell -b '~/.local/bin/claude-sidebar pin-shown 1'
+bind -n 'M-@' run-shell -b '~/.local/bin/claude-sidebar pin-shown 2'
+bind -n 'M-#' run-shell -b '~/.local/bin/claude-sidebar pin-shown 3'
+bind -n 'M-$' run-shell -b '~/.local/bin/claude-sidebar pin-shown 4'
+bind -n 'M-%' run-shell -b '~/.local/bin/claude-sidebar pin-shown 5'
+bind -n 'M-^' run-shell -b '~/.local/bin/claude-sidebar pin-shown 6'
+bind -n 'M-&' run-shell -b '~/.local/bin/claude-sidebar pin-shown 7'
+bind -n 'M-*' run-shell -b '~/.local/bin/claude-sidebar pin-shown 8'
+bind -n 'M-(' run-shell -b '~/.local/bin/claude-sidebar pin-shown 9'
+bind -n M-S-1 run-shell -b '~/.local/bin/claude-sidebar pin-shown 1'
+bind -n M-S-2 run-shell -b '~/.local/bin/claude-sidebar pin-shown 2'
+bind -n M-S-3 run-shell -b '~/.local/bin/claude-sidebar pin-shown 3'
+bind -n M-S-4 run-shell -b '~/.local/bin/claude-sidebar pin-shown 4'
+bind -n M-S-5 run-shell -b '~/.local/bin/claude-sidebar pin-shown 5'
+bind -n M-S-6 run-shell -b '~/.local/bin/claude-sidebar pin-shown 6'
+bind -n M-S-7 run-shell -b '~/.local/bin/claude-sidebar pin-shown 7'
+bind -n M-S-8 run-shell -b '~/.local/bin/claude-sidebar pin-shown 8'
+bind -n M-S-9 run-shell -b '~/.local/bin/claude-sidebar pin-shown 9'
 # Option+drag from one pane, released over another, swaps the two. In a mouse
 # binding `=` and the default pane are both the pane under the pointer, so the
 # drag's start is kept in @drag_src for the swap at its end, which run-shell -C
