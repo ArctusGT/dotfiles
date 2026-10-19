@@ -159,7 +159,7 @@ pane closes the frame.
 The sidebar lists every Claude session on the Mac and on each host a sesh
 entry reaches through `ssh-tmux`, under one heading per host. Each entry shows
 Clawd, Claude Code's mascot, beside its number, repo, name, then state, time in
-that state, a yellow `●` where its window carries `@claude_wait` (a turn ended
+that state, a magenta `●` where its window carries `@claude_wait` (a turn ended
 or a question came while nobody looked, the dot the status bar draws) and
 running subagents (`+N`). Clawd is orange and runs while the
 session works, yellow while it waits on you, looking about, stamping and

@@ -40,6 +40,7 @@ const RED: &str = "31";
 const GREEN: &str = "32";
 const YELLOW: &str = "33";
 const BLUE: &str = "34";
+const MAGENTA: &str = "35";
 /// palette 8, #414868
 const TERMINAL_BLACK: &str = "90";
 /// #ff9e64
@@ -52,7 +53,7 @@ const BANDANA_COLOURS: [&str; 9] = [
     RED,
     GREEN,
     BLUE,
-    "35",
+    MAGENTA,
     "36",
     "38;2;115;218;202",
     "38;2;192;202;245",
@@ -202,9 +203,10 @@ impl Entry {
             "   {}\n",
             session.name.as_deref().unwrap_or_else(|| short_id(&session.id))
         );
-        // the status bar's dot, in YELLOW (tmux colour 3), after the age
+        // the status bar's dot after the age, in MAGENTA: clear of every
+        // colour the status line gives a state
         let unseen_label = if session.unseen {
-            format!(" {}", paint("●", YELLOW))
+            format!(" {}", paint("●", MAGENTA))
         } else {
             String::new()
         };
@@ -841,7 +843,7 @@ mod tests {
         };
         assert!(status_line("").starts_with("   idle 1m\n"));
         assert!(status_line(",\"unseen\":false").starts_with("   idle 1m\n"));
-        assert!(status_line(",\"unseen\":true").starts_with("   idle 1m \x1b[33m●\x1b[39m\n"));
+        assert!(status_line(",\"unseen\":true").starts_with("   idle 1m \x1b[35m●\x1b[39m\n"));
     }
 
     #[test]
