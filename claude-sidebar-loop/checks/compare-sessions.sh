@@ -77,9 +77,9 @@ build() { # $1 fixture root, $2 with|without records
 status=0
 for mode in with without; do
   cp "$panes_file" "$work/panes"
-  printf '%%fx1\tfx-job\tclaude\tjobfx\n' >>"$work/panes"
-  printf '%%fx2\tgone-session\tclaude\t✳ nothing\n' >>"$work/panes"
-  printf '%%fx3\t\tclaude\t◐ ctx-fx-titled\n' >>"$work/panes"
+  printf '%%fx1\tfx-job\tclaude\t1\tjobfx\n' >>"$work/panes"
+  printf '%%fx2\tgone-session\tclaude\t\t✳ nothing\n' >>"$work/panes"
+  printf '%%fx3\t\tclaude\t\t◐ ctx-fx-titled\n' >>"$work/panes"
   for which in old new; do
     build "$work/$mode-$which" "$mode"
     script=$reference; [[ $which == new ]] && script=$work/new
@@ -97,6 +97,6 @@ for mode in with without; do
   echo "$mode records, fixture files left (claude-sessions):"
   grep 'fx-\|zz-' "$work/$mode-old.tree" | sed 's/^/  /'
   echo "$mode records, sessions printed (claude-sessions):"
-  jq -r '"  \(.session_id) \(.tmux_pane) subagents=\(.subagents) name=\(.name) used_pct=\(.context.used_pct)"' "$work/$mode-old.out"
+  jq -r '"  \(.session_id) \(.tmux_pane) subagents=\(.subagents) name=\(.name) used_pct=\(.context.used_pct) unseen=\(.unseen)"' "$work/$mode-old.out"
 done
 exit $status

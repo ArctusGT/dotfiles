@@ -41,7 +41,7 @@ then retire the status bar's dots.
 - [x] On a throwaway tmux server with its own TMPDIR, setting and unsetting
       `@claude_wait` on a session's window shows and clears the mark within
       a gather, and the other entries' rows are byte-identical to before
-- [ ] The binary's local sessions still equal `claude-sessions`' output,
+- [x] The binary's local sessions still equal `claude-sessions`' output,
       by the shipped comparison, with the field present in both
 - [ ] A session without the flag, a session with no pane, and a remote
       host whose output lacks the field all render as today
