@@ -27,8 +27,9 @@
 #                     the pins as they are. The pins are in
 #                     ${XDG_STATE_HOME:-~/.local/state}/claude-sidebar/pins
 #   pin-shown N       pin the repo on show in the frame's right pane to entry
-#                     number N (Alt+Shift+1..9, in the usual tmux), as the running
-#                     sidebar shows it, saying so in tmux's message line
+#                     number N (Alt+Shift+1..9, in the usual tmux), as the
+#                     running sidebar shows it; with none on show, says so in
+#                     tmux's message line
 #   kick              have a running sidebar rebuild now (tmux hooks call it
 #                     when a client changes session or window)
 #   edge SIDE TTY PANE [HOST]
@@ -295,7 +296,6 @@ pin_shown() { # $1 entry number
     return 0
   fi
   set_pin "$1" "$host" "$repo"
-  tmux display-message "M-$1 is ${host:+$host }$repo"
 }
 
 # pin repo $3 on ssh host $2 (empty for this one) to entry number $1, taking
