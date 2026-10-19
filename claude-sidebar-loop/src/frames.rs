@@ -203,8 +203,8 @@ impl Entry {
             "   {}\n",
             session.name.as_deref().unwrap_or_else(|| short_id(&session.id))
         );
-        // the status bar's dot after the age, in MAGENTA: clear of every
-        // colour the status line gives a state
+        // a dot after the age for a window the status bar dots in yellow,
+        // MAGENTA here: clear of every colour the status line gives a state
         let unseen_label = if session.unseen {
             format!(" {}", paint("●", MAGENTA))
         } else {
