@@ -51,6 +51,9 @@ struct Record {
     interactive: bool,
     /// a background job's id, which Claude Code also gives it as its name
     job_id: Value,
+    /// an interactive session's: the id of the background job it parked its
+    /// conversation as
+    parked_job_id: Value,
     pid: Value,
 }
 
@@ -215,6 +218,7 @@ impl From<&Value> for Record {
             spare: record.get("spare") == &Value::Bool(true),
             interactive: record.get("kind").as_str() == Some("interactive"),
             job_id: record.get("jobId").clone(),
+            parked_job_id: record.get("parkedJobId").clone(),
             pid: record.get("pid").clone(),
         }
     }
@@ -354,8 +358,9 @@ fn subagents(dir: &Path, id: &str) -> usize {
 /// resumed job shares with the session it came from, so for a job with no
 /// name of its own the title cannot tell the two apart. An untagged Claude
 /// pane shows the session its title names, else the one the hooks recorded
-/// in it. The tag before the record, since a `claude attach` client runs its
-/// own hooks and records its interactive session in the tagged pane too. A
+/// in it, or the job either parked. The tag before the record, since a
+/// `claude attach` client runs its own hooks and records its interactive
+/// session in the tagged pane too. A
 /// tag naming no live session counts as none: /clear in an attached job
 /// gives its conversation a new id, and the pane goes on showing it
 fn shows(panes: &[Pane], sessions: &[Value], records: &Records) -> ByPane {
@@ -385,9 +390,13 @@ fn shows(panes: &[Pane], sessions: &[Value], records: &Records) -> ByPane {
         let tag_live = sessions.iter().any(|s| s.get("session_id") == &pane.tag);
         let own = names(sessions, &pane.tag, records);
         if !tag_live {
-            or(
-                titled(pane),
-                at(&recorded, &Value::String(pane.id.clone())).clone(),
+            unparked(
+                or(
+                    titled(pane),
+                    at(&recorded, &Value::String(pane.id.clone())).clone(),
+                ),
+                sessions,
+                records,
             )
         } else if own.is_empty() || own.contains(&&pane.title) {
             pane.tag.clone()
@@ -396,6 +405,24 @@ fn shows(panes: &[Pane], sessions: &[Value], records: &Records) -> ByPane {
         }
     };
     panes.iter().map(|p| (p.id.clone(), shown(p))).collect()
+}
+
+/// the live background job session `id` parked its conversation as, else
+/// `id`: starting a new chat while one works parks the working one, and the
+/// pane goes on showing it. A parked job since gone counts as none
+fn unparked(id: Value, sessions: &[Value], records: &Records) -> Value {
+    let Some(job) = record(records, &id)
+        .map(|r| &r.parked_job_id)
+        .filter(|job| **job != Value::Null)
+    else {
+        return id;
+    };
+    sessions
+        .iter()
+        .map(|s| s.get("session_id"))
+        .find(|s| record(records, s).is_some_and(|r| &r.job_id == job))
+        .cloned()
+        .unwrap_or(id)
 }
 
 /// the names session `id` goes by, less the default Claude Code gives a

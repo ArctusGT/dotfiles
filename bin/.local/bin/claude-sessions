@@ -12,7 +12,9 @@
 # recorded one first. A pane shows the session its title names, alone among
 # the live ones, if it runs Claude Code; else the one tagged on it
 # (@claude_attach, by `claude-sidebar`); else the one the hooks recorded in
-# it. An interactive session whose pane shows another one is left out, since
+# it. A pane whose interactive session parked its conversation as a live
+# background job shows that job instead, as Claude Code goes on showing it
+# there. An interactive session whose pane shows another one is left out, since
 # that pane is the other session's entry. A pre-warmed spare, which a `claude
 # daemon` keeps idle for its next background job and which has nothing to
 # attach to, is left out.
@@ -34,12 +36,12 @@ panes=$(env -u TMUX -u TMUX_PANE tmux list-panes -a \
            title: (.[3:] | join("\t") | sub("^[✳◐◑] "; ""))}]')
 [[ -n $panes ]] || panes='[]'
 
-# {session id: {name, spare, kind, jobId, pid}} from Claude Code's own records
-# (~/.claude/sessions/<pid>.json); keyed by id, since their pid need not be
-# the one the hooks record. With no records the glob vanishes under nullglob,
+# {session id: {name, spare, kind, jobId, parkedJobId, pid}} from Claude
+# Code's own records (~/.claude/sessions/<pid>.json); keyed by id, since
+# their pid need not be the one the hooks record. With no records the glob vanishes under nullglob,
 # so `cat` gets /dev/null as stdin rather than waiting on the caller's
 records=$(cat ~/.claude/sessions/*.json </dev/null 2>/dev/null |
-  jq -sc 'map({(.sessionId): {name, spare, kind, jobId, pid}}) | add // {}' 2>/dev/null)
+  jq -sc 'map({(.sessionId): {name, spare, kind, jobId, parkedJobId, pid}}) | add // {}' 2>/dev/null)
 [[ -n $records ]] || records='{}'
 
 # this and the exit after the loop are not only shortcuts: jq given no files
@@ -101,14 +103,20 @@ jq -nc --argjson panes "$panes" --argjson records "$records" "${subagent_counts[
   # background job (its job id), which is no name at all
   | def names($s): [$sessions[] | select(.session_id == $s) | .name, .context.name?]
       | map(select(. != null and . != $records[$s].jobId));
+  # the live background job session $s parked its conversation as, else $s:
+  # starting a new chat while one works parks the working one, and the pane
+  # goes on showing it. A parked job since gone counts as none
+  def unparked($s): $records[$s // ""].parkedJobId as $job
+      | [$sessions[] | select($job != null and $records[.session_id].jobId == $job) | .session_id][0] // $s;
   # {pane: the session it shows}. A tagged pane shows its tag, unless that
   # session has a name and the title of the pane names another one: an attach
   # client titles its pane with the title of the conversation, which a resumed
   # job shares with the session it came from, so for a job with no name of
   # its own the title cannot tell the two apart. An untagged Claude pane
   # shows the session its title names, else the one the hooks recorded in
-  # it. The tag before the record, since a `claude attach` client runs its
-  # own hooks and records its interactive session in the tagged pane too. A
+  # it, or the job either parked. The tag before the record, since a `claude
+  # attach` client runs its own hooks and records its interactive session in
+  # the tagged pane too. A
   # tag naming no live session counts as none: /clear in an attached job
   # gives its conversation a new id, and the pane goes on showing it
   ($panes | map(.title as $title | .tag as $tag | {key: .id, value: (
@@ -116,7 +124,7 @@ jq -nc --argjson panes "$panes" --argjson records "$records" "${subagent_counts[
         (names(.tag) as $own
          | if ($own | length) > 0 and ($own | index($title) | not)
            then ((select(.runs_claude) | titled) // .tag) else .tag end)
-      else (select(.runs_claude) | titled) // $recorded[.id] end)})
+      else unparked((select(.runs_claude) | titled) // $recorded[.id]) end)})
      | from_entries) as $shows
   | $sessions[]
   | .session_id as $s
