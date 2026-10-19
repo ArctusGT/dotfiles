@@ -90,9 +90,10 @@ LOCAL = [
     ("a5555555-0000-4000-8000-000000000005", "working", 90, None, "/Users/x/five", {"used_pct": 12}, 0, "cli"),
     ("a6666666-0000-4000-8000-000000000006", "idle", 90, None, "/Users/x/six", None, 0, "claude-desktop"),
 ]
-# the default tmux server's panes: id, tag, command, title
-PANES = [("%1", "", "claude", "one"), ("%2", "", "claude", "two"), ("%3", "", "claude", "three"),
-         ("%4", "", "claude", "four"), ("%5", "", "zsh", "arc@host:~")]
+# the default tmux server's panes: id, tag, command, @claude_wait, title; a
+# revision from before the wait column is served the line without it
+PANES = [("%1", "", "claude", "", "one"), ("%2", "", "claude", "", "two"), ("%3", "", "claude", "", "three"),
+         ("%4", "", "claude", "", "four"), ("%5", "", "zsh", "", "arc@host:~")]
 
 
 def fixture(shown):
@@ -122,7 +123,10 @@ def fixture(shown):
     open(os.path.join(root, "shown"), "w").write(shown + "\n")
     stub_tmux = """#!/bin/sh
 case "$1 $2" in
-  "list-panes -a") cat '%(r)s/panes' ;;
+  "list-panes -a") case "$*" in
+    *claude_wait*) cat '%(r)s/panes' ;;
+    *) awk -F'\t' -v OFS='\t' '{ print $1, $2, $3, $5 }' '%(r)s/panes' ;;
+  esac ;;
   "list-panes -s") echo '1 %%frame /dev/fake' ;;
   "display -p") cat '%(r)s/shown' ;;
 esac

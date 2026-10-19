@@ -43,7 +43,7 @@ then retire the status bar's dots.
       a gather, and the other entries' rows are byte-identical to before
 - [x] The binary's local sessions still equal `claude-sessions`' output,
       by the shipped comparison, with the field present in both
-- [ ] A session without the flag, a session with no pane, and a remote
+- [x] A session without the flag, a session with no pane, and a remote
       host whose output lacks the field all render as today
 - [ ] The Maintainer sees the mark beside a session the status bar shows a
       dot for, locally and on mgmt-1, and sees it clear on jumping to it
