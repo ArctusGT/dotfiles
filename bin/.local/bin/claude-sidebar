@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-sidebar [rows|pick N|pin HOST REPO|kick|edge|jump|attach]: list every Claude session on this host and
+# claude-sidebar [rows|pick N|pin HOST REPO|pin-shown N|kick|edge|jump|attach]: list every Claude session on this host and
 # on each host the sesh config reaches through `ssh-tmux`, grouped by host, and
 # jump to one. With no argument, runs the list in fzf; Enter or a click jumps,
 # and alt-p pins the repo whose first entry the cursor is on.
@@ -26,6 +26,9 @@
 #                     repo that had it; 0 unpins REPO, and any other key leaves
 #                     the pins as they are. The pins are in
 #                     ${XDG_STATE_HOME:-~/.local/state}/claude-sidebar/pins
+#   pin-shown N       pin the repo on show in the frame's right pane to entry
+#                     number N (the frame's M-Shift-1..9), as the running
+#                     sidebar shows it, saying so in tmux's message line
 #   kick              have a running sidebar rebuild now (tmux hooks call it
 #                     when a client changes session or window)
 #   edge SIDE TTY PANE [HOST]
@@ -269,7 +272,6 @@ step() {
 # repo's first entry carries its repo, so from any other this says so instead
 pin() { # $1 ssh host, $2 repo
   local host=$1 repo=$2 key
-  local pins=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sidebar/pins
   if [[ -z $repo ]]; then
     printf '\npin a repo from its first entry'
     sleep 1
@@ -278,12 +280,34 @@ pin() { # $1 ssh host, $2 repo
   printf '\npin %s%s to 1-9, 0 unpins: ' "${host:+$host }" "$repo"
   read -rsn1 key
   [[ $key == [0-9] ]] || return 0
+  set_pin "$key" "$host" "$repo"
+}
+
+# pin the repo on show in the frame's right pane to entry number $1: the
+# entry the running sidebar marks on show, which leads its repo
+pin_shown() { # $1 entry number
+  local host repo
+  IFS=$'\x1f' read -r host repo < <(perl -0ne '
+    chomp; @f = split /\t/, $_, -1;
+    if ($f[5] eq "1") { print join("\x1f", $f[0], $f[6]), "\n"; exit }' "$cache/rows.0" 2>/dev/null)
+  if [[ -z $repo ]]; then
+    tmux display-message "no repo on show to pin"
+    return 0
+  fi
+  set_pin "$1" "$host" "$repo"
+  tmux display-message "M-$1 is ${host:+$host }$repo"
+}
+
+# pin repo $3 on ssh host $2 (empty for this one) to entry number $1, taking
+# the number from any repo that had it; 0 unpins the repo
+set_pin() { # $1 number, $2 ssh host, $3 repo
+  local pins=${XDG_STATE_HOME:-$HOME/.local/state}/claude-sidebar/pins
   mkdir -p "${pins%/*}"
   # the other pins, less any on this number or for this repo, then this one
   {
-    [[ -f $pins ]] && awk -F'\t' -v k="$key" -v h="$host" -v r="$repo" \
+    [[ -f $pins ]] && awk -F'\t' -v k="$1" -v h="$2" -v r="$3" \
       '$1 != k && !($2 == h && $3 == r)' "$pins"
-    [[ $key == 0 ]] || printf '%s\t%s\t%s\n' "$key" "$host" "$repo"
+    [[ $1 == 0 ]] || printf '%s\t%s\t%s\n' "$1" "$2" "$3"
   } | sort -n >"$pins.$$" && mv "$pins.$$" "$pins"
   kick
 }
@@ -319,6 +343,7 @@ case $1 in
   rows) claude-sidebar-loop rows ;;
   pick) pick "$2" ;;
   pin) pin "$2" "$3" ;;
+  pin-shown) pin_shown "$2" ;;
   kick) kick ;;
   edge) edge "$2" "$3" "$4" "$5" ;;
   jump) jump "$2" "$3" "$4" "$5" ;;
