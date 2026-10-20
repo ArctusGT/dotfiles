@@ -40,7 +40,7 @@ mixed with the theme's variables, so they load only under Oh my tmux!:
   bindings run (`kick`, `edge`, `pin-shown`), which agent-sidebar installs
 
 **Acceptance criteria:**
-- [ ] On a throwaway tmux server (its own `-L` socket and `TMPDIR`), the
+- [x] On a throwaway tmux server (its own `-L` socket and `TMPDIR`), the
       Oh my tmux! config with the file loaded gives the same `list-keys`
       and `show-hooks -g` as the config before the change
 - [ ] Sourcing the file twice leaves `list-keys` and `show-hooks -g` as

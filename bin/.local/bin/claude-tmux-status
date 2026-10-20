@@ -3,7 +3,8 @@
 # `wait` (Notification, Stop) marks Claude's tmux window with @claude_wait and
 # rings its bell, plus the ssh-tmux relay client the server records as
 # @relay_client; `clear` (UserPromptSubmit) unmarks it. Marked windows show in
-# the status bar of every session that draws one (see .tmux.conf.local).
+# the status bar of every session that draws one (@claude_wait_marker in
+# tmux-sidebar/.tmux-sidebar.conf).
 # Reads $TMUX_PANE, which Claude inherits from its pane, and $SSH_CONNECTION.
 # A session with no pane, run by a `claude daemon`, still rings the relay on
 # `wait`, so the Mac marks its ssh window; its `tmux` is whichever the hook's

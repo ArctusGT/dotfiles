@@ -2,9 +2,10 @@
 # which wins where both set the same option.
 
 # Cmd+arrows and Cmd+Shift+arrows move between and swap tmux panes
-# (tmux/.tmux.conf.local). tmux reads a Cmd modifier as Alt, so these send
-# Ctrl+Alt+arrow and Ctrl+Alt+Shift+arrow, which tmux binds. They replace
-# Ghostty's line start/end and jump-to-prompt defaults.
+# (tmux-sidebar/.tmux-sidebar.conf and tmux/.tmux.conf.local). tmux reads a
+# Cmd modifier as Alt, so these send Ctrl+Alt+arrow and Ctrl+Alt+Shift+arrow,
+# which tmux binds. They replace Ghostty's line start/end and jump-to-prompt
+# defaults.
 keybind = super+arrow_left=csi:1;7D
 keybind = super+arrow_right=csi:1;7C
 keybind = super+arrow_up=csi:1;7A

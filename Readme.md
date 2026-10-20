@@ -87,8 +87,13 @@ cd ~/dotfiles
 From inside `~/dotfiles`, run stow for the packages you want:
 
 ```bash
-stow zsh tmux nvim bin sesh claude lazygit
+stow zsh tmux tmux-sidebar nvim bin sesh claude lazygit
 ```
+
+`tmux-sidebar` holds the sidebar's keys, hooks and waiting marker for the
+usual tmux, as `~/.tmux-sidebar.conf`, which the `tmux` package's
+`~/.tmux.conf.local` loads; without it that tmux reports the missing file on
+start.
 
 On the Mac, also `stow ghostty` (Ghostty's keys and its TokyoNight Night theme,
 the palette tmux's bar names by number; hosts like mgmt-1 do not
@@ -97,6 +102,7 @@ need it).
 This creates symlinks like:
 - `~/.zshrc -> ~/dotfiles/zsh/.zshrc`
 - `~/.tmux.conf -> ~/dotfiles/tmux/.tmux.conf`
+- `~/.tmux-sidebar.conf -> ~/dotfiles/tmux-sidebar/.tmux-sidebar.conf`
 - `~/.config/nvim -> ~/dotfiles/nvim/.config/nvim`
 - `~/.local/bin/espidf-index -> ~/dotfiles/bin/.local/bin/espidf-index`
 
