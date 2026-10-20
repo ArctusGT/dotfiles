@@ -93,9 +93,12 @@ cd ~/dotfiles
 ```
 
 ### 2) Symlink configs into `$HOME`
-From inside `~/dotfiles`, run stow for the packages you want:
+From inside `~/dotfiles`, run stow for the packages you want. Make
+`~/.local/bin` first: where it is missing, stow links the whole directory into
+this repo, and anything installed there afterwards lands in the repo instead.
 
 ```bash
+mkdir -p ~/.local/bin
 stow zsh tmux tmux-sidebar nvim bin sesh claude lazygit
 ```
 
@@ -162,49 +165,6 @@ Useful after reorganising files:
 ```bash
 stow -R zsh tmux nvim bin
 ```
-
-### 6) Move a host's sidebar to agent-sidebar
-A host that stowed `bin` or `tmux` before the sidebar moved out holds links
-to its programs and to `~/.tmux-frame.conf` in this repo. Unstow those two
-packages before pulling, so stow still sees the files it linked, and restow
-after. Between the unstow and the install, the Claude hooks on the host find
-no program, so run the steps together.
-
-On the Mac, from a zsh as yourself:
-
-```bash
-git clone https://github.com/ArctusGT/agent-sidebar.git ~/Play/agent-sidebar
-cd ~/dotfiles
-stow -D bin tmux
-git pull
-stow bin tmux
-cargo uninstall --root ~/.local claude-sidebar-loop
-cd ~/Play/agent-sidebar
-./install.sh workstation
-find -L ~/.local/bin ~ -maxdepth 1 -type l
-```
-
-On mgmt-1, the same with `host`, from a zsh as `sysadmin`, never through
-`sudo` or a root shell: their PATH lacks `~/.local/bin`, so `tmux` there is
-EL10's own, which aborts the server (see RHEL above).
-
-```bash
-git clone https://github.com/ArctusGT/agent-sidebar.git ~/Play/agent-sidebar
-cd ~/dotfiles
-stow -D bin tmux
-git pull
-stow bin tmux
-cargo uninstall --root ~/.local claude-sidebar-loop
-cd ~/Play/agent-sidebar
-./install.sh host
-find -L ~/.local/bin ~ -maxdepth 1 -type l
-```
-
-`cargo uninstall` removes the loop the earlier `cargo install` put in
-`~/.local/bin`, and cargo's record of it; it reports a host that never
-installed it, and the steps carry on. `install.sh` ends in `installed` lines,
-or names what it lacks and changes nothing. The last line lists any link left
-pointing at nothing, and should print nothing.
 
 ---
 
