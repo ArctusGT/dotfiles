@@ -45,7 +45,7 @@ mixed with the theme's variables, so they load only under Oh my tmux!:
       and `show-hooks -g` as the config before the change
 - [x] Sourcing the file twice leaves `list-keys` and `show-hooks -g` as
       sourcing it once
-- [ ] A status line holding the marker's format shows `● session:window`
+- [x] A status line holding the marker's format shows `● session:window`
       for a window carrying `@claude_wait`, and clicking it switches there
 - [ ] On the Mac, the Maintainer sees the sidebar's keys, the waiting
       marker and the status click behave as before
