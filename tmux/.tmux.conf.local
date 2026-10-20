@@ -425,9 +425,9 @@ source-file ~/.tmux-sidebar.conf
 # panes: Cmd+Shift+arrows swap with the neighbour that way and keep focus on
 # the moved pane; Cmd+arrows, which focus it, are the sidebar's. Each tests
 # pane_at_<side> first, as tmux wraps at a window's edge (the inner #{} in
-# #{!:#{pane_at_left}} is needed, as there). Ghostty sends these
-# as Ctrl+Alt+Shift+arrow (ghostty/.config/ghostty/config). In an ssh-tmux
-# window they go to the remote tmux.
+# #{!:#{pane_at_left}} is needed; .tmux-sidebar.conf says why). Ghostty
+# sends these as Ctrl+Alt+Shift+arrow (ghostty/.config/ghostty/config). In an
+# ssh-tmux window they go to the remote tmux.
 bind -n C-M-S-Left  if -F '#{@ssh_tmux}' 'send-keys C-M-S-Left'  { if -F '#{!:#{pane_at_left}}'   'swap-pane -d -t "{left-of}"' }
 bind -n C-M-S-Right if -F '#{@ssh_tmux}' 'send-keys C-M-S-Right' { if -F '#{!:#{pane_at_right}}'  'swap-pane -d -t "{right-of}"' }
 bind -n C-M-S-Up    if -F '#{@ssh_tmux}' 'send-keys C-M-S-Up'    { if -F '#{!:#{pane_at_top}}'    'swap-pane -d -t "{up-of}"' }
