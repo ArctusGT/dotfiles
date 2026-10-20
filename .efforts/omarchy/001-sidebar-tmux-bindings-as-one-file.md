@@ -2,7 +2,7 @@
 
 **Category:** enhancement
 **Summary:** The sidebar's bindings, hooks and settings in the main tmux move out of the Oh my tmux! local config into one file that any tmux config in this repo loads with one line, so the Mac and Omarchy hosts share them
-**Status:** ready-for-agent
+**Status:** ready-for-human
 **blocked-by:**
 
 **Current behavior:**
@@ -54,3 +54,30 @@ mixed with the theme's variables, so they load only under Oh my tmux!:
 - Omarchy's tmux config (002)
 - The frame's own keys, which agent-sidebar reads from a keybindings file
 - Moving the Mac's tmux to Omarchy's conventions
+
+## Comments
+
+- "holds nothing overriding Omarchy's own tmux config" traces to no
+  decision the file could meet literally: it rebinds Omarchy's
+  `C-M-arrow` focus keys (which 002 accepts; they don't wrap at a
+  window's edge as Omarchy's do) and, inside the frame only, raises
+  Omarchy's `extended-keys on` to `always`. What holds is that the
+  package adds nothing tmux reads on its own and nothing under
+  `~/.config/tmux/`. Proposed wording: "adds no file tmux loads on its
+  own".
+- `tmux/.tmux-frame.conf`, which `tmux-frame` loads, is in the `tmux`
+  package that an Omarchy host never stows (002), so the frame has no
+  config there. It belongs with the sidebar, in `tmux-sidebar` or
+  agent-sidebar: 002's call, or agent-sidebar's?
+- Omarchy's `status-right-length 50` will cut the marker short with
+  more than one waiting window beside its own content; 002's status
+  check is worth making with two.
+- The status click runs `run-shell 'tmux switch-client ...'`, a `tmux`
+  found by the server's PATH (EL10's broken one on mgmt-1 if that PATH
+  lacks `~/.local/bin`). `run-shell -C`, as the Option+drag release
+  uses, would avoid the lookup but changes `list-keys`, so it was left.
+- Readme's sidebar section calls the sidebar's magenta `●` "the dot the
+  status bar draws"; the status bar's marker is yellow (colour 3).
+  Predates this slice.
+- Every host that stows `tmux` (the Mac, mgmt-1) needs
+  `stow tmux-sidebar` before its next tmux start or reload.

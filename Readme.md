@@ -90,10 +90,9 @@ From inside `~/dotfiles`, run stow for the packages you want:
 stow zsh tmux tmux-sidebar nvim bin sesh claude lazygit
 ```
 
-`tmux-sidebar` holds the sidebar's keys, hooks and waiting marker for the
-usual tmux, as `~/.tmux-sidebar.conf`, which the `tmux` package's
-`~/.tmux.conf.local` loads; without it that tmux reports the missing file on
-start.
+Stow `tmux-sidebar` wherever `tmux` is stowed: `~/.tmux.conf.local` loads
+`~/.tmux-sidebar.conf`, and without it tmux reports the missing file on start
+and the sidebar's keys are gone.
 
 On the Mac, also `stow ghostty` (Ghostty's keys and its TokyoNight Night theme,
 the palette tmux's bar names by number; hosts like mgmt-1 do not
