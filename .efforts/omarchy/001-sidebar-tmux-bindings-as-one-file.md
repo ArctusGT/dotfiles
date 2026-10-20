@@ -43,7 +43,7 @@ mixed with the theme's variables, so they load only under Oh my tmux!:
 - [x] On a throwaway tmux server (its own `-L` socket and `TMPDIR`), the
       Oh my tmux! config with the file loaded gives the same `list-keys`
       and `show-hooks -g` as the config before the change
-- [ ] Sourcing the file twice leaves `list-keys` and `show-hooks -g` as
+- [x] Sourcing the file twice leaves `list-keys` and `show-hooks -g` as
       sourcing it once
 - [ ] A status line holding the marker's format shows `● session:window`
       for a window carrying `@claude_wait`, and clicking it switches there
