@@ -15,8 +15,8 @@ lacks `~/.local/bin` (root, `sudo`, `env -i`), and prefer `display -p` or
 `list-windows -F` for reading state.
 
 The Claude sessions sidebar's programs come from agent-sidebar, installed on
-its own (`Readme.md`). The `claude`, `tmux-sidebar` and `sesh` packages hold
-only the configuration calling them under `~/.local/bin`.
+its own (`Readme.md`). This repo keeps only the configuration calling them
+under `~/.local/bin`, in the `claude`, `tmux-sidebar` and `sesh` packages.
 
 Not stow packages, and never stowed:
 - `.agents/` — the shared kit (submodule).

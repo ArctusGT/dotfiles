@@ -38,10 +38,10 @@ sudo dnf install git curl zsh tmux fzf stow ripgrep fd-find ghostscript cargo np
 
 On EL10 (Enterprise Linux 10: RHEL and Rocky Linux 10), dnf's tmux is a git
 snapshot (`tmux -V` says `next-3.4`) that aborts the whole server on any
-`capture-pane`, which the theme's `F` binding and the frame's mirror float
-use. Build a tmux release into `~/.local/opt/tmux-<version>` and link it as
-`~/.local/bin/tmux`, which `zsh/.zshenv` puts first on PATH. Leave the dnf
-package installed; it is only a fallback.
+`capture-pane`, which the theme's `F` binding and agent-sidebar's mirror
+float use. Build a tmux release into `~/.local/opt/tmux-<version>` and link
+it as `~/.local/bin/tmux`, which `zsh/.zshenv` puts first on PATH. Leave the
+dnf package installed; it is only a fallback.
 
 ```sh
 sudo dnf install libevent-devel ncurses-devel bison
@@ -138,7 +138,7 @@ host's other keys take the prefix twice (`C-Space C-Space`).
 
 | key | does |
 |---|---|
-| `Cmd+arrow` | focus the pane that way; at the window's right edge nothing, at its other edges the sidebar's, in agent-sidebar's README |
+| `Cmd+arrow` | focus the pane that way; at the window's right edge nothing, at its other edges the sidebar's keys, in agent-sidebar's README |
 | `Cmd+Shift+arrow` | swap with the pane that way, focus staying on the moved pane |
 | `Option+drag` from one pane to another | swap the two, in place of tmux's own move of a floating pane |
 | `Option+right-click` | tmux's pane menu for the pane under it, even over nvim or another program that takes the mouse |
