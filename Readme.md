@@ -14,8 +14,17 @@ This repo uses **GNU Stow** to symlink configs into place.
 `sudo dnf copr enable dejan/lazygit
 sudo dnf install lazygit`
 - `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
-- `jq` (`claude-sessions` and the Claude sessions sidebar), plus `fzf` 0.74 or
-  later, `curl`, `perl`, bash 5 and `cargo` 1.92 or later for the sidebar
+- `jq` (`claude-git-guard`)
+- agent-sidebar, the Claude sessions sidebar: clone it on its own and run its
+  installer for the host's role. Its README covers the rest, and
+  `./install.sh --help` names what it needs. The `claude`, `tmux-sidebar` and
+  `sesh` packages call its programs under `~/.local/bin`.
+  ```sh
+  git clone https://github.com/ArctusGT/agent-sidebar.git ~/Play/agent-sidebar
+  cd ~/Play/agent-sidebar
+  ./install.sh workstation   # the workstation, which runs the frame
+  ./install.sh host          # a remote the workstation's sidebar lists
+  ```
 - `tectonic` (`cargo install tectonic`)
 - `mmdc` (`sudo npm install -g @mermaid-js/mermaid-cli`)
 - `tree-sitter-cli` (`cargo install --locked tree-sitter-cli`)
@@ -105,22 +114,6 @@ This creates symlinks like:
 - `~/.config/nvim -> ~/dotfiles/nvim/.config/nvim`
 - `~/.local/bin/espidf-index -> ~/dotfiles/bin/.local/bin/espidf-index`
 
-The sidebar's loop, `claude-sidebar-loop`, which gathers the sidebar's
-sessions, renders its frames and shows them, is a Rust binary built from the
-crate in `claude-sidebar-loop/` rather than stowed. Build it and install it
-into `~/.local/bin`, beside the sidebar, and again whenever the crate changes:
-
-```bash
-cargo install --locked --path claude-sidebar-loop --root ~/.local
-```
-
-`claude-sidebar-loop/checks/` holds the scripts that check the sidebar and the
-binary (`--help` says what each does): `attach.sh` drives `attach`, `respawn.sh`
-and `e2e.sh` drive a sidebar, `compare-sessions.sh` and `compare-rows.py` compare the binary
-with `claude-sessions` and with an earlier revision, and `profile.sh` measures
-CPU. Each runs in a directory of its own, and in tmux servers of its own where
-it needs one, so none touches the usual tmux or a running sidebar's cache.
-
 `zsh` also links `~/.zshenv`, which every zsh reads, including the one
 `ssh host '<cmd>'` runs. Stow refuses to replace a real file, so on a host
 that already has a `~/.zshenv`, fold anything it needs into
@@ -142,7 +135,7 @@ host's other keys take the prefix twice (`C-Space C-Space`).
 
 | key | does |
 |---|---|
-| `Cmd+arrow` | focus the pane that way; at the window's right edge nothing, at its other edges see the sidebar's keys below |
+| `Cmd+arrow` | focus the pane that way; at the window's right edge nothing, at its other edges the sidebar's, in agent-sidebar's README |
 | `Cmd+Shift+arrow` | swap with the pane that way, focus staying on the moved pane |
 | `Option+drag` from one pane to another | swap the two, in place of tmux's own move of a floating pane |
 | `Option+right-click` | tmux's pane menu for the pane under it, even over nvim or another program that takes the mouse |
@@ -152,110 +145,6 @@ act on the host's panes. The `Cmd` keys come from the `ghostty` package,
 which gives up Ghostty's own `Cmd+arrow` defaults (line start and end, jump
 to prompt): tmux has no `Cmd` modifier, so Ghostty sends them as
 `Ctrl+Option(+Shift)+arrow`, and pressing those directly works too.
-
-### Claude sessions sidebar
-
-Run `tmux-frame` in place of `tmux`. It opens a frame: a tmux of its own
-with no bar, the sidebar on the left and the usual tmux on the right, bar and
-windows as always. The frame binds no prefix, so every tmux key reaches the
-right pane, and `prefix f` there switches only that pane. Detaching the right
-pane closes the frame.
-
-The sidebar lists every Claude session on the Mac and on each host a sesh
-entry reaches through `ssh-tmux`, under one heading per host. Each entry shows
-Clawd, Claude Code's mascot, beside its number, repo, name, then state, time in
-that state, a magenta `●` where its window carries `@claude_wait` (a turn ended
-or a question came while nobody looked, the dot the status bar draws) and
-running subagents (`+N`). Clawd is orange and runs while the
-session works, yellow while it waits on you, looking about, stamping and
-waving every few seconds, and squatting too while its subagents work, and
-grey while it is idle, squatting over and over while its subagents still work. He wears a bandana
-in the session's own colours, the same on every refresh. The entry ends in a
-line across the sidebar showing its context use: filled up to
-the share used, green over its first quarter, then yellow, orange and red, with
-the percentage at its end, and all grey before the session reports any. At or
-past `CLAUDE_CTX_WARN` percent (default 50) the filled part and percentage turn
-red, the cue to hand off and clear. A host that does not answer shows
-`unreachable` beside its heading. The list comes from `claude-sessions` on each
-remote host, and from the same session files read in-process on the Mac,
-rebuilt every second, and at once when a tmux client changes session or
-window, over one shared ssh connection per host.
-
-| key | does |
-|---|---|
-| click, or `Enter` in the sidebar | show that session in the right pane |
-| `M-1` … `M-9` | the same for the entry numbered 1 to 9 |
-| `M-Shift-1` … `M-Shift-9` | pin the repo in the right pane to that number, so `M-N` comes back to it |
-| `M-p` in the sidebar, on a repo's first entry | pin that repo to the number pressed next, 1 to 9; `0` unpins it |
-| `M-s` | move into the sidebar, and back out |
-| `Cmd+Left` in a window's leftmost pane | move into the sidebar |
-| `Cmd+Up`, `Cmd+Down` in the sidebar | move its cursor |
-| `Cmd+Right` in the sidebar | as `Enter` |
-| `Cmd+Down` in a window's lowest pane, `Cmd+Up` in its top one | show the next or previous numbered entry down the list, across hosts; nothing past either end, or from a window with no numbered entry |
-
-In the Mac's `mgmt-1` window the edges are those of the host's pane: the Mac
-asks the host over the sidebar's ssh connection, so in the frame
-`Cmd+Left`, `Cmd+Up` and `Cmd+Down` there each take a round trip to the host.
-Outside the frame the edges do nothing.
-
-Each host's sessions are grouped by repo: `~` first, then the rest of the home
-directory, then the rest, alphabetically. A session in a subdirectory or a
-worktree joins its repo. The first of each group, the one in the right pane
-when it is there, is labelled with the repo and numbered if it is in a tmux
-pane; the rest are indented under it, unnumbered and dimmed: other panes in
-the repo, then background sessions. Selecting one makes it the first, and the
-cursor follows it there. A repo pinned with `M-Shift-N` or `M-p` keeps its
-number, held for it while it has no session; the others take the numbers no
-pin holds, in list order. The pins live in
-`~/.local/state/claude-sidebar/pins`, one `number, ssh host (empty for the
-Mac), repo` line apiece, tab-separated.
-A background session, one a `claude daemon` runs
-(`--bg`, or sent to the background from Claude Code's session list), is
-dimmed as `background`. Selecting it opens it with
-`claude attach` in a new window on its own host, in the tmux session named for
-its repo, created there if missing: a session started in a subdirectory or a
-worktree joins its repo's session, and on the Mac that is the repo's sesh
-session. Outside a repo the tmux session is named for its directory.
-While that window is open the entry counts as one in a pane.
-Selecting it again goes back to the same window. Closing the window, or
-`ctrl+z` in it, leaves the session running and the entry dimmed again. Claude
-desktop app sessions are left out; the app's own sidebar lists them. A remote
-session shows through the Mac's session for that host, which `prefix f`
-opens; the sidebar then moves that host's one client to the session's pane.
-
-A pane follows the session it shows. Switching a Claude window to another
-session from Claude Code's session list moves the pane's entry to that
-session, found by the session's name in the pane's title, and switching back
-moves it back. A window opened to hold a session that now shows another is
-not reused: selecting the first session again opens a new one. A title naming
-no session, or more than one, leaves the entry where it was.
-
-`M-` is Option, which Ghostty sends as Alt only with `macos-option-as-alt =
-true` in its config.
-
-#### Mirror float
-
-A floating pane of the frame stays on screen over the right pane whatever
-window, session or host that shows, so it can hold a live, read-only copy of
-another pane: a Claude session's instructions, say, while acting in the window
-they are about.
-
-1. `Ctrl+drag` over the right pane opens a float (tmux's own binding); drag
-   its border to move it, and the corner to resize it.
-2. `Option+drag` a pane, on the Mac or in the `mgmt-1` window, and release it
-   over the float. The float now shows the bottom of that pane, cut to the
-   float's size. Whatever the float was running ends. Drop another pane on
-   it to switch.
-3. The wheel over the float scrolls the mirrored pane as the wheel over that
-   pane would: Claude Code or nvim scroll themselves, and a shell's pane
-   enters copy-mode, which the float shows scrolled, and leaves the
-   copy-mode it entered when scrolled back to the bottom.
-4. Keys typed in the float go nowhere. Close it with its border's close
-   control or `kill-pane`; the mirrored pane carries on. The float also
-   closes when the mirrored pane does.
-
-`tmux-mirror` draws it, from a `capture-pane` of the source every 0.2s, over
-the sidebar's ssh connection for a host.
 
 ### 3) Preview changes (dry-run)
 ```bash
@@ -273,6 +162,49 @@ Useful after reorganising files:
 ```bash
 stow -R zsh tmux nvim bin
 ```
+
+### 6) Move a host's sidebar to agent-sidebar
+A host that stowed `bin` or `tmux` before the sidebar moved out holds links
+to its programs and to `~/.tmux-frame.conf` in this repo. Unstow those two
+packages before pulling, so stow still sees the files it linked, and restow
+after. Between the unstow and the install, the Claude hooks on the host find
+no program, so run the steps together.
+
+On the Mac, from a zsh as yourself:
+
+```bash
+git clone https://github.com/ArctusGT/agent-sidebar.git ~/Play/agent-sidebar
+cd ~/dotfiles
+stow -D bin tmux
+git pull
+stow bin tmux
+cargo uninstall --root ~/.local claude-sidebar-loop
+cd ~/Play/agent-sidebar
+./install.sh workstation
+find -L ~/.local/bin ~ -maxdepth 1 -type l
+```
+
+On mgmt-1, the same with `host`, from a zsh as `sysadmin`, never through
+`sudo` or a root shell: their PATH lacks `~/.local/bin`, so `tmux` there is
+EL10's own, which aborts the server (see RHEL above).
+
+```bash
+git clone https://github.com/ArctusGT/agent-sidebar.git ~/Play/agent-sidebar
+cd ~/dotfiles
+stow -D bin tmux
+git pull
+stow bin tmux
+cargo uninstall --root ~/.local claude-sidebar-loop
+cd ~/Play/agent-sidebar
+./install.sh host
+find -L ~/.local/bin ~ -maxdepth 1 -type l
+```
+
+`cargo uninstall` removes the loop the earlier `cargo install` put in
+`~/.local/bin`, and cargo's record of it; it reports a host that never
+installed it, and the steps carry on. `install.sh` ends in `installed` lines,
+or names what it lacks and changes nothing. The last line lists any link left
+pointing at nothing, and should print nothing.
 
 ---
 

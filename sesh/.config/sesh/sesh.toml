@@ -1,11 +1,11 @@
 # Named sessions shown in sesh-pick (prefix f).
 # A remote host is one entry, one ssh connection and one client on its tmux
-# server: ssh-tmux (bin/) reattaches to the host's last-used session and
-# reconnects if the connection drops. Move between the host's repos on the
-# host itself (claude-sidebar, or prefix s there), so the sidebar's jumps
-# move the client on screen. claude-sidebar reads its hosts from the
-# ssh-tmux entries here. The remote tmux also uses C-Space: press it
-# twice to reach it.
+# server: ssh-tmux (from agent-sidebar) reattaches to the host's last-used
+# session and reconnects if the connection drops. Move between the host's
+# repos on the host itself (claude-sidebar, or prefix s there), so the
+# sidebar's jumps move the client on screen. claude-sidebar reads its hosts
+# from the ssh-tmux entries here. The remote tmux also uses C-Space: press
+# it twice to reach it.
 [[session]]
 name = "mgmt-1"
 path = "~"
