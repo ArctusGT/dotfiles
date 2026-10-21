@@ -6,8 +6,8 @@
 # sidebar's jumps move the client on screen. claude-sidebar reads its hosts
 # from ~/.config/claude-sidebar/hosts.toml and opens a host's relay in the
 # session named for it there, so an entry here shares that relay only under
-# the same name. The remote tmux also uses C-Space: press it twice to reach
-# it.
+# the same name and with the host's `ssh` as its ssh-tmux argument. The
+# remote tmux also uses C-Space: press it twice to reach it.
 [[session]]
 name = "mgmt-1"
 path = "~"
