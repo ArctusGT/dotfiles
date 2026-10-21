@@ -1,0 +1,7 @@
+# The remote hosts agent-sidebar's sidebar lists, in this order. `name` is
+# the host's heading and the tmux session its ssh-tmux relay opens in; `ssh`
+# is its ssh destination. Keep a sesh entry for a host named the same, so
+# sesh and the sidebar share one relay.
+[[host]]
+name = "mgmt-1"
+ssh = "sysadmin@mgmt-1"

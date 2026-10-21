@@ -4,8 +4,10 @@
 # session and reconnects if the connection drops. Move between the host's
 # repos on the host itself (claude-sidebar, or prefix s there), so the
 # sidebar's jumps move the client on screen. claude-sidebar reads its hosts
-# from the ssh-tmux entries here. The remote tmux also uses C-Space: press
-# it twice to reach it.
+# from ~/.config/claude-sidebar/hosts.toml and opens a host's relay in the
+# session named for it there, so an entry here shares that relay only under
+# the same name. The remote tmux also uses C-Space: press it twice to reach
+# it.
 [[session]]
 name = "mgmt-1"
 path = "~"

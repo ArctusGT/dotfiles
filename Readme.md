@@ -110,6 +110,10 @@ On the Mac, also `stow ghostty` (Ghostty's keys and its TokyoNight Night theme,
 the palette tmux's bar names by number; hosts like mgmt-1 do not
 need it).
 
+On a workstation, also `stow claude-sidebar`: its
+`~/.config/claude-sidebar/hosts.toml` names the remote hosts the sidebar
+lists. Not on a host like mgmt-1, whose sidebar would list it twice.
+
 This creates symlinks like:
 - `~/.zshrc -> ~/dotfiles/zsh/.zshrc`
 - `~/.tmux.conf -> ~/dotfiles/tmux/.tmux.conf`
@@ -122,9 +126,11 @@ This creates symlinks like:
 that already has a `~/.zshenv`, fold anything it needs into
 `zsh/.zshenv` and remove it before stowing.
 
-Keep one sesh entry per remote host (see `sesh/.config/sesh/sesh.toml`). A
-second entry for the same host adds a second client to its tmux, and the
-sidebar's jumps can then move the wrong one. On the host, a new repo session
+Keep at most one sesh entry per remote host (see
+`sesh/.config/sesh/sesh.toml`), named as the host's `name` in
+`claude-sidebar/.config/claude-sidebar/hosts.toml`, so sesh and the sidebar
+share the one relay session. A second relay to the same host adds a second
+client to its tmux, and the sidebar's jumps can then move the wrong one. On the host, a new repo session
 is `tmux new -d -s <repo> -c ~/<repo>`, then `prefix prefix s` to switch to
 it.
 
