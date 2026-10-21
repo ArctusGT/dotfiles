@@ -129,13 +129,13 @@ that already has a `~/.zshenv`, fold anything it needs into
 Keep at most one sesh entry per remote host (see
 `sesh/.config/sesh/sesh.toml`), named as the host's `name` in
 `claude-sidebar/.config/claude-sidebar/hosts.toml` and running `ssh-tmux`
-with its `ssh`, so sesh and the sidebar share the one relay. A second relay to the same host adds a second
-client to its tmux, and the sidebar's jumps can then move the wrong one. On the host, a new repo session
-is `tmux new -d -s <repo> -c ~/<repo>`, then `prefix prefix s` to switch to
-it.
+with its `ssh`, so sesh and the sidebar share the one relay. A second relay
+to the same host adds a second client to its tmux, and the sidebar's jumps
+can then move the wrong one. On the host, a new repo session is
+`tmux new -d -s <repo> -c ~/<repo>`, then `prefix prefix s` to switch to it.
 
-While a host's sesh entry (`mgmt-1`) is open, the Mac hides its own bar in
-that Mac session, so the host's bar, with the host's windows, is the only one
+While a host's relay (`mgmt-1`) is open, the workstation hides its own bar
+in that session, so the host's bar, with the host's windows, is the only one
 on screen.
 `ctrl+left` and `ctrl+right` there move between the host's windows; the
 host's other keys take the prefix twice (`C-Space C-Space`).
