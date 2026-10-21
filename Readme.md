@@ -128,8 +128,8 @@ that already has a `~/.zshenv`, fold anything it needs into
 
 Keep at most one sesh entry per remote host (see
 `sesh/.config/sesh/sesh.toml`), named as the host's `name` in
-`claude-sidebar/.config/claude-sidebar/hosts.toml`, so sesh and the sidebar
-share the one relay session. A second relay to the same host adds a second
+`claude-sidebar/.config/claude-sidebar/hosts.toml` and running `ssh-tmux`
+with its `ssh`, so sesh and the sidebar share the one relay. A second relay to the same host adds a second
 client to its tmux, and the sidebar's jumps can then move the wrong one. On the host, a new repo session
 is `tmux new -d -s <repo> -c ~/<repo>`, then `prefix prefix s` to switch to
 it.
