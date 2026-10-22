@@ -14,7 +14,6 @@ This repo uses **GNU Stow** to symlink configs into place.
 `sudo dnf copr enable dejan/lazygit
 sudo dnf install lazygit`
 - `sesh` + `fd` (tmux session picker: `brew install sesh fd`)
-- `jq` (`claude-git-guard`)
 - agent-sidebar, the Claude sessions sidebar: clone it on its own and run its
   installer for the host's role. Its README covers the rest, and
   `./install.sh --help` names what it needs. The `claude`, `tmux-sidebar` and

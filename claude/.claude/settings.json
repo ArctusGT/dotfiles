@@ -52,15 +52,6 @@
             "command": "~/.local/bin/claude-session-state wait"
           }
         ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.local/bin/claude-git-guard"
-          }
-        ]
       }
     ],
     "PostToolUse": [
