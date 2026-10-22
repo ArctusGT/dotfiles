@@ -15,3 +15,10 @@ nvim/.config/*
 
 # Bytecode from running py_compile against the scripts in bin/.
 __pycache__/
+
+# Where ~/.claude did not exist, stow links the whole directory to
+# claude/.claude, and Claude Code then writes its history, sessions and
+# credentials here. Track only the package's own files.
+claude/.claude/*
+!claude/.claude/CLAUDE.md
+!claude/.claude/settings.json
