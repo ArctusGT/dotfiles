@@ -150,3 +150,7 @@ path=($user_path $path)
 # Homebrew's bin, interactive shells only; (N/) drops it where absent (Linux).
 path=(/opt/homebrew/bin(N/) $path)
 [[ -o interactive ]] || unalias tmux 2>/dev/null
+
+# Tailscale: `tailscale` = GUI app (work tailnet); `tsp` = userspace daemon (personal tailnet)
+alias tailscale='/usr/local/bin/tailscale'
+alias tsp='/opt/homebrew/bin/tailscale --socket=$HOME/.local/share/ts-personal/tailscaled.sock'
