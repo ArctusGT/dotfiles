@@ -11,7 +11,7 @@
 [[session]]
 name = "mgmt-1"
 path = "~"
-startup_command = "ssh-tmux sysadmin@mgmt-1"
+startup_command = "ssh-tmux mgmt-1"
 
 [[session]]
 name = "dotfiles"
